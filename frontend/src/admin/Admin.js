@@ -5,6 +5,7 @@ import UserManagement from "./UserManagement";
 import OrderManagement from "./OrderManagement";
 import WithdrawalManagement from "./WithdrawalManagement";
 import ProductManagement from "./ProductManagement";
+import Statistics from "./Statistics";
 
 // LMS Components
 import LMSAdminLayout from "./lms/LMSAdminLayout";
@@ -31,14 +32,20 @@ export default function Admin({ onLogout }) {
     }
   };
   const [lmsActivePage, setLmsActivePage] = useState("leads");
+  const [pendingLeads, setPendingLeads] = useState([]); // Leads chờ book lịch test
+
+  // Function to add lead to pending list for test appointment
+  const addLeadToTest = (lead) => {
+    setPendingLeads((prev) => [...prev, { ...lead, tempId: Date.now() }]);
+  };
 
   // Render LMS page content
   const renderLmsPage = () => {
     switch (lmsActivePage) {
       case "leads":
-        return <Leads />;
+        return <Leads onNavigateToTest={handleLmsNavigate} />;
       case "test-appointment":
-        return <TestAppointments />;
+        return <TestAppointments pendingLeads={pendingLeads} onClearPending={() => setPendingLeads([])} />;
       case "students":
         return <StudentList />;
       case "students-in-class":
@@ -58,19 +65,21 @@ export default function Admin({ onLogout }) {
     }
   };
 
-  const handleLmsNavigate = (page) => {
+  const handleLmsNavigate = (page, leadData = null) => {
     if (page === "main-admin") {
       setActivePage("dashboard");
-    } else {
-      setLmsActivePage(page);
-      setActivePage("lms");
+    } else if (page === "test-appointment" && leadData) {
+      // Add lead to pending list when navigating from leads
+      setPendingLeads((prev) => [...prev, { ...leadData, tempId: Date.now() }]);
     }
+    setLmsActivePage(page);
+    setActivePage("lms");
   };
 
   const renderPage = () => {
     switch (activePage) {
       case "dashboard":
-        return <AdminDashboard />;
+        return <AdminDashboard onNavigate={setActivePage} />;
       case "users":
         return <UserManagement />;
       case "orders":
@@ -79,6 +88,11 @@ export default function Admin({ onLogout }) {
         return <WithdrawalManagement />;
       case "products":
         return <ProductManagement />;
+      case "statistics":
+      case "stats-revenue":
+      case "stats-products":
+      case "stats-affiliates":
+        return <Statistics />;
       case "lms":
         return (
           <LMSAdminLayout activePage={lmsActivePage} onNavigate={handleLmsNavigate} onLogout={handleLogout}>

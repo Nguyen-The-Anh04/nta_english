@@ -4,6 +4,7 @@ import logo from "../assets/logo/Logo.jpeg";
 export default function AdminLayout({ children, activePage = "dashboard", onNavigate }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [statsSubmenuOpen, setStatsSubmenuOpen] = useState(false);
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
@@ -13,7 +14,14 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
     { id: "commissions", label: "Quản lý hoa hồng", icon: "💰" },
     { id: "withdrawals", label: "Quản lý rút tiền", icon: "💸" },
     { id: "products", label: "Quản lý sản phẩm", icon: "📚" },
+    { id: "statistics", label: "Thống kê", icon: "📈", hasSubmenu: true },
     { id: "settings", label: "Cài đặt", icon: "⚙️" },
+  ];
+
+  const statsSubmenus = [
+    { id: "stats-revenue", label: "Doanh thu", icon: "💰" },
+    { id: "stats-products", label: "Sản phẩm", icon: "📦" },
+    { id: "stats-affiliates", label: "Best Sale CTV", icon: "👑" },
   ];
 
   const handleLogout = () => {
@@ -105,42 +113,88 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
         {/* Menu */}
         <nav style={{ padding: "16px 8px", overflow: "hidden" }}>
           {menuItems.map((item) => {
-            const isActive = activePage === item.id;
+            const isActive = activePage === item.id || (item.hasSubmenu && activePage.startsWith("stats-"));
+            
+            // Check if this item has active submenu
+            const hasActiveSubmenu = item.hasSubmenu && statsSubmenus.some(sub => activePage === sub.id);
+            
             return (
-              <div
-                key={item.id}
-                onClick={() => onNavigate && onNavigate(item.id)}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = "rgba(207, 46, 46, 0.2)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = "transparent";
-                  }
-                }}
-                style={{
-                  padding: sidebarOpen ? "12px 14px" : "12px",
-                  marginBottom: 4,
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  background: isActive ? "rgba(255,255,255,0.2)" : "transparent",
-                  color: "white",
-                  transition: "all 0.2s",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  justifyContent: sidebarOpen ? "flex-start" : "center",
-                }}
-              >
-                <span style={{ fontSize: 18, flexShrink: 0 }}>{item.icon}</span>
-                {sidebarOpen && (
-                  <span style={{ fontSize: 14, fontWeight: isActive ? "600" : "400" }}>
-                    {item.label}
-                  </span>
+              <div key={item.id}>
+                <div
+                  onClick={() => {
+                    if (item.hasSubmenu) {
+                      setStatsSubmenuOpen(!statsSubmenuOpen);
+                    } else {
+                      onNavigate && onNavigate(item.id);
+                    }
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = "rgba(207, 46, 46, 0.2)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = "transparent";
+                    }
+                  }}
+                  style={{
+                    padding: sidebarOpen ? "12px 14px" : "12px",
+                    marginBottom: 4,
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    background: isActive ? "rgba(255,255,255,0.2)" : "transparent",
+                    color: "white",
+                    transition: "all 0.2s",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    justifyContent: sidebarOpen ? "flex-start" : "center",
+                  }}
+                >
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>{item.icon}</span>
+                  {sidebarOpen && (
+                    <span style={{ fontSize: 14, fontWeight: isActive ? "600" : "400", flex: 1 }}>
+                      {item.label}
+                    </span>
+                  )}
+                  {sidebarOpen && item.hasSubmenu && (
+                    <span style={{ fontSize: 10, transition: "transform 0.2s", transform: statsSubmenuOpen ? "rotate(180deg)" : "rotate(0)" }}>
+                      ▼
+                    </span>
+                  )}
+                </div>
+                
+                {/* Submenu for Statistics */}
+                {sidebarOpen && item.hasSubmenu && statsSubmenuOpen && (
+                  <div style={{ paddingLeft: 20, marginBottom: 4 }}>
+                    {statsSubmenus.map((sub) => {
+                      const isSubActive = activePage === sub.id;
+                      return (
+                        <div
+                          key={sub.id}
+                          onClick={() => onNavigate && onNavigate(sub.id)}
+                          style={{
+                            padding: "10px 14px",
+                            marginBottom: 2,
+                            borderRadius: 6,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            background: isSubActive ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.05)",
+                            color: isSubActive ? "white" : "rgba(255,255,255,0.8)",
+                            fontSize: 13,
+                          }}
+                        >
+                          <span style={{ fontSize: 14 }}>{sub.icon}</span>
+                          <span style={{ fontWeight: isSubActive ? "600" : "400" }}>{sub.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             );

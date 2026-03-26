@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ onNavigate }) {
   // Mock data
   const stats = [
     { label: "Tổng CTV", value: "1,234", icon: "👥", color: "#4caf50", change: "+12%" },
@@ -228,10 +228,10 @@ export default function AdminDashboard() {
           <h3 style={{ fontSize: 18, fontWeight: "700", color: "#1a1a2e", marginBottom: 20 }}>Thao tác nhanh</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 15 }}>
             {[
-              { icon: "👥", label: "Thêm CTV", color: "#4caf50" },
-              { icon: "📦", label: "Thêm đơn hàng", color: "#2196f3" },
-              { icon: "💸", label: "Duyệt rút tiền", color: "#ff9800" },
-              { icon: "📚", label: "Thêm sản phẩm", color: "#9c27b0" },
+              { icon: "👥", label: "Thêm CTV", color: "#4caf50", action: "users" },
+              { icon: "📦", label: "Thêm đơn hàng", color: "#2196f3", action: "orders" },
+              { icon: "💸", label: "Duyệt rút tiền", color: "#ff9800", action: "withdrawals" },
+              { icon: "📚", label: "Thêm sản phẩm", color: "#9c27b0", action: "products" },
             ].map((action, index) => (
               <button
                 key={index}
@@ -255,6 +255,7 @@ export default function AdminDashboard() {
                   e.currentTarget.style.borderColor = "#f0f0f0";
                   e.currentTarget.style.background = "white";
                 }}
+                onClick={() => onNavigate && onNavigate(action.action)}
               >
                 <span style={{ fontSize: 28 }}>{action.icon}</span>
                 <span style={{ fontSize: 13, fontWeight: "600", color: "#333" }}>{action.label}</span>

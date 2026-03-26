@@ -78,11 +78,36 @@ const statusConfig = {
   "da-den-trung-tam": { label: "Đã đến TT", color: "#10b981", bg: "#d1fae5" },
 };
 
-export default function Leads() {
-  const [leads] = useState(initialLeads);
+const sourceOptions = ["Facebook", "Google", "Zalo", "Website", "Giới thiệu", " hotline"];
+const staffOptions = ["Nguyễn Thị Mai", "Lê Văn Hùng", "Trần Văn Đức", "Hoàng Thị Hương"];
+const statusOptions = [
+  { id: "can-tu-van", label: "Cần tư vấn" },
+  { id: "da-hen-test", label: "Đã hẹn test" },
+  { id: "lien-he-sau", label: "Liên hệ sau" },
+  { id: "uu-tien", label: "Ưu tiên" },
+  { id: "khach-chi-hoi", label: "Khách chỉ hỏi" },
+  { id: "da-den-trung-tam", label: "Đã đến TT" },
+];
+
+export default function Leads({ onNavigateToTest }) {
+  const [leads, setLeads] = useState(initialLeads);
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    status: "can-tu-van",
+    staff: "Nguyễn Thị Mai",
+    date: new Date().toISOString().split("T")[0],
+    source: "Facebook",
+    note: "",
+  });
 
   const filters = [
     { id: "all", label: "Tất cả", count: 6 },
@@ -102,6 +127,76 @@ export default function Leads() {
       lead.email.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
   });
+
+  // Generate new ID
+  const generateId = () => {
+    const maxId = leads.reduce((max, lead) => {
+      const num = parseInt(lead.id.replace("LD", ""));
+      return num > max ? num : max;
+    }, 0);
+    return `LD${String(maxId + 1).padStart(3, "0")}`;
+  };
+
+  // Handle form input
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Open modal for adding
+  const openAddModal = () => {
+    setFormData({
+      name: "",
+      phone: "",
+      email: "",
+      status: "can-tu-van",
+      staff: "Nguyễn Thị Mai",
+      date: new Date().toISOString().split("T")[0],
+      source: "Facebook",
+      note: "",
+    });
+    setEditingLead(null);
+    setShowAddModal(true);
+  };
+
+  // Open modal for editing
+  const openEditModal = (lead) => {
+    setFormData({ ...lead });
+    setEditingLead(lead);
+    setShowAddModal(true);
+  };
+
+  // Save lead (add or update)
+  const handleSave = () => {
+    if (!formData.name || !formData.phone) {
+      alert("Vui lòng nhập tên và số điện thoại!");
+      return;
+    }
+
+    if (editingLead) {
+      // Update existing
+      setLeads((prev) =>
+        prev.map((lead) => (lead.id === editingLead.id ? { ...formData } : lead))
+      );
+    } else {
+      // Add new
+      setLeads((prev) => [...prev, { ...formData, id: generateId() }]);
+    }
+    setShowAddModal(false);
+  };
+
+  // Delete lead
+  const handleDelete = (lead) => {
+    setLeads((prev) => prev.filter((l) => l.id !== lead.id));
+    setDeleteConfirm(null);
+  };
+
+  // Schedule test - navigate to test-appointment
+  const handleScheduleTest = (lead) => {
+    if (onNavigateToTest) {
+      onNavigateToTest("test-appointment", lead);
+    }
+  };
 
   return (
     <div>
@@ -181,7 +276,7 @@ export default function Leads() {
               📤 Xuất file
             </button>
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={openAddModal}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -297,9 +392,27 @@ export default function Leads() {
                   </td>
                   <td style={{ padding: "12px 16px" }}>
                     <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
-                      <button style={{ width: 32, height: 32, borderRadius: 6, border: "1px solid #ddd", background: "white", cursor: "pointer", color: "#666" }}>✏️</button>
-                      <button style={{ width: 32, height: 32, borderRadius: 6, border: "1px solid #ddd", background: "white", cursor: "pointer", color: "#666" }}>💬</button>
-                      <button style={{ width: 32, height: 32, borderRadius: 6, border: "1px solid #ddd", background: "white", cursor: "pointer", color: "#666" }}>⋯</button>
+                      {/* Edit Button */}
+                      <button 
+                        onClick={() => openEditModal(lead)}
+                        title="Chỉnh sửa"
+                        style={{ width: 32, height: 32, borderRadius: 6, border: "1px solid #ddd", background: "white", cursor: "pointer", color: "#666", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        ✏️
+                      </button>
+                      {/* Delete Button */}
+                      <button 
+                        onClick={() => setDeleteConfirm(lead)}
+                        title="Xóa"
+                        style={{ width: 32, height: 32, borderRadius: 6, border: "1px solid #ddd", background: "white", cursor: "pointer", color: "#666", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        🗑️
+                      </button>
+                      {/* Schedule Test Button */}
+                      <button 
+                        onClick={() => handleScheduleTest(lead)}
+                        title="Hẹn test"
+                        style={{ width: 32, height: 32, borderRadius: 6, border: "1px solid #3b82f6", background: "#eff6ff", cursor: "pointer", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        📝
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -318,6 +431,213 @@ export default function Leads() {
           </div>
         </div>
       </div>
+
+      {/* Add/Edit Modal */}
+      {showAddModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }} onClick={() => setShowAddModal(false)}>
+          <div style={{
+            background: "white",
+            borderRadius: 16,
+            padding: 24,
+            width: "90%",
+            maxWidth: 600,
+            maxHeight: "90vh",
+            overflow: "auto",
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: "bold", color: "#1a1a2e" }}>
+                {editingLead ? "Chỉnh sửa Lead" : "Thêm Lead mới"}
+              </h2>
+              <button onClick={() => setShowAddModal(false)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "#666" }}>×</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              {/* Name */}
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: "600", color: "#333", marginBottom: 6 }}>Họ tên *</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="Nhập họ tên"
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }}
+                />
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: "600", color: "#333", marginBottom: 6 }}>Số điện thoại *</label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  placeholder="0912 345 678"
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }}
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: "600", color: "#333", marginBottom: 6 }}>Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="email@example.com"
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }}
+                />
+              </div>
+
+              {/* Status */}
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: "600", color: "#333", marginBottom: 6 }}>Trạng thái</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }}
+                >
+                  {statusOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Source */}
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: "600", color: "#333", marginBottom: 6 }}>Nguồn</label>
+                <select
+                  name="source"
+                  value={formData.source}
+                  onChange={handleInputChange}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }}
+                >
+                  {sourceOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Staff */}
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: "600", color: "#333", marginBottom: 6 }}>NV phụ trách</label>
+                <select
+                  name="staff"
+                  value={formData.staff}
+                  onChange={handleInputChange}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }}
+                >
+                  {staffOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date */}
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: "600", color: "#333", marginBottom: 6 }}>Ngày tạo</label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleInputChange}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14 }}
+                />
+              </div>
+
+              {/* Note */}
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: "600", color: "#333", marginBottom: 6 }}>Ghi chú</label>
+                <textarea
+                  name="note"
+                  value={formData.note}
+                  onChange={handleInputChange}
+                  placeholder="Nhập ghi chú..."
+                  rows={3}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #ddd", borderRadius: 8, fontSize: 14, resize: "vertical" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, marginTop: 24, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowAddModal(false)}
+                style={{ padding: "10px 20px", border: "1px solid #ddd", borderRadius: 8, background: "white", cursor: "pointer", fontSize: 14, color: "#666" }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSave}
+                style={{ padding: "10px 20px", border: "none", borderRadius: 8, background: "#e11d48", cursor: "pointer", fontSize: 14, fontWeight: "600", color: "white" }}
+              >
+                {editingLead ? "Lưu thay đổi" : "Thêm mới"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }}>
+          <div style={{
+            background: "white",
+            borderRadius: 16,
+            padding: 24,
+            width: "90%",
+            maxWidth: 400,
+          }}>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                <span style={{ fontSize: 28 }}>⚠️</span>
+              </div>
+              <h3 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: "600", color: "#1a1a2e" }}>Xác nhận xóa</h3>
+              <p style={{ margin: 0, fontSize: 14, color: "#666" }}>
+                Bạn có chắc muốn xóa lead <strong>{deleteConfirm.name}</strong>? Hành động này không thể hoàn tác.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                style={{ padding: "10px 24px", border: "1px solid #ddd", borderRadius: 8, background: "white", cursor: "pointer", fontSize: 14, color: "#666" }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                style={{ padding: "10px 24px", border: "none", borderRadius: 8, background: "#ef4444", cursor: "pointer", fontSize: 14, fontWeight: "600", color: "white" }}
+              >
+                Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

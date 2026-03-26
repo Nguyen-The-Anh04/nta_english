@@ -331,21 +331,6 @@ function Footer() {
           </div>
         </div>
       </div>
-
-      {/* Admin Link - Ẩn ở giao diện user */}
-      <div style={{ textAlign: "center", marginTop: 30, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-        <a 
-          href="/admin"
-          style={{ 
-            color: "rgba(255,255,255,0.3)", 
-            fontSize: 12, 
-            cursor: "pointer",
-            textDecoration: "underline" 
-          }}
-        >
-          🔧 Admin Panel
-        </a>
-      </div>
     </footer>
   );
 }
