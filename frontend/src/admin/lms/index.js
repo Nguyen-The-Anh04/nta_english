@@ -1,0 +1,9 @@
+export { default as LMSAdminLayout } from "./LMSAdminLayout";
+export { default as Leads } from "./Leads";
+export { default as TestAppointments } from "./TestAppointments";
+export { default as StudentList } from "./StudentList";
+export { default as StudentsInClass } from "./StudentsInClass";
+export { default as PausedStudents } from "./PausedStudents";
+export { default as TransferredStudents } from "./TransferredStudents";
+export { default as RegistrationAppointments } from "./RegistrationAppointments";
+export { default as StudentFeedback } from "./StudentFeedback";

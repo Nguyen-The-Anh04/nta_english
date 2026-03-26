@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #fff5f5;
+  color: #1a1a2e;
+  line-height: 1.6;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Global Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+p {
+  line-height: 1.8;
+}
+
+/* Selection Color */
+::selection {
+  background: linear-gradient(135deg, #e53935 0%, #c62828 100%);
+  color: white;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #e53935 0%, #c62828 100%);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #c62828 0%, #e53935 100%);
+}
+
+/* Focus Styles */
+*:focus-visible {
+  outline: 2px solid #e53935;
+  outline-offset: 2px;
+}
+
+/* Button Reset */
+button {
+  font-family: inherit;
+}
+
+/* Input Reset */
+input, textarea, select {
+  font-family: inherit;
+}
+
+/* Link Reset */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Image Max Width */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Animation Classes */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Utility Classes */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #e53935 0%, #c62828 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.shadow-lg {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.rounded-lg {
+  border-radius: 16px;
+}
+
+/* Smooth Page Load */
+#root {
+  min-height: 100vh;
+}
