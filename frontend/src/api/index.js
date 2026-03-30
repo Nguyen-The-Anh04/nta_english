@@ -98,6 +98,64 @@ export const fetchAffiliateStats = async () => {
   return result.data;
 };
 
+// Leads API
+export const createLead = async (leadData) => {
+  // Map frontend fields to backend expected fields
+  const payload = {
+    name: leadData.ho_ten,
+    phone: leadData.sdt,
+    email: leadData.email,
+    course: leadData.muc_tieu,
+    message: leadData.ghi_chu,
+  };
+  
+  const response = await fetch(`${API_BASE_URL}/leads`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const fetchLeads = async (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  const url = queryString 
+    ? `${API_BASE_URL}/leads?${queryString}`
+    : `${API_BASE_URL}/leads`;
+  const response = await fetch(url);
+  const result = await response.json();
+  return result.data;
+};
+
+export const updateLead = async (id, data) => {
+  const response = await fetch(`${API_BASE_URL}/leads/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const deleteLead = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/leads/${id}`, {
+    method: "DELETE",
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const fetchLeadStats = async () => {
+  const response = await fetch(`${API_BASE_URL}/leads/stats`);
+  const result = await response.json();
+  return result.data;
+};
+
 export default {
   fetchBooks,
   fetchBookById,
@@ -109,4 +167,9 @@ export default {
   register,
   registerAffiliate,
   fetchAffiliateStats,
+  createLead,
+  fetchLeads,
+  updateLead,
+  deleteLead,
+  fetchLeadStats,
 };

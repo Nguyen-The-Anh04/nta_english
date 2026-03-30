@@ -101,7 +101,7 @@ function CTAForm() {
     if (validateForm()) {
       setIsLoading(true);
       try {
-        const response = await axios.post('/api/registrations', formData);
+        const response = await axios.post('http://localhost:5000/api/leads', formData);
         
         if (response.data.success) {
           setIsSubmitted(true);

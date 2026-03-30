@@ -4,6 +4,7 @@ const userRoutes = require("./users");
 const courseRoutes = require("./courses");
 const bookRoutes = require("./books");
 const affiliateRoutes = require("./affiliate");
+const leadRoutes = require("./leads");
 
 module.exports = (app) => {
   app.use("/api/auth", authRoutes);
@@ -11,4 +12,5 @@ module.exports = (app) => {
   app.use("/api/courses", courseRoutes);
   app.use("/api/books", bookRoutes);
   app.use("/api/affiliate", affiliateRoutes);
+  app.use("/api/leads", leadRoutes);
 };
