@@ -127,8 +127,31 @@ function CartDrawer({ isOpen, onClose, cart, updateQuantity, removeFromCart, onC
                   justifyContent: "center",
                   fontSize: 36,
                   flexShrink: 0,
+                  overflow: 'hidden',
                 }}>
-                  {item.image}
+                  {item.image && item.image.includes('.') ? (
+                    <img 
+                      src={`http://localhost:5000/uploads/${item.image}`} 
+                      alt={item.name}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        objectFit: 'contain',
+                      }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'block';
+                      }}
+                    />
+                  ) : null}
+                  <span 
+                    style={{ 
+                      fontSize: 36,
+                      display: (item.image && item.image.includes('.')) ? 'none' : 'block'
+                    }}
+                  >
+                    {item.image || '📚'}
+                  </span>
                 </div>
 
                 {/* Info */}

@@ -22,6 +22,46 @@ export const fetchBookById = async (id) => {
   return result.data.book;
 };
 
+export const createBook = async (bookData) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/books`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(bookData),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const updateBook = async (id, bookData) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/books/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(bookData),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const deleteBook = async (id) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/books/${id}`, {
+    method: "DELETE",
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
 // Courses API
 export const fetchCourses = async () => {
   const response = await fetch(`${API_BASE_URL}/courses`);
@@ -37,10 +77,12 @@ export const fetchCourseById = async (id) => {
 
 // Orders API
 export const createOrder = async (orderData) => {
-  const response = await fetch(`${API_BASE_URL}/orders`, {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/books/orders`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(orderData),
   });
@@ -49,9 +91,57 @@ export const createOrder = async (orderData) => {
 };
 
 export const fetchOrders = async () => {
-  const response = await fetch(`${API_BASE_URL}/orders`);
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/books/orders`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
   const result = await response.json();
-  return result.data.orders;
+  return result.data?.orders || [];
+};
+
+export const fetchUserOrders = async () => {
+  const token = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = user.id;
+  
+  const url = userId 
+    ? `${API_BASE_URL}/books/orders?nguoi_dung_id=${userId}`
+    : `${API_BASE_URL}/books/orders`;
+  
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result.data?.orders || [];
+};
+
+export const fetchOrderById = async (id) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/books/orders/${id}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result.data;
+};
+
+export const cancelOrder = async (id) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/books/orders/${id}/status`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ trang_thai: 'da_huy' }),
+  });
+  const result = await response.json();
+  return result;
 };
 
 // Auth API
@@ -156,13 +246,38 @@ export const fetchLeadStats = async () => {
   return result.data;
 };
 
+// Reviews API
+export const fetchReviewsByBook = async (bookId) => {
+  const response = await fetch(`${API_BASE_URL}/reviews/book/${bookId}`);
+  const result = await response.json();
+  return result.data;
+};
+
+export const createReview = async (reviewData) => {
+  const response = await fetch(`${API_BASE_URL}/reviews`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(reviewData),
+  });
+  const result = await response.json();
+  return result;
+};
+
 export default {
   fetchBooks,
   fetchBookById,
+  createBook,
+  updateBook,
+  deleteBook,
   fetchCourses,
   fetchCourseById,
   createOrder,
   fetchOrders,
+  fetchUserOrders,
+  fetchOrderById,
+  cancelOrder,
   login,
   register,
   registerAffiliate,
@@ -172,4 +287,6 @@ export default {
   updateLead,
   deleteLead,
   fetchLeadStats,
+  fetchReviewsByBook,
+  createReview,
 };

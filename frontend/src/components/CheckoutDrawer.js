@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { createOrder } from "../api";
 
-function CheckoutDrawer({ isOpen, onClose, cart, onBack }) {
+function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
   const [payment, setPayment] = useState("cod");
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     address: "",
   });
+  const [loading, setLoading] = useState(false);
 
   const formatPrice = (price) => {
     return price.toLocaleString("vi-VN") + " đ";
@@ -20,11 +22,43 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack }) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle order submission
-    alert(`Đơn hàng đã được xác nhận!\nTổng tiền: ${formatPrice(total)}\nThanh toán: ${payment === "cod" ? "COD" : payment === "momo" ? "MoMo" : "Chuyển khoản"}`);
-    onClose();
+    
+    if (!formData.name || !formData.phone || !formData.address) {
+      alert("Vui lòng điền đầy đủ thông tin nhận hàng!");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const orderData = {
+        sach_ids: cart.map(item => ({
+          sach_id: item.id,
+          so_luong: item.quantity,
+        })),
+        phuong_thuc_tt: payment,
+        dia_chi_giao: `${formData.name} - ${formData.phone} - ${formData.address}`,
+        ghi_chu: "",
+      };
+
+      const result = await createOrder(orderData);
+      
+      if (result.success) {
+        alert(`Đặt hàng thành công!\nMã đơn hàng: ${result.data.ma_don_hang}\nTổng tiền: ${formatPrice(result.data.tong_tien)}`);
+        onClose();
+        if (onOrderSuccess) {
+          onOrderSuccess();
+        }
+      } else {
+        alert(result.message || "Đặt hàng thất bại!");
+      }
+    } catch (error) {
+      console.error("Lỗi đặt hàng:", error);
+      alert("Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại!");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -386,29 +420,34 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack }) {
 
           <button
             onClick={handleSubmit}
+            disabled={loading}
             style={{
               width: "100%",
-              background: "linear-gradient(135deg, #e53935 0%, #c62828 100%)",
+              background: loading ? "#ccc" : "linear-gradient(135deg, #e53935 0%, #c62828 100%)",
               color: "white",
               border: "none",
               padding: "16px",
               fontSize: 16,
               fontWeight: "700",
               borderRadius: 12,
-              cursor: "pointer",
+              cursor: loading ? "not-allowed" : "pointer",
               transition: "all 0.3s ease",
-              boxShadow: "0 8px 20px rgba(229, 57, 53, 0.3)",
+              boxShadow: loading ? "none" : "0 8px 20px rgba(229, 57, 53, 0.3)",
             }}
             onMouseEnter={(e) => {
-              e.target.style.transform = "translateY(-2px)";
-              e.target.style.boxShadow = "0 12px 30px rgba(229, 57, 53, 0.4)";
+              if (!loading) {
+                e.target.style.transform = "translateY(-2px)";
+                e.target.style.boxShadow = "0 12px 30px rgba(229, 57, 53, 0.4)";
+              }
             }}
             onMouseLeave={(e) => {
-              e.target.style.transform = "translateY(0)";
-              e.target.style.boxShadow = "0 8px 20px rgba(229, 57, 53, 0.3)";
+              if (!loading) {
+                e.target.style.transform = "translateY(0)";
+                e.target.style.boxShadow = "0 8px 20px rgba(229, 57, 53, 0.3)";
+              }
             }}
           >
-            ✓ Xác nhận đặt hàng
+            {loading ? "Đang xử lý..." : "✓ Xác nhận đặt hàng"}
           </button>
         </div>
 

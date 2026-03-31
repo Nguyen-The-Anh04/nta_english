@@ -20,6 +20,9 @@ router.post("/", auth, isAdmin, orderController.createBook);
 // PUT /api/books/:id - Update book
 router.put("/:id", auth, isAdmin, orderController.updateBook);
 
+// DELETE /api/books/:id - Delete book (Admin)
+router.delete("/:id", auth, isAdmin, orderController.deleteBook);
+
 // ==================== ORDERS ====================
 
 // GET /api/orders - Get all orders

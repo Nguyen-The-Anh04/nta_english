@@ -1,6 +1,7 @@
 import { useState } from "react";
 import CartDrawer from "./CartDrawer";
 import CheckoutDrawer from "./CheckoutDrawer";
+import ReviewSection from "./ReviewSection";
 
 function ProductDetail({ product, onBack, relatedProducts = [] }) {
   const [quantity, setQuantity] = useState(1);
@@ -19,33 +20,7 @@ function ProductDetail({ product, onBack, relatedProducts = [] }) {
     "📕",
   ];
 
-  // Sample reviews
-  const reviews = [
-    {
-      id: 1,
-      user: "Nguyễn Văn A",
-      avatar: "👨‍🎓",
-      rating: 5,
-      date: "15/03/2024",
-      comment: "Sách rất hay, nội dung chi tiết và dễ hiểu. Giao hàng nhanh chóng, đóng gói cẩn thận. Tôi đã đạt được band 7.0 sau khi ôn tập cuốn sách này!",
-    },
-    {
-      id: 2,
-      user: "Trần Thị B",
-      avatar: "👩‍🎓",
-      rating: 5,
-      date: "10/03/2024",
-      comment: "Cuốn sách cung cấp rất nhiều chiến lược làm bài hữu ích. Đặc biệt phần giải thích đáp án rất chi tiết, giúp mình hiểu rõ từng lỗi sai.",
-    },
-    {
-      id: 3,
-      user: "Lê Văn C",
-      avatar: "👨‍💼",
-      rating: 4,
-      date: "05/03/2024",
-      comment: "Sách tốt, nội dung phù hợp với người muốn nâng band từ 5.5 lên 7.0. Có thêm nhiều đề thi thực tế rất hữu ích.",
-    },
-  ];
+  // Reviews will be loaded from API
 
   const formatPrice = (price) => {
     return price.toLocaleString("vi-VN") + " đ";
@@ -840,7 +815,7 @@ function ProductDetail({ product, onBack, relatedProducts = [] }) {
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 48, fontWeight: "800", color: "#1a1a2e" }}>4.8</div>
                 <div style={{ fontSize: 20, marginBottom: 5 }}>{renderStars(5)}</div>
-                <div style={{ fontSize: 13, color: "#888" }}>{reviews.length} đánh giá</div>
+                <div style={{ fontSize: 13, color: "#888" }}>0 đánh giá</div>
               </div>
               <div style={{ flex: 1 }}>
                 {[5, 4, 3, 2, 1].map((star) => (
@@ -873,41 +848,8 @@ function ProductDetail({ product, onBack, relatedProducts = [] }) {
               </div>
             </div>
 
-            {/* Reviews List */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {reviews.map((review) => (
-                <div
-                  key={review.id}
-                  style={{
-                    padding: 25,
-                    border: "1px solid #e0e0e0",
-                    borderRadius: 16,
-                    transition: "all 0.3s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "#e53935";
-                    e.currentTarget.style.boxShadow = "0 4px 15px rgba(229, 57, 53, 0.1)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "#e0e0e0";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 15, marginBottom: 15 }}>
-                    <span style={{ fontSize: 40 }}>{review.avatar}</span>
-                    <div>
-                      <div style={{ fontSize: 16, fontWeight: "700", color: "#1a1a2e" }}>
-                        {review.user}
-                      </div>
-                      <div style={{ fontSize: 13, color: "#888" }}>
-                        {review.date} · {renderStars(review.rating)}
-                      </div>
-                    </div>
-                  </div>
-                  <p style={{ fontSize: 14, color: "#444", lineHeight: 1.7 }}>{review.comment}</p>
-                </div>
-              ))}
-            </div>
+            {/* Reviews Section */}
+            <ReviewSection bookId={product.id} bookName={product.name} />
           </div>
 
           {/* 🧩 6. SẢN PHẨM LIÊN QUAN (Related Products) */}
@@ -981,7 +923,29 @@ function ProductDetail({ product, onBack, relatedProducts = [] }) {
                         justifyContent: "center",
                       }}
                     >
-                      <span style={{ fontSize: 70 }}>{item.image}</span>
+                      {item.image && item.image.includes('.') ? (
+                        <img 
+                          src={`http://localhost:5000/uploads/${item.image}`} 
+                          alt={item.name}
+                          style={{
+                            maxWidth: '100%',
+                            maxHeight: '100%',
+                            objectFit: 'contain',
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'block';
+                          }}
+                        />
+                      ) : null}
+                      <span 
+                        style={{ 
+                          fontSize: 70,
+                          display: (item.image && item.image.includes('.')) ? 'none' : 'block'
+                        }}
+                      >
+                        {item.image || '📚'}
+                      </span>
                       <span
                         style={{
                           position: "absolute",
@@ -1065,6 +1029,10 @@ function ProductDetail({ product, onBack, relatedProducts = [] }) {
         onBack={() => {
           setCheckoutOpen(false);
           setCartOpen(true);
+        }}
+        onOrderSuccess={() => {
+          setCart([]);
+          window.navigateTo("orders");
         }}
       />
 

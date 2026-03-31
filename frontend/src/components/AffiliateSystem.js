@@ -625,8 +625,30 @@ export default function AffiliateSystem({ initialPage = "register" }) {
                   onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-4px)"}
                   onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
                 >
-                  <div style={{ height: 160, background: "linear-gradient(135deg, #fff5f5 0%, #ffe4e8 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: 60 }}>{product.image}</span>
+                  <div style={{ height: 160, background: "linear-gradient(135deg, #fff5f5 0%, #ffe4e8 100%)", display: "flex", alignItems: "center", justifyContent: "center", overflow: 'hidden' }}>
+                    {product.image && product.image.includes('.') ? (
+                      <img 
+                        src={`http://localhost:5000/uploads/${product.image}`} 
+                        alt={product.title}
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain',
+                        }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'block';
+                        }}
+                      />
+                    ) : null}
+                    <span 
+                      style={{ 
+                        fontSize: 60,
+                        display: (product.image && product.image.includes('.')) ? 'none' : 'block'
+                      }}
+                    >
+                      {product.image || '📚'}
+                    </span>
                   </div>
                   <div style={{ padding: 16 }}>
                     <h4 style={{ fontSize: 14, fontWeight: "700", color: "#1a1a2e", marginBottom: 8, lineHeight: 1.3 }}>{product.title}</h4>

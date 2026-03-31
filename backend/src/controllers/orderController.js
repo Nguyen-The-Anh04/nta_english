@@ -133,6 +133,31 @@ const updateBook = async (req, res) => {
   }
 };
 
+// DELETE /api/books/:id - Delete book (Admin)
+const deleteBook = async (req, res) => {
+  try {
+    const book = await Sach.findByPk(req.params.id);
+    if (!book) {
+      return res.status(404).json({ success: false, message: "Sách không tồn tại" });
+    }
+
+    // Check if book has any orders
+    const orderItems = await ChiTietDonHang.findAll({ where: { sach_id: book.id } });
+    if (orderItems.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Không thể xóa sách này vì đã có đơn hàng" 
+      });
+    }
+
+    await book.destroy();
+    res.json({ success: true, message: "Xóa sách thành công" });
+  } catch (error) {
+    console.error("Delete book error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
 // ==================== ORDERS ====================
 
 // GET /api/orders - Get all orders
@@ -535,6 +560,7 @@ module.exports = {
   getBookById,
   createBook,
   updateBook,
+  deleteBook,
   getAllOrders,
   getOrderById,
   createOrder,

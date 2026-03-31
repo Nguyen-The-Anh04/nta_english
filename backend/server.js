@@ -1,8 +1,19 @@
 const sequelize = require("./src/config/db");
 const app = require("./src/app");
+const express = require("express");
+const path = require("path");
 require("dotenv").config();
 
 const PORT = process.env.PORT || 5000;
+
+// Serve static files from uploads folder
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Debug: Log static file requests
+app.use("/uploads", (req, res, next) => {
+  console.log("Static file request:", req.url);
+  next();
+});
 
 // Connect to database and start server
 sequelize

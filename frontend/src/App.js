@@ -6,6 +6,8 @@ import Collab from "./components/Collab";
 import Shop from "./components/Shop";
 import ProductDetail from "./components/ProductDetail";
 import AffiliateSystem from "./components/AffiliateSystem";
+import OrderHistory from "./components/OrderHistory";
+import OrderDetail from "./components/OrderDetail";
 import Admin from "./admin/Admin";
 import AdminLogin from "./admin/AdminLogin";
 import Footer from "./components/Footer";
@@ -15,6 +17,7 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Check if user is already logged in
@@ -146,6 +149,30 @@ function AppContent() {
 
   if (path === "/shop") {
     return <Shop />;
+  }
+
+  if (path === "/orders") {
+    return (
+      <OrderHistory
+        onBack={() => navigate("/")}
+        onViewOrder={(order) => {
+          setSelectedOrder(order);
+          navigate("/orders/detail");
+        }}
+      />
+    );
+  }
+
+  if (path === "/orders/detail" && selectedOrder) {
+    return (
+      <OrderDetail
+        order={selectedOrder}
+        onBack={() => navigate("/orders")}
+        onOrderCancelled={() => {
+          navigate("/orders");
+        }}
+      />
+    );
   }
 
   if (path.startsWith("/product/")) {

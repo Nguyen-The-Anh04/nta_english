@@ -2,7 +2,7 @@ import { useState } from "react";
 import logo from "../assets/logo/Logo.jpeg";
 
 const scrollTo = (id) => {
-  // If navigating to books or collab, use page navigation
+  // If navigating to books, collab, or orders, use page navigation
   if (id === "books") {
     if (window.navigateTo) {
       window.navigateTo("books");
@@ -18,6 +18,15 @@ const scrollTo = (id) => {
       window.navigateTo("collab");
     } else {
       window.location.href = "/collab";
+    }
+    return;
+  }
+
+  if (id === "orders") {
+    if (window.navigateTo) {
+      window.navigateTo("orders");
+    } else {
+      window.location.href = "/orders";
     }
     return;
   }
@@ -41,6 +50,7 @@ function Header() {
     { id: "collab", label: "CTV" },
     { id: "roadmap", label: "Lộ trình" },
     { id: "teachers", label: "Giáo viên" },
+    { id: "orders", label: "Đơn hàng" },
   ];
 
   return (

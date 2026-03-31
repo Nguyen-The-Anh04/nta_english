@@ -1,29 +1,76 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { fetchBooks, fetchCategories, createBook, updateBook, deleteBook } from "../api";
 
 export default function ProductManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([{ id: "all", label: "Tất cả" }]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [formData, setFormData] = useState({
+    loai_sach_id: "",
+    ma_sach: "",
+    ten_sach: "",
+    tac_gia: "",
+    nha_xuat_ban: "",
+    gia_nhap: "",
+    gia_ban: "",
+    so_luong_ton: 0,
+    hinh_anh: "",
+    mo_ta: "",
+    trang_thai: "co_san",
+  });
 
-  // Mock data
-  const products = [
-    { id: 1, name: "Cambridge IELTS 18 Academic", category: "ielts", price: 189000, oldPrice: 250000, stock: 50, sold: 234, image: "📚", status: "active", author: "Cambridge University Press" },
-    { id: 2, name: "Official TOEIC Test Vol 9", category: "toeic", price: 159000, oldPrice: 220000, stock: 35, sold: 189, image: "📝", status: "active", author: "ETS" },
-    { id: 3, name: "IELTS Speaking Booster", category: "ielts", price: 199000, oldPrice: 280000, stock: 0, sold: 156, image: "🎤", status: "out_of_stock", author: "National Geographic" },
-    { id: 4, name: "Target TOEIC 900", category: "toeic", price: 175000, oldPrice: 230000, stock: 28, sold: 145, image: "🎯", status: "active", author: "Lougheed" },
-    { id: 5, name: "Cambridge KET Practice Tests", category: "cambridge", price: 145000, oldPrice: 180000, stock: 42, sold: 98, image: "🏫", status: "active", author: "Cambridge University Press" },
-    { id: 6, name: "English Grammar in Use", category: "ngu-phap", price: 165000, oldPrice: 210000, stock: 15, sold: 312, image: "📖", status: "active", author: "Raymond Murphy" },
-    { id: 7, name: "Vocabulary for IELTS", category: "tu-vung", price: 135000, oldPrice: 180000, stock: 60, sold: 87, image: "💡", status: "active", author: "Cambridge University Press" },
-    { id: 8, name: "600 Essential Words for TOEIC", category: "toeic", price: 99000, oldPrice: 140000, stock: 25, sold: 76, image: "🔤", status: "active", author: "Lougheed" },
-  ];
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const categories = [
-    { id: "all", label: "Tất cả" },
-    { id: "ielts", label: "IELTS" },
-    { id: "toeic", label: "TOEIC" },
-    { id: "cambridge", label: "Cambridge" },
-    { id: "ngu-phap", label: "Ngữ pháp" },
-    { id: "tu-vung", label: "Từ vựng" },
-  ];
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [booksData, categoriesData] = await Promise.all([
+        fetchBooks(),
+        fetchCategories(),
+      ]);
+
+      // Map books
+      const mappedProducts = booksData.map(book => ({
+        id: book.id,
+        name: book.ten_sach,
+        category: book.loaiSach?.ten_loai?.toLowerCase() || "other",
+        categoryId: book.loai_sach_id,
+        price: parseFloat(book.gia_ban),
+        oldPrice: parseFloat(book.gia_ban) * 1.2,
+        stock: book.so_luong_ton,
+        sold: 0, // TODO: Calculate from orders
+        image: book.hinh_anh || "📚",
+        status: book.trang_thai === "het_hang" ? "out_of_stock" : "active",
+        author: book.tac_gia || "NXB",
+        publisher: book.nha_xuat_ban || "NXB",
+        ma_sach: book.ma_sach,
+        mo_ta: book.mo_ta,
+        gia_nhap: parseFloat(book.gia_nhap) || 0,
+      }));
+      setProducts(mappedProducts);
+
+      // Map categories
+      const mappedCategories = [
+        { id: "all", label: "Tất cả" },
+        ...categoriesData.map(cat => ({
+          id: cat.ten_loai.toLowerCase(),
+          label: cat.ten_loai,
+          dbId: cat.id,
+        })),
+      ];
+      setCategories(mappedCategories);
+    } catch (error) {
+      console.error("Lỗi tải dữ liệu:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatCurrency = (amount) => {
     return (amount || 0).toLocaleString("vi-VN") + " đ";
@@ -31,7 +78,8 @@ export default function ProductManagement() {
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.author.toLowerCase().includes(searchTerm.toLowerCase());
+      product.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.ma_sach?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === "all" || product.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
@@ -59,11 +107,103 @@ export default function ProductManagement() {
     );
   };
 
+  const handleOpenModal = (product = null) => {
+    if (product) {
+      setEditingProduct(product);
+      setFormData({
+        loai_sach_id: product.categoryId || "",
+        ma_sach: product.ma_sach || "",
+        ten_sach: product.name || "",
+        tac_gia: product.author || "",
+        nha_xuat_ban: product.publisher || "",
+        gia_nhap: product.gia_nhap || "",
+        gia_ban: product.price || "",
+        so_luong_ton: product.stock || 0,
+        hinh_anh: product.image || "",
+        mo_ta: product.mo_ta || "",
+        trang_thai: product.status === "active" ? "co_san" : "het_hang",
+      });
+    } else {
+      setEditingProduct(null);
+      setFormData({
+        loai_sach_id: "",
+        ma_sach: "",
+        ten_sach: "",
+        tac_gia: "",
+        nha_xuat_ban: "",
+        gia_nhap: "",
+        gia_ban: "",
+        so_luong_ton: 0,
+        hinh_anh: "",
+        mo_ta: "",
+        trang_thai: "co_san",
+      });
+    }
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingProduct(null);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.ten_sach || !formData.ma_sach || !formData.gia_ban) {
+      alert("Vui lòng điền đầy đủ thông tin bắt buộc!");
+      return;
+    }
+
+    try {
+      if (editingProduct) {
+        await updateBook(editingProduct.id, formData);
+        alert("Cập nhật sách thành công!");
+      } else {
+        await createBook(formData);
+        alert("Thêm sách thành công!");
+      }
+      handleCloseModal();
+      loadData();
+    } catch (error) {
+      console.error("Lỗi lưu sách:", error);
+      alert("Có lỗi xảy ra khi lưu sách!");
+    }
+  };
+
+  const handleDelete = async (productId) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa sách này?")) {
+      return;
+    }
+
+    try {
+      await deleteBook(productId);
+      alert("Xóa sách thành công!");
+      loadData();
+    } catch (error) {
+      console.error("Lỗi xóa sách:", error);
+      alert("Có lỗi xảy ra khi xóa sách!");
+    }
+  };
+
   // Stats
   const totalProducts = products.length;
   const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
   const totalSold = products.reduce((sum, p) => sum + p.sold, 0);
   const totalRevenue = products.reduce((sum, p) => sum + (p.sold * p.price), 0);
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: "center", padding: 50 }}>
+        <p>Đang tải dữ liệu...</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -111,6 +251,7 @@ export default function ProductManagement() {
         </div>
 
         <button
+          onClick={() => handleOpenModal()}
           style={{
             padding: "12px 25px",
             background: "linear-gradient(135deg, #e53935 0%, #c62828 100%)",
@@ -180,7 +321,29 @@ export default function ProductManagement() {
                         fontSize: 24,
                       }}
                     >
-                      {product.image}
+                      {product.image && product.image.includes('.') ? (
+                        <img 
+                          src={`http://localhost:5000/uploads/${product.image}`} 
+                          alt={product.name}
+                          style={{
+                            maxWidth: '100%',
+                            maxHeight: '100%',
+                            objectFit: 'contain',
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'block';
+                          }}
+                        />
+                      ) : null}
+                      <span 
+                        style={{ 
+                          fontSize: 24,
+                          display: (product.image && product.image.includes('.')) ? 'none' : 'block'
+                        }}
+                      >
+                        {product.image || '📚'}
+                      </span>
                     </div>
                     <div>
                       <p style={{ margin: 0, fontSize: 14, fontWeight: "600", color: "#333", maxWidth: 200 }}>{product.name}</p>
@@ -224,6 +387,7 @@ export default function ProductManagement() {
                 <td style={{ padding: "12px 8px", textAlign: "center" }}>
                   <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                     <button
+                      onClick={() => handleOpenModal(product)}
                       style={{
                         padding: "6px 12px",
                         background: "#e3f2fd",
@@ -238,18 +402,19 @@ export default function ProductManagement() {
                       ✏️ Sửa
                     </button>
                     <button
+                      onClick={() => handleDelete(product.id)}
                       style={{
                         padding: "6px 12px",
-                        background: "#f5f5f5",
+                        background: "#ffebee",
                         border: "none",
                         borderRadius: 6,
-                        color: "#666",
+                        color: "#f44336",
                         fontSize: 12,
                         fontWeight: "600",
                         cursor: "pointer",
                       }}
                     >
-                      👁️ Xem
+                      🗑️ Xóa
                     </button>
                   </div>
                 </td>
@@ -258,6 +423,305 @@ export default function ProductManagement() {
           </tbody>
         </table>
       </div>
+
+      {/* Modal for Add/Edit */}
+      {showModal && (
+        <>
+          <div
+            onClick={handleCloseModal}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.5)",
+              zIndex: 1000,
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              background: "white",
+              borderRadius: 16,
+              padding: 30,
+              width: 600,
+              maxHeight: "90vh",
+              overflowY: "auto",
+              zIndex: 1001,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            }}
+          >
+            <h2 style={{ margin: "0 0 20px 0", fontSize: 20, fontWeight: "800" }}>
+              {editingProduct ? "✏️ Chỉnh sửa sách" : "➕ Thêm sách mới"}
+            </h2>
+
+            <form onSubmit={handleSubmit}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 15 }}>
+                <div>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Mã sách *
+                  </label>
+                  <input
+                    name="ma_sach"
+                    value={formData.ma_sach}
+                    onChange={handleInputChange}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Tên sách *
+                  </label>
+                  <input
+                    name="ten_sach"
+                    value={formData.ten_sach}
+                    onChange={handleInputChange}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Loại sách
+                  </label>
+                  <select
+                    name="loai_sach_id"
+                    value={formData.loai_sach_id}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <option value="">Chọn loại sách</option>
+                    {categories.filter(c => c.id !== "all").map((cat) => (
+                      <option key={cat.dbId} value={cat.dbId}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Tác giả
+                  </label>
+                  <input
+                    name="tac_gia"
+                    value={formData.tac_gia}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Nhà xuất bản
+                  </label>
+                  <input
+                    name="nha_xuat_ban"
+                    value={formData.nha_xuat_ban}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Giá nhập
+                  </label>
+                  <input
+                    name="gia_nhap"
+                    type="number"
+                    value={formData.gia_nhap}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Giá bán *
+                  </label>
+                  <input
+                    name="gia_ban"
+                    type="number"
+                    value={formData.gia_ban}
+                    onChange={handleInputChange}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Số lượng tồn
+                  </label>
+                  <input
+                    name="so_luong_ton"
+                    type="number"
+                    value={formData.so_luong_ton}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Trạng thái
+                  </label>
+                  <select
+                    name="trang_thai"
+                    value={formData.trang_thai}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <option value="co_san">Còn hàng</option>
+                    <option value="ban_chay">Bán chạy</option>
+                    <option value="het_hang">Hết hàng</option>
+                  </select>
+                </div>
+
+                <div style={{ gridColumn: "span 2" }}>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Hình ảnh (URL hoặc emoji)
+                  </label>
+                  <input
+                    name="hinh_anh"
+                    value={formData.hinh_anh}
+                    onChange={handleInputChange}
+                    placeholder="📚 hoặc /assets/books/ielts/ielts1.jpeg"
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                <div style={{ gridColumn: "span 2" }}>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Mô tả
+                  </label>
+                  <textarea
+                    name="mo_ta"
+                    value={formData.mo_ta}
+                    onChange={handleInputChange}
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                      resize: "vertical",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  style={{
+                    padding: "10px 20px",
+                    background: "#f5f5f5",
+                    border: "none",
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: "10px 20px",
+                    background: "linear-gradient(135deg, #e53935 0%, #c62828 100%)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  {editingProduct ? "Cập nhật" : "Thêm mới"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
     </div>
   );
 }

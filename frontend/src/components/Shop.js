@@ -3,13 +3,24 @@ import CartDrawer from "./CartDrawer";
 import CheckoutDrawer from "./CheckoutDrawer";
 import { fetchBooks, fetchCategories } from "../api";
 
+const CART_STORAGE_KEY = "nta_books_cart";
+
 function Shop() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    // Load cart from localStorage on initial render
+    const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+    return savedCart ? JSON.parse(savedCart) : [];
+  });
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  }, [cart]);
 
   useEffect(() => {
     loadProducts();
@@ -338,7 +349,30 @@ function Shop() {
                   </span>
 
                   {/* Product Image */}
-                  <span style={{ fontSize: 80 }}>{product.image}</span>
+                  {product.image && product.image.includes('.') ? (
+                    <img 
+                      src={`http://localhost:5000/uploads/${product.image}`} 
+                      alt={product.name}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        objectFit: 'contain',
+                        borderRadius: 8,
+                      }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'block';
+                      }}
+                    />
+                  ) : null}
+                  <span 
+                    style={{ 
+                      fontSize: 80,
+                      display: (product.image && product.image.includes('.')) ? 'none' : 'block'
+                    }}
+                  >
+                    {product.image || '📚'}
+                  </span>
                 </div>
 
                 {/* Content */}
@@ -459,6 +493,10 @@ function Shop() {
         onBack={() => {
           setCheckoutOpen(false);
           setCartOpen(true);
+        }}
+        onOrderSuccess={() => {
+          setCart([]);
+          window.navigateTo("orders");
         }}
       />
 
