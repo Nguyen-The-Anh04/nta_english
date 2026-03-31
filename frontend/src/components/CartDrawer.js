@@ -263,6 +263,24 @@ function CartDrawer({ isOpen, onClose, cart, updateQuantity, removeFromCart, onC
           )}
         </div>
 
+        {/* Promotion Hint */}
+        {cart.length > 0 && (
+          <div style={{
+            padding: "12px 25px",
+            background: "#fff8e1",
+            borderTop: "1px solid #eee",
+          }}>
+            <p style={{
+              margin: 0,
+              fontSize: 13,
+              color: "#f57c00",
+              fontWeight: "500",
+            }}>
+              💡 Mua 2 sản phẩm giảm 10% - Nhập mã GIAM10
+            </p>
+          </div>
+        )}
+
         {/* Footer - Total & Checkout */}
         {cart.length > 0 && (
           <div style={{

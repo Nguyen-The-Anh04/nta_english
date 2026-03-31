@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createOrder } from "../api";
+import { createOrder, apDungKhuyenMai } from "../api";
 
 function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
   const [payment, setPayment] = useState("cod");
@@ -9,6 +9,10 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
     address: "",
   });
   const [loading, setLoading] = useState(false);
+  const [maKhuyenMai, setMaKhuyenMai] = useState("");
+  const [appliedKhuyenMai, setAppliedKhuyenMai] = useState(null);
+  const [giamGia, setGiamGia] = useState(0);
+  const [applyingPromotion, setApplyingPromotion] = useState(false);
 
   const formatPrice = (price) => {
     return price.toLocaleString("vi-VN") + " đ";
@@ -16,10 +20,49 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const shippingFee = payment === "cod" ? 10000 : 0;
+  const finalTotal = total + shippingFee - giamGia;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleApDungKhuyenMai = async () => {
+    if (!maKhuyenMai.trim()) {
+      alert("Vui lòng nhập mã khuyến mại");
+      return;
+    }
+
+    setApplyingPromotion(true);
+    try {
+      const result = await apDungKhuyenMai({
+        ma_khoa: maKhuyenMai,
+        tong_tien: total,
+        so_luong: totalItems,
+        danh_muc_id: cart[0]?.categoryId,
+        san_pham_id: cart[0]?.id,
+      });
+
+      if (result.success) {
+        setAppliedKhuyenMai(result.data.khuyen_mai);
+        setGiamGia(result.data.giam_gia);
+        alert("Áp dụng khuyến mại thành công!");
+      } else {
+        alert(result.message || "Không thể áp dụng khuyến mại");
+      }
+    } catch (error) {
+      console.error("Lỗi áp dụng khuyến mại:", error);
+      alert("Lỗi khi áp dụng khuyến mại");
+    } finally {
+      setApplyingPromotion(false);
+    }
+  };
+
+  const handleHuyKhuyenMai = () => {
+    setAppliedKhuyenMai(null);
+    setGiamGia(0);
+    setMaKhuyenMai("");
   };
 
   const handleSubmit = async (e) => {
@@ -40,6 +83,11 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
         phuong_thuc_tt: payment,
         dia_chi_giao: `${formData.name} - ${formData.phone} - ${formData.address}`,
         ghi_chu: "",
+        phi_van_chuyen: shippingFee,
+        tong_tien: finalTotal,
+        khuyen_mai_id: appliedKhuyenMai?.id || null,
+        ma_khoa: appliedKhuyenMai?.ma_khoa || null,
+        giam_gia: giamGia,
       };
 
       const result = await createOrder(orderData);
@@ -361,6 +409,115 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
             </div>
           </div>
 
+          {/* Promotion Hint */}
+          <div style={{
+            background: "#fff8e1",
+            borderRadius: 12,
+            padding: 15,
+            marginBottom: 25,
+          }}>
+            <p style={{
+              margin: 0,
+              fontSize: 13,
+              color: "#f57c00",
+              fontWeight: "500",
+            }}>
+              💡 Mua 2 sản phẩm giảm 10% - Nhập mã GIAM10
+            </p>
+          </div>
+
+          {/* Promotion Code Input */}
+          <div style={{ marginBottom: 25 }}>
+            <h3 style={{
+              fontSize: 16,
+              fontWeight: "700",
+              color: "#1a1a2e",
+              marginBottom: 15,
+            }}>
+              🎁 Mã khuyến mại
+            </h3>
+            <div style={{ display: "flex", gap: 10 }}>
+              <input
+                type="text"
+                value={maKhuyenMai}
+                onChange={(e) => setMaKhuyenMai(e.target.value.toUpperCase())}
+                placeholder="Nhập mã khuyến mại"
+                disabled={appliedKhuyenMai !== null}
+                style={{
+                  flex: 1,
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  border: appliedKhuyenMai ? "2px solid #4CAF50" : "2px solid #e0e0e0",
+                  fontSize: 14,
+                  outline: "none",
+                  transition: "all 0.3s ease",
+                  boxSizing: "border-box",
+                  background: appliedKhuyenMai ? "#f1f8f1" : "white",
+                }}
+                onFocus={(e) => !appliedKhuyenMai && (e.target.style.borderColor = "#e53935")}
+                onBlur={(e) => !appliedKhuyenMai && (e.target.style.borderColor = "#e0e0e0")}
+              />
+              {appliedKhuyenMai ? (
+                <button
+                  onClick={handleHuyKhuyenMai}
+                  style={{
+                    padding: "14px 20px",
+                    background: "#f44336",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 12,
+                    fontSize: 14,
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    whiteSpace: "nowrap",
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = "#d32f2f"}
+                  onMouseLeave={(e) => e.target.style.background = "#f44336"}
+                >
+                  Hủy
+                </button>
+              ) : (
+                <button
+                  onClick={handleApDungKhuyenMai}
+                  disabled={applyingPromotion}
+                  style={{
+                    padding: "14px 20px",
+                    background: applyingPromotion ? "#ccc" : "#4CAF50",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 12,
+                    fontSize: 14,
+                    fontWeight: "600",
+                    cursor: applyingPromotion ? "not-allowed" : "pointer",
+                    transition: "all 0.3s ease",
+                    whiteSpace: "nowrap",
+                  }}
+                  onMouseEnter={(e) => !applyingPromotion && (e.target.style.background = "#45a049")}
+                  onMouseLeave={(e) => !applyingPromotion && (e.target.style.background = "#4CAF50")}
+                >
+                  {applyingPromotion ? "Đang áp dụng..." : "Áp dụng"}
+                </button>
+              )}
+            </div>
+            {appliedKhuyenMai && (
+              <div style={{
+                marginTop: 10,
+                padding: "10px 12px",
+                background: "#e8f5e9",
+                borderRadius: 8,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}>
+                <span style={{ color: "#4CAF50", fontSize: 16 }}>✓</span>
+                <span style={{ fontSize: 13, color: "#2e7d32", fontWeight: "500" }}>
+                  Đã áp dụng: {appliedKhuyenMai.ten_khoa} - Giảm {formatPrice(giamGia)}
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* Order Summary */}
           <div style={{
             background: "#f8f9fa",
@@ -400,21 +557,88 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            marginBottom: 10,
+          }}>
+            <span style={{
+              fontSize: 14,
+              color: "#666",
+              fontWeight: "500",
+            }}>
+              Tiền hàng:
+            </span>
+            <span style={{
+              fontSize: 16,
+              fontWeight: "600",
+              color: "#1a1a2e",
+            }}>
+              {formatPrice(total)}
+            </span>
+          </div>
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 10,
+          }}>
+            <span style={{
+              fontSize: 14,
+              color: "#666",
+              fontWeight: "500",
+            }}>
+              Phí vận chuyển:
+            </span>
+            <span style={{
+              fontSize: 16,
+              fontWeight: "600",
+              color: shippingFee > 0 ? "#e53935" : "#4CAF50",
+            }}>
+              {shippingFee > 0 ? formatPrice(shippingFee) : "Miễn phí"}
+            </span>
+          </div>
+          {giamGia > 0 && (
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 10,
+            }}>
+              <span style={{
+                fontSize: 14,
+                color: "#666",
+                fontWeight: "500",
+              }}>
+                Giảm giá:
+              </span>
+              <span style={{
+                fontSize: 16,
+                fontWeight: "600",
+                color: "#4CAF50",
+              }}>
+                -{formatPrice(giamGia)}
+              </span>
+            </div>
+          )}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             marginBottom: 18,
+            paddingTop: 10,
+            borderTop: "1px solid #eee",
           }}>
             <span style={{
               fontSize: 16,
               color: "#666",
               fontWeight: "500",
             }}>
-              Tổng tiền:
+              Tổng cộng:
             </span>
             <span style={{
               fontSize: 26,
               fontWeight: "800",
               color: "#e53935",
             }}>
-              {formatPrice(total)}
+              {formatPrice(finalTotal)}
             </span>
           </div>
 

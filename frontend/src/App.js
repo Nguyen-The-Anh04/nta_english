@@ -12,6 +12,122 @@ import Admin from "./admin/Admin";
 import AdminLogin from "./admin/AdminLogin";
 import Footer from "./components/Footer";
 
+// ProductDetail Wrapper - Fetch data from API
+function ProductDetailWrapper({ productId, onBack }) {
+  const [product, setProduct] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`http://localhost:5000/api/books/${productId}`);
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          const book = data.data;
+          // Map database fields to frontend format
+          const mappedProduct = {
+            id: book.id,
+            name: book.ten_sach,
+            category: book.loaiSach?.ten_loai?.toLowerCase() || "other",
+            description: book.mo_ta || "Sách luyện thi tiếng Anh",
+            price: parseFloat(book.gia_ban),
+            oldPrice: parseFloat(book.gia_ban) * 1.2,
+            discount: 20,
+            image: book.hinh_anh || "📚",
+            tag: book.loaiSach?.ten_loai || "Sách",
+            author: book.tac_gia || "NXB",
+            publisher: book.nha_xuat_ban || "NXB",
+            stock: book.so_luong_ton,
+          };
+          setProduct(mappedProduct);
+
+          // Fetch related products
+          const relatedResponse = await fetch(`http://localhost:5000/api/books?loai_sach_id=${book.loai_sach_id}&limit=4`);
+          const relatedData = await relatedResponse.json();
+          
+          if (relatedData.success && relatedData.data?.books) {
+            const mappedRelated = relatedData.data.books
+              .filter(b => b.id !== book.id)
+              .slice(0, 4)
+              .map(b => ({
+                id: b.id,
+                name: b.ten_sach,
+                category: b.loaiSach?.ten_loai?.toLowerCase() || "other",
+                description: b.mo_ta || "Sách luyện thi tiếng Anh",
+                price: parseFloat(b.gia_ban),
+                oldPrice: parseFloat(b.gia_ban) * 1.2,
+                discount: 20,
+                image: b.hinh_anh || "📚",
+                tag: b.loaiSach?.ten_loai || "Sách",
+                author: b.tac_gia || "NXB",
+                publisher: b.nha_xuat_ban || "NXB",
+                stock: b.so_luong_ton,
+              }));
+            setRelatedProducts(mappedRelated);
+          }
+        } else {
+          setError("Không tìm thấy sản phẩm");
+        }
+      } catch (err) {
+        console.error("Error fetching product:", err);
+        setError("Lỗi khi tải sản phẩm");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [productId]);
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 20 }}>📚</div>
+          <div style={{ fontSize: 18, color: "#666" }}>Đang tải sản phẩm...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 20 }}>❌</div>
+          <div style={{ fontSize: 18, color: "#666", marginBottom: 20 }}>{error || "Không tìm thấy sản phẩm"}</div>
+          <button
+            onClick={onBack}
+            style={{
+              padding: "12px 24px",
+              background: "#e53935",
+              color: "white",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+              fontSize: 16,
+            }}
+          >
+            Quay lại cửa hàng
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ProductDetail
+      product={product}
+      onBack={onBack}
+      relatedProducts={relatedProducts}
+    />
+  );
+}
+
 // Wrap all components with navigation prop
 function AppContent() {
   const navigate = useNavigate();
@@ -177,26 +293,12 @@ function AppContent() {
 
   if (path.startsWith("/product/")) {
     const productId = parseInt(path.split("/")[2]);
-    const shopProducts = [
-      { id: 1, name: "Cambridge IELTS 18 Academic", category: "ielts", price: 189000, oldPrice: 250000, discount: 24, image: "📚", author: "Cambridge University Press", publisher: "Cambridge University Press", pages: 400, level: "IELTS 5.0 - 8.0", weight: "0.8 kg", dimensions: "21 x 30 cm", description: "Bộ đề chính thức từ Cambridge 2023 - Phiên bản mới nhất dành cho kỳ thi IELTS Academic." },
-      { id: 2, name: "Official TOEIC Test Vol 9", category: "toeic", price: 159000, oldPrice: 220000, discount: 28, image: "📝", author: "ETS", publisher: "ETS", pages: 380, level: "TOEIC 450 - 990", weight: "0.7 kg", dimensions: "21 x 28 cm", description: "Bộ đề ETS chính hãng mới nhất." },
-      { id: 3, name: "IELTS Speaking Booster", category: "ielts", price: 199000, oldPrice: 280000, discount: 29, image: "🎤", author: "National Geographic", publisher: "Cengage Learning", pages: 250, level: "IELTS 6.0 - 8.5", weight: "0.5 kg", dimensions: "19 x 26 cm", description: "Hướng dẫn nói IELTS 8.0+." },
-      { id: 4, name: "Target TOEIC 900", category: "toeic", price: 175000, oldPrice: 230000, discount: 24, image: "🎯", author: "Lougheed", publisher: "Pearson", pages: 320, level: "TOEIC 700 - 900", weight: "0.6 kg", dimensions: "21 x 28 cm", description: "Luyện thi TOEIC 900 điểm." },
-      { id: 5, name: "Cambridge KET Practice Tests", category: "cambridge", price: 145000, oldPrice: 180000, discount: 19, image: "🏫", author: "Cambridge University Press", publisher: "Cambridge University Press", pages: 280, level: "KET", weight: "0.5 kg", dimensions: "21 x 30 cm", description: "Bộ đề KET chính thức." },
-      { id: 6, name: "English Grammar in Use", category: "ngu-phap", price: 165000, oldPrice: 210000, discount: 21, image: "📖", author: "Raymond Murphy", publisher: "Cambridge University Press", pages: 380, level: "A1 - C1", weight: "0.9 kg", dimensions: "19 x 26 cm", description: "Ngữ pháp tiếng Anh toàn diện." },
-    ];
-    const product = shopProducts.find(p => p.id === productId);
-    const relatedProducts = shopProducts.filter(p => p && p.id !== productId && p.category === product?.category);
-
-    if (product) {
-      return (
-        <ProductDetail
-          product={product}
-          onBack={() => navigate("/shop")}
-          relatedProducts={relatedProducts}
-        />
-      );
-    }
+    return (
+      <ProductDetailWrapper
+        productId={productId}
+        onBack={() => navigate("/shop")}
+      />
+    );
   }
 
   // Default: Home page

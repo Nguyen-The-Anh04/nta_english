@@ -265,6 +265,75 @@ export const createReview = async (reviewData) => {
   return result;
 };
 
+// Promotions API
+export const fetchKhuyenMai = async (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  const url = queryString 
+    ? `${API_BASE_URL}/khuyen-mai?${queryString}`
+    : `${API_BASE_URL}/khuyen-mai`;
+  const response = await fetch(url);
+  const result = await response.json();
+  return result.data;
+};
+
+export const fetchKhuyenMaiById = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/khuyen-mai/${id}`);
+  const result = await response.json();
+  return result.data;
+};
+
+export const createKhuyenMai = async (data) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/khuyen-mai`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const updateKhuyenMai = async (id, data) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/khuyen-mai/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const deleteKhuyenMai = async (id) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/khuyen-mai/${id}`, {
+    method: "DELETE",
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const apDungKhuyenMai = async (data) => {
+  const response = await fetch(`${API_BASE_URL}/khuyen-mai/ap-dung`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  return result;
+};
+
 export default {
   fetchBooks,
   fetchBookById,

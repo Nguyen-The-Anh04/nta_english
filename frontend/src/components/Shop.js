@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import CartDrawer from "./CartDrawer";
 import CheckoutDrawer from "./CheckoutDrawer";
+import Footer from "./Footer";
 import { fetchBooks, fetchCategories } from "../api";
 
 const CART_STORAGE_KEY = "nta_books_cart";
@@ -15,6 +16,7 @@ function Shop() {
     return savedCart ? JSON.parse(savedCart) : [];
   });
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Save cart to localStorage whenever it changes
@@ -24,6 +26,7 @@ function Shop() {
 
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
 
   const loadProducts = async () => {
@@ -34,6 +37,7 @@ function Shop() {
         id: book.id,
         name: book.ten_sach,
         category: book.loaiSach?.ten_loai?.toLowerCase() || "other",
+        categoryId: book.loai_sach_id,
         description: book.mo_ta || "Sách luyện thi tiếng Anh",
         price: parseFloat(book.gia_ban),
         oldPrice: parseFloat(book.gia_ban) * 1.2,
@@ -54,17 +58,41 @@ function Shop() {
     }
   };
 
+  const loadCategories = async () => {
+    try {
+      const categoriesData = await fetchCategories();
+      // Add "Tất cả" option
+      const allCategories = [
+        { id: "all", ten_loai: "Tất cả", icon: "📚" },
+        ...categoriesData.map(cat => ({
+          id: cat.id,
+          ten_loai: cat.ten_loai,
+          icon: cat.ten_loai.toLowerCase().includes("ielts") ? "🎯" : 
+                cat.ten_loai.toLowerCase().includes("toeic") ? "📝" : "💬"
+        }))
+      ];
+      setCategories(allCategories);
+    } catch (error) {
+      console.error("Lỗi tải categories:", error);
+      // Fallback to default categories
+      setCategories([
+        { id: "all", ten_loai: "Tất cả", icon: "📚" },
+        { id: 1, ten_loai: "Sách IELTS", icon: "🎯" },
+        { id: 2, ten_loai: "Sách TOEIC", icon: "📝" },
+        { id: 3, ten_loai: "Sách Giao tiếp", icon: "💬" },
+      ]);
+    }
+  };
+
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const categories = [
-    { id: "all", label: "Tất cả" },
-  ];
+  // Categories are loaded from API
 
   // Products loaded from API
 
   const filteredProducts = activeCategory === "all" 
     ? products 
-    : products.filter(p => p.category === activeCategory || p.category?.toLowerCase() === activeCategory);
+    : products.filter(p => p.categoryId === activeCategory);
 
   const formatPrice = (price) => {
     return price.toLocaleString("vi-VN") + " đ";
@@ -253,6 +281,9 @@ function Shop() {
                   fontSize: 14,
                   fontWeight: "600",
                   transition: "all 0.3s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
                 }}
                 onMouseEnter={(e) => {
                   if (activeCategory !== cat.id) {
@@ -267,7 +298,8 @@ function Shop() {
                   }
                 }}
               >
-                {cat.label}
+                <span>{cat.icon}</span>
+                <span>{cat.ten_loai}</span>
               </button>
             ))}
           </div>
@@ -298,7 +330,7 @@ function Shop() {
                   transition: "all 0.3s ease",
                   cursor: "pointer",
                 }}
-                onClick={() => window.navigateTo("product-detail", product)}
+                onClick={() => window.navigateTo(`/product/${product.id}`)}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-8px)";
                   e.currentTarget.style.boxShadow = "0 20px 50px rgba(229, 57, 53, 0.15)";
@@ -499,6 +531,9 @@ function Shop() {
           window.navigateTo("orders");
         }}
       />
+
+      {/* Footer */}
+      <Footer />
 
       {/* Responsive Styles */}
       <style>{`

@@ -17,7 +17,7 @@ const getCategories = async (req, res) => {
 // GET /api/books - Get all books
 const getAllBooks = async (req, res) => {
   try {
-    const { page = 1, limit = 20, loai_sach_id, search, trang_thai } = req.query;
+    const { page = 1, limit = 100, loai_sach_id, search, trang_thai } = req.query;
     const offset = (page - 1) * limit;
 
     const where = {};

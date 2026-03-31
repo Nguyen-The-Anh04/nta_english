@@ -4,6 +4,7 @@ const CourseModels = require("./CourseModels");
 const OrderModels = require("./OrderModels");
 const TuVanLeadModels = require("./TuVanLeadModels");
 const ReviewModels = require("./ReviewModels");
+const KhuyenMai = require("./KhuyenMaiModels");
 
 module.exports = {
   ...UserModels,
@@ -11,4 +12,5 @@ module.exports = {
   ...OrderModels,
   TuVanLead: TuVanLeadModels.TuVanLead,
   DanhGia: ReviewModels.DanhGia,
+  KhuyenMai,
 };
