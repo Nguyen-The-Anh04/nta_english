@@ -113,6 +113,19 @@ const DonHang = sequelize.define(
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
     },
+    tong_tien_goc: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    giam_gia: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      defaultValue: 0,
+    },
+    khuyen_mai_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     trang_thai: {
       type: DataTypes.ENUM("cho_tt", "da_tt", "dang_giao", "da_giao", "da_huy"),
       defaultValue: "cho_tt",

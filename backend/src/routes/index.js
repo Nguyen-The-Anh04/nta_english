@@ -7,6 +7,7 @@ const affiliateRoutes = require("./affiliate");
 const leadRoutes = require("./leads");
 const reviewRoutes = require("./reviews");
 const khuyenMaiRoutes = require("./khuyenMai");
+const paymentRoutes = require("./payment");
 
 module.exports = (app) => {
   app.use("/api/auth", authRoutes);
@@ -17,4 +18,5 @@ module.exports = (app) => {
   app.use("/api/leads", leadRoutes);
   app.use("/api/reviews", reviewRoutes);
   app.use("/api/khuyen-mai", khuyenMaiRoutes);
+  app.use("/api/payment", paymentRoutes);
 };

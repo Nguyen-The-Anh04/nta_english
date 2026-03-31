@@ -119,6 +119,17 @@ export const fetchUserOrders = async () => {
   return result.data?.orders || [];
 };
 
+export const fetchOrderStats = async () => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/books/orders/stats`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result.data || {};
+};
+
 export const fetchOrderById = async (id) => {
   const token = localStorage.getItem('token');
   const response = await fetch(`${API_BASE_URL}/books/orders/${id}`, {
@@ -127,8 +138,10 @@ export const fetchOrderById = async (id) => {
     },
   });
   const result = await response.json();
-  return result.data;
+  return result.data || null;
 };
+
+
 
 export const cancelOrder = async (id) => {
   const token = localStorage.getItem('token');
@@ -329,6 +342,43 @@ export const apDungKhuyenMai = async (data) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  return result;
+};
+
+// Payment API
+export const createMoMoPayment = async (paymentData) => {
+  const response = await fetch(`${API_BASE_URL}/payment/momo/create`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(paymentData),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const checkMoMoTransactionStatus = async (orderId) => {
+  const response = await fetch(`${API_BASE_URL}/payment/momo/status`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ orderId }),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const createVNPayPayment = async (paymentData) => {
+  const response = await fetch(`${API_BASE_URL}/payment/vnpay/create`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(paymentData),
   });
   const result = await response.json();
   return result;

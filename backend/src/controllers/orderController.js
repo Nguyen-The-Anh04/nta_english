@@ -160,6 +160,41 @@ const deleteBook = async (req, res) => {
 
 // ==================== ORDERS ====================
 
+// GET /api/orders/stats - Get order statistics by status
+const getOrderStats = async (req, res) => {
+  try {
+    const stats = await DonHang.findAll({
+      attributes: [
+        'trang_thai',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      group: ['trang_thai']
+    });
+
+    const statsMap = {
+      all: 0,
+      cho_tt: 0,
+      da_tt: 0,
+      dang_giao: 0,
+      da_giao: 0,
+      da_huy: 0
+    };
+
+    stats.forEach(stat => {
+      statsMap[stat.trang_thai] = parseInt(stat.dataValues.count);
+      statsMap.all += parseInt(stat.dataValues.count);
+    });
+
+    res.json({
+      success: true,
+      data: statsMap
+    });
+  } catch (error) {
+    console.error("Get order stats error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
 // GET /api/orders - Get all orders
 const getAllOrders = async (req, res) => {
   try {
@@ -176,6 +211,11 @@ const getAllOrders = async (req, res) => {
       include: [
         { model: NguoiDung, as: "nguoiMua", attributes: ["id", "ho_ten", "email", "sdt"] },
         { model: NguoiDung, as: "ctv", attributes: ["id", "ho_ten"] },
+        { 
+          model: ChiTietDonHang, 
+          as: "chiTiets", 
+          include: [{ model: Sach, as: "sach", attributes: ["id", "ten_sach", "gia_ban", "hinh_anh"] }] 
+        },
       ],
       order: [["created_at", "DESC"]],
       limit: parseInt(limit),
@@ -202,7 +242,11 @@ const getOrderById = async (req, res) => {
       include: [
         { model: NguoiDung, as: "nguoiMua", attributes: ["id", "ho_ten", "email", "sdt", "dia_chi"] },
         { model: NguoiDung, as: "ctv", attributes: ["id", "ho_ten", "ma_gioi_thieu"] },
-        { model: ChiTietDonHang, as: "chiTiets", include: [{ model: Sach, as: "sach" }] },
+        { 
+          model: ChiTietDonHang, 
+          as: "chiTiets", 
+          include: [{ model: Sach, as: "sach", attributes: ["id", "ten_sach", "gia_ban", "hinh_anh"] }] 
+        },
       ],
     });
 
@@ -220,7 +264,7 @@ const getOrderById = async (req, res) => {
 // POST /api/orders - Create order
 const createOrder = async (req, res) => {
   try {
-    const { sach_ids, ctv_id, phuong_thuc_tt = "cod", dia_chi_giao, ghi_chu } = req.body;
+    const { sach_ids, ctv_id, phuong_thuc_tt = "cod", dia_chi_giao, ghi_chu, tong_tien: tong_tien_from_frontend, khuyen_mai_id, ma_khoa, giam_gia } = req.body;
     const nguoi_dung_id = req.user ? req.user.id : null;
 
     // Validate books
@@ -240,12 +284,12 @@ const createOrder = async (req, res) => {
     // Generate order code
     const ma_don_hang = "DH" + Date.now();
 
-    // Calculate total
-    let tong_tien = 0;
+    // Calculate total from books (original price)
+    let tong_tien_goc = 0;
     const chi_tiet = sach_ids.map(item => {
       const book = books.find(b => b.id === item.sach_id);
       const thanh_tien = book.gia_ban * item.so_luong;
-      tong_tien += thanh_tien;
+      tong_tien_goc += thanh_tien;
       return {
         sach_id: item.sach_id,
         so_luong: item.so_luong,
@@ -253,6 +297,9 @@ const createOrder = async (req, res) => {
         thanh_tien,
       };
     });
+    
+    // Use discounted price from frontend if provided, otherwise use calculated price
+    const tong_tien = tong_tien_from_frontend || tong_tien_goc;
 
     // Create order
     const order = await DonHang.create({
@@ -260,6 +307,9 @@ const createOrder = async (req, res) => {
       nguoi_dung_id,
       ctv_id,
       tong_tien,
+      tong_tien_goc: tong_tien_goc,
+      giam_gia: giam_gia || 0,
+      khuyen_mai_id: khuyen_mai_id || null,
       trang_thai: "cho_tt",
       phuong_thuc_tt,
       dia_chi_giao,
@@ -277,7 +327,7 @@ const createOrder = async (req, res) => {
       await book.update({ so_luong_ton: book.so_luong_ton - orderItem.so_luong });
     }
 
-    // Create commission for CTV
+    // Create commission for CTV (based on discounted price)
     if (ctv_id) {
       const ctv = await CTV.findByPk(ctv_id);
       if (ctv) {
@@ -303,7 +353,14 @@ const createOrder = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Tạo đơn hàng thành công",
-      data: { order_id: order.id, ma_don_hang: order.ma_don_hang, tong_tien: order.tong_tien },
+      data: { 
+        order_id: order.id, 
+        ma_don_hang: order.ma_don_hang, 
+        tong_tien: order.tong_tien,
+        tong_tien_goc: tong_tien_goc,
+        giam_gia: giam_gia || 0,
+        khuyen_mai_id: khuyen_mai_id || null,
+      },
     });
   } catch (error) {
     console.error("Create order error:", error);
@@ -561,6 +618,7 @@ module.exports = {
   createBook,
   updateBook,
   deleteBook,
+  getOrderStats,
   getAllOrders,
   getOrderById,
   createOrder,

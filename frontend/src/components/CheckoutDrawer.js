@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createOrder, apDungKhuyenMai } from "../api";
+import { createOrder, apDungKhuyenMai, createMoMoPayment, createVNPayPayment } from "../api";
 
 function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
   const [payment, setPayment] = useState("cod");
@@ -13,6 +13,9 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
   const [appliedKhuyenMai, setAppliedKhuyenMai] = useState(null);
   const [giamGia, setGiamGia] = useState(0);
   const [applyingPromotion, setApplyingPromotion] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   const formatPrice = (price) => {
     return price.toLocaleString("vi-VN") + " đ";
@@ -90,16 +93,77 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
         giam_gia: giamGia,
       };
 
-      const result = await createOrder(orderData);
-      
-      if (result.success) {
-        alert(`Đặt hàng thành công!\nMã đơn hàng: ${result.data.ma_don_hang}\nTổng tiền: ${formatPrice(result.data.tong_tien)}`);
-        onClose();
-        if (onOrderSuccess) {
-          onOrderSuccess();
+      // Xử lý thanh toán online (MoMo hoặc VNPAY)
+      if (payment === "momo" || payment === "vnpay") {
+        // Tạo đơn hàng trước
+        const orderResult = await createOrder(orderData);
+        
+        if (!orderResult.success) {
+          alert(orderResult.message || "Đặt hàng thất bại!");
+          return;
+        }
+
+        const orderId = orderResult.data.ma_don_hang;
+        const amount = finalTotal;
+        const orderInfo = `Thanh toán đơn hàng ${orderId} - NTA English`;
+
+        setPaymentLoading(true);
+
+        try {
+          let paymentResult;
+          
+          if (payment === "momo") {
+            // Gọi API MOMO
+            paymentResult = await createMoMoPayment({
+              order_id: orderId,
+              amount: amount,
+              order_info: orderInfo,
+              redirect_url: `${window.location.origin}/payment-result`,
+              ipn_url: `http://localhost:5000/api/payment/momo/ipn`,
+            });
+          } else {
+            // Gọi API VNPAY
+            paymentResult = await createVNPayPayment({
+              order_id: orderId,
+              amount: amount,
+              order_info: orderInfo,
+              ip_addr: "127.0.0.1",
+            });
+          }
+
+          if (paymentResult.success) {
+            // Hiển thị QR code
+            setQrCodeData({
+              orderId: orderId,
+              amount: amount,
+              orderInfo: orderInfo,
+              paymentUrl: paymentResult.data.payUrl || paymentResult.data.paymentUrl,
+              qrCode: paymentResult.data.qrCode || paymentResult.data.paymentUrl,
+              paymentMethod: payment,
+            });
+            setShowQRCode(true);
+          } else {
+            alert(paymentResult.message || "Tạo thanh toán thất bại!");
+          }
+        } catch (paymentError) {
+          console.error("Lỗi tạo thanh toán:", paymentError);
+          alert("Có lỗi xảy ra khi tạo thanh toán. Vui lòng thử lại!");
+        } finally {
+          setPaymentLoading(false);
         }
       } else {
-        alert(result.message || "Đặt hàng thất bại!");
+        // Thanh toán COD
+        const result = await createOrder(orderData);
+        
+        if (result.success) {
+          alert(`Đặt hàng thành công!\nMã đơn hàng: ${result.data.ma_don_hang}\nTổng tiền: ${formatPrice(result.data.tong_tien)}`);
+          onClose();
+          if (onOrderSuccess) {
+            onOrderSuccess();
+          }
+        } else {
+          alert(result.message || "Đặt hàng thất bại!");
+        }
       }
     } catch (error) {
       console.error("Lỗi đặt hàng:", error);
@@ -406,6 +470,50 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
                   </div>
                 </div>
               </label>
+
+              {/* VNPAY */}
+              <label style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "14px 16px",
+                borderRadius: 12,
+                border: payment === "vnpay" ? "2px solid #e53935" : "2px solid #e0e0e0",
+                background: payment === "vnpay" ? "#fff5f5" : "white",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}>
+                <input
+                  type="radio"
+                  name="payment"
+                  checked={payment === "vnpay"}
+                  onChange={() => setPayment("vnpay")}
+                  style={{ display: "none" }}
+                />
+                <span style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  border: payment === "vnpay" ? "6px solid #e53935" : "2px solid #ccc",
+                  flexShrink: 0,
+                }}></span>
+                <span style={{ fontSize: 24 }}>💳</span>
+                <div>
+                  <div style={{
+                    fontSize: 14,
+                    fontWeight: "600",
+                    color: "#1a1a2e",
+                  }}>
+                    VNPAY
+                  </div>
+                  <div style={{
+                    fontSize: 12,
+                    color: "#888",
+                  }}>
+                    Thanh toán qua VNPAY
+                  </div>
+                </div>
+              </label>
             </div>
           </div>
 
@@ -644,34 +752,34 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
 
           <button
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || paymentLoading}
             style={{
               width: "100%",
-              background: loading ? "#ccc" : "linear-gradient(135deg, #e53935 0%, #c62828 100%)",
+              background: (loading || paymentLoading) ? "#ccc" : "linear-gradient(135deg, #e53935 0%, #c62828 100%)",
               color: "white",
               border: "none",
               padding: "16px",
               fontSize: 16,
               fontWeight: "700",
               borderRadius: 12,
-              cursor: loading ? "not-allowed" : "pointer",
+              cursor: (loading || paymentLoading) ? "not-allowed" : "pointer",
               transition: "all 0.3s ease",
-              boxShadow: loading ? "none" : "0 8px 20px rgba(229, 57, 53, 0.3)",
+              boxShadow: (loading || paymentLoading) ? "none" : "0 8px 20px rgba(229, 57, 53, 0.3)",
             }}
             onMouseEnter={(e) => {
-              if (!loading) {
+              if (!loading && !paymentLoading) {
                 e.target.style.transform = "translateY(-2px)";
                 e.target.style.boxShadow = "0 12px 30px rgba(229, 57, 53, 0.4)";
               }
             }}
             onMouseLeave={(e) => {
-              if (!loading) {
+              if (!loading && !paymentLoading) {
                 e.target.style.transform = "translateY(0)";
                 e.target.style.boxShadow = "0 8px 20px rgba(229, 57, 53, 0.3)";
               }
             }}
           >
-            {loading ? "Đang xử lý..." : "✓ Xác nhận đặt hàng"}
+            {loading || paymentLoading ? "Đang xử lý..." : "✓ Xác nhận đặt hàng"}
           </button>
         </div>
 
@@ -687,6 +795,231 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
           }
         `}</style>
       </div>
+
+      {/* QR Code Modal */}
+      {showQRCode && qrCodeData && (
+        <>
+          {/* Overlay */}
+          <div 
+            onClick={() => setShowQRCode(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.7)",
+              zIndex: 1005,
+              animation: "fadeIn 0.3s ease",
+            }}
+          />
+
+          {/* QR Code Modal */}
+          <div style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 400,
+            maxWidth: "90vw",
+            background: "white",
+            borderRadius: 20,
+            zIndex: 1006,
+            boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+            animation: "fadeIn 0.3s ease",
+            overflow: "hidden",
+          }}>
+            {/* Header */}
+            <div style={{
+              background: qrCodeData.paymentMethod === "momo" 
+                ? "linear-gradient(135deg, #d82d8b 0%, #ff6b9d 100%)" 
+                : "linear-gradient(135deg, #0066b3 0%, #0099ff 100%)",
+              padding: "20px 25px",
+              color: "white",
+              textAlign: "center",
+            }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>
+                {qrCodeData.paymentMethod === "momo" ? "📱" : "💳"}
+              </div>
+              <h3 style={{
+                fontSize: 20,
+                fontWeight: "700",
+                margin: 0,
+              }}>
+                {qrCodeData.paymentMethod === "momo" 
+                  ? "Thanh toán MoMo" 
+                  : "Thanh toán VNPAY"}
+              </h3>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: "25px" }}>
+              {/* Order Info */}
+              <div style={{
+                background: "#f8f9fa",
+                borderRadius: 12,
+                padding: 15,
+                marginBottom: 20,
+              }}>
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}>
+                  <span style={{ fontSize: 14, color: "#666" }}>Mã đơn hàng:</span>
+                  <span style={{ fontSize: 14, fontWeight: "600", color: "#1a1a2e" }}>
+                    {qrCodeData.orderId}
+                  </span>
+                </div>
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}>
+                  <span style={{ fontSize: 14, color: "#666" }}>Thông tin:</span>
+                  <span style={{ fontSize: 14, fontWeight: "600", color: "#1a1a2e", textAlign: "right", maxWidth: "60%" }}>
+                    {qrCodeData.orderInfo}
+                  </span>
+                </div>
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  paddingTop: 8,
+                  borderTop: "1px solid #e0e0e0",
+                }}>
+                  <span style={{ fontSize: 16, color: "#666", fontWeight: "600" }}>Tổng tiền:</span>
+                  <span style={{ fontSize: 20, fontWeight: "800", color: "#e53935" }}>
+                    {formatPrice(qrCodeData.amount)}
+                  </span>
+                </div>
+              </div>
+
+              {/* QR Code */}
+              <div style={{
+                textAlign: "center",
+                marginBottom: 20,
+              }}>
+                <div style={{
+                  background: "white",
+                  padding: 15,
+                  borderRadius: 12,
+                  border: "2px solid #e0e0e0",
+                  display: "inline-block",
+                }}>
+                  {/* QR Code Image - Using iframe for demo, replace with actual QR library */}
+                  <iframe
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeData.qrCode)}`}
+                    style={{
+                      width: 200,
+                      height: 200,
+                      border: "none",
+                    }}
+                    title="QR Code"
+                  />
+                </div>
+                <p style={{
+                  marginTop: 12,
+                  fontSize: 13,
+                  color: "#666",
+                  fontWeight: "500",
+                }}>
+                  Quét mã QR bằng ứng dụng {qrCodeData.paymentMethod === "momo" ? "MoMo" : "VNPAY"}
+                </p>
+              </div>
+
+              {/* Payment URL */}
+              <div style={{
+                background: "#fff8e1",
+                borderRadius: 12,
+                padding: 15,
+                marginBottom: 20,
+              }}>
+                <p style={{
+                  margin: 0,
+                  fontSize: 13,
+                  color: "#f57c00",
+                  fontWeight: "500",
+                  marginBottom: 8,
+                }}>
+                  💡 Hoặc nhấp vào link bên dưới để thanh toán:
+                </p>
+                <a
+                  href={qrCodeData.paymentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "block",
+                    background: qrCodeData.paymentMethod === "momo" ? "#d82d8b" : "#0066b3",
+                    color: "white",
+                    padding: "12px 20px",
+                    borderRadius: 8,
+                    textAlign: "center",
+                    textDecoration: "none",
+                    fontWeight: "600",
+                    fontSize: 14,
+                    transition: "all 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.opacity = "0.9";
+                    e.target.style.transform = "translateY(-2px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.opacity = "1";
+                    e.target.style.transform = "translateY(0)";
+                  }}
+                >
+                  Mở trang thanh toán {qrCodeData.paymentMethod === "momo" ? "MoMo" : "VNPAY"}
+                </a>
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => {
+                    setShowQRCode(false);
+                    onClose();
+                    if (onOrderSuccess) {
+                      onOrderSuccess();
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    background: "#4CAF50",
+                    color: "white",
+                    border: "none",
+                    padding: "14px",
+                    fontSize: 14,
+                    fontWeight: "600",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = "#45a049"}
+                  onMouseLeave={(e) => e.target.style.background = "#4CAF50"}
+                >
+                  ✓ Đã thanh toán
+                </button>
+                <button
+                  onClick={() => setShowQRCode(false)}
+                  style={{
+                    flex: 1,
+                    background: "#f44336",
+                    color: "white",
+                    border: "none",
+                    padding: "14px",
+                    fontSize: 14,
+                    fontWeight: "600",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = "#d32f2f"}
+                  onMouseLeave={(e) => e.target.style.background = "#f44336"}
+                >
+                  ✕ Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

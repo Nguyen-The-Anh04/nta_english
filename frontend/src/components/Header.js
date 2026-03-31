@@ -86,7 +86,7 @@ function Header() {
             src={logo} 
             alt="NTA English Center Logo" 
             style={{
-              width: 50,
+              width: 80,
               height: 50,
               borderRadius: "50%",
               objectFit: "cover",
@@ -129,6 +129,8 @@ function Header() {
                 fontWeight: 500,
                 transition: "all 0.3s ease",
                 position: "relative",
+                whiteSpace: "nowrap",
+                 flexShrink: 0,  
               }}
               onMouseEnter={(e) => {
                 e.target.style.background = "rgba(255,255,255,0.2)";
@@ -164,6 +166,7 @@ function Header() {
               fontSize: 14,
               fontWeight: 600,
               transition: "all 0.3s ease",
+              whiteSpace: "nowrap",
             }}
             onMouseEnter={(e) => {
               e.target.style.background = "white";
@@ -189,6 +192,7 @@ function Header() {
               fontWeight: 600,
               transition: "all 0.3s ease",
               boxShadow: "0 4px 15px rgba(244, 81, 30, 0.4)",
+              whiteSpace: "nowrap",
             }}
             onMouseEnter={(e) => {
               e.target.style.transform = "translateY(-2px)";

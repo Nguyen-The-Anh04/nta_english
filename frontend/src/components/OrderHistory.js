@@ -309,9 +309,26 @@ function OrderHistory({ onBack, onViewOrder }) {
                               justifyContent: "center",
                               fontSize: 28,
                               flexShrink: 0,
+                              overflow: "hidden",
                             }}
                           >
-                            {item.sach?.hinh_anh || "📚"}
+                            {item.sach?.hinh_anh ? (
+                              <img
+                                src={`http://localhost:5000/uploads/${item.sach.hinh_anh}`}
+                                alt={item.sach?.ten_sach || "Sách"}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                }}
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Crect fill='%23f5f5f5' width='60' height='60'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='28'%3E📚%3C/text%3E%3C/svg%3E";
+                                }}
+                              />
+                            ) : (
+                              "📚"
+                            )}
                           </div>
                           <div style={{ flex: 1 }}>
                             <div
