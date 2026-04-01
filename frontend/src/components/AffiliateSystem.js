@@ -81,10 +81,18 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       const mappedProducts = books.map(book => ({
         id: book.id,
         title: book.ten_sach,
+        name: book.ten_sach,
         price: parseFloat(book.gia_ban),
+        oldPrice: parseFloat(book.gia_ban) * 1.2,
+        discount: 20,
         image: book.hinh_anh || "📚",
         category: book.loaiSach?.ten_loai?.toLowerCase() || "other",
         categoryId: book.loai_sach_id,
+        tag: book.loaiSach?.ten_loai || "Sách",
+        author: book.tac_gia || "NXB",
+        publisher: book.nha_xuat_ban || "NXB",
+        stock: book.so_luong_ton || 0,
+        description: book.mo_ta || "Sách luyện thi tiếng Anh",
       }));
       setProducts(mappedProducts);
     } catch (error) {
@@ -615,7 +623,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       )}
 
       {/* DASHBOARD */}
-      {page === "dashboard" && user && ctvInfo && (
+      {page === "dashboard" && user && ctvInfo && !selectedProduct && (
         <div style={{ padding: "100px 20px 60px", maxWidth: 1200, margin: "0 auto" }}>
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30 }}>
