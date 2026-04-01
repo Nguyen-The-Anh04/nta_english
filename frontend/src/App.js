@@ -293,6 +293,16 @@ function AppContent() {
 
   if (path.startsWith("/product/")) {
     const productId = parseInt(path.split("/")[2]);
+    
+    // Lưu cookie ref nếu có trong URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get("ref");
+    if (refCode) {
+      const expires = new Date();
+      expires.setDate(expires.getDate() + 7);
+      document.cookie = `ref=${refCode}; expires=${expires.toUTCString()}; path=/`;
+    }
+    
     return (
       <ProductDetailWrapper
         productId={productId}

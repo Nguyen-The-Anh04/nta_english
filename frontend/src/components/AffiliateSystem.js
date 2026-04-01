@@ -8,7 +8,8 @@ import {
   fetchAffiliateWithdrawals,
   createAffiliateWithdraw,
   fetchBooks,
-  fetchCategories
+  fetchCategories,
+  fetchCTVOrders
 } from "../api";
 import CartDrawer from "./CartDrawer";
 import CheckoutDrawer from "./CheckoutDrawer";
@@ -56,17 +57,21 @@ export default function AffiliateSystem({ initialPage = "register" }) {
 
   // Real data from API
   const [stats, setStats] = useState({
-    totalRevenue: 0,
-    f1Count: 0,
-    f2Count: 0,
-    f3Count: 0,
-    pendingCommission: 0,
+    cho_xac_nhan: 0,
+    da_tra: 0,
+    da_rut: 0,
+    co_the_rut: 0,
+    f1: 0,
+    f2: 0,
+    f3: 0,
   });
   const [commissions, setCommissions] = useState([]);
   const [downline, setDownline] = useState({ f1: [], f2: [], f3: [] });
   const [withdrawals, setWithdrawals] = useState([]);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [totalOrderRevenue, setTotalOrderRevenue] = useState(0);
 
   // Load products and categories on mount
   useEffect(() => {
@@ -225,6 +230,16 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       if (withdrawalsResult.success) {
         setWithdrawals(withdrawalsResult.data.withdrawals);
       }
+
+      // Load orders for current CTV and calculate total revenue
+      if (ctvInfo?.id) {
+        const ordersData = await fetchCTVOrders(ctvInfo.id);
+        setOrders(ordersData);
+        const totalRevenue = ordersData.reduce((sum, order) => {
+          return sum + parseFloat(order.tong_tien || 0);
+        }, 0);
+        setTotalOrderRevenue(totalRevenue);
+      }
     } catch (error) {
       console.error("Error loading dashboard data:", error);
     }
@@ -311,7 +326,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       showToast(`Số tiền tối thiểu là ${MIN_WITHDRAW.toLocaleString("vi-VN")} đ`, "error");
       return;
     }
-    if (amount > stats.totalRevenue - WITHDRAW_FEE) {
+    if (amount > stats.co_the_rut - WITHDRAW_FEE) {
       showToast("Số tiền vượt quá số dư khả dụng", "error");
       return;
     }
@@ -349,7 +364,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
     const baseUrl = window.location.origin;
     const refParam = ctvInfo ? `?ref=${ctvInfo.ma_gioi_thieu}` : "";
     const productParam = productId ? `/product/${productId}` : "";
-    return `${baseUrl}/shop${productParam}${refParam}`;
+    return `${baseUrl}${productParam}${refParam}`;
   };
 
   // Format currency
@@ -694,8 +709,9 @@ export default function AffiliateSystem({ initialPage = "register" }) {
               onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
             >
               <p style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>💰 Tổng doanh thu</p>
-              <p style={{ fontSize: 28, fontWeight: "800", color: "#e53935" }}>{formatCurrency(stats.totalRevenue)}</p>
-              <p style={{ fontSize: 12, color: "#999", marginTop: 8 }}>Click để xem chi tiết</p>
+              <p style={{ fontSize: 28, fontWeight: "800", color: "#e53935" }}>{formatCurrency(totalOrderRevenue)}</p>
+              <p style={{ fontSize: 12, color: "#999", marginTop: 8 }}>Từ {orders.length} đơn hàng</p>
+              <p style={{ fontSize: 12, color: "#999", marginTop: 4 }}>Click để xem chi tiết</p>
             </div>
 
             <div
@@ -705,7 +721,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
               onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
             >
               <p style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>👥 F1 (Trực tiếp)</p>
-              <p style={{ fontSize: 28, fontWeight: "800", color: "#4caf50" }}>{stats.f1Count}</p>
+              <p style={{ fontSize: 28, fontWeight: "800", color: "#4caf50" }}>{stats.f1}</p>
               <p style={{ fontSize: 12, color: "#999", marginTop: 8 }}>Hoa hồng {COMMISSION_RATES.F1}%</p>
             </div>
 
@@ -716,7 +732,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
               onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
             >
               <p style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>👥👥 F2 (Gián tiếp)</p>
-              <p style={{ fontSize: 28, fontWeight: "800", color: "#2196f3" }}>{stats.f2Count}</p>
+              <p style={{ fontSize: 28, fontWeight: "800", color: "#2196f3" }}>{stats.f2}</p>
               <p style={{ fontSize: 12, color: "#999", marginTop: 8 }}>Hoa hồng {COMMISSION_RATES.F2}%</p>
             </div>
 
@@ -727,7 +743,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
               onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
             >
               <p style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>👥👥👥 F3</p>
-              <p style={{ fontSize: 28, fontWeight: "800", color: "#9c27b0" }}>{stats.f3Count}</p>
+              <p style={{ fontSize: 28, fontWeight: "800", color: "#9c27b0" }}>{stats.f3}</p>
               <p style={{ fontSize: 12, color: "#999", marginTop: 8 }}>Hoa hồng {COMMISSION_RATES.F3}%</p>
             </div>
           </div>
@@ -1012,10 +1028,10 @@ export default function AffiliateSystem({ initialPage = "register" }) {
             />
           </div>
           <div style={{ background: "#f5f5f5", borderRadius: 10, padding: 15, marginBottom: 20, fontSize: 13 }}>
-            <p style={{ marginBottom: 5, color: "#666" }}>💰 Số dư khả dụng: <strong>{formatCurrency(stats.totalRevenue)}</strong></p>
+            <p style={{ marginBottom: 5, color: "#666" }}>💰 Số dư khả dụng: <strong>{formatCurrency(stats.co_the_rut)}</strong></p>
             <p style={{ marginBottom: 5, color: "#666" }}>📝 Tối thiểu: <strong>{formatCurrency(MIN_WITHDRAW)}</strong></p>
             <p style={{ marginBottom: 5, color: "#666" }}>💸 Phí rút tiền: <strong>{formatCurrency(WITHDRAW_FEE)}</strong></p>
-            <p style={{ color: "#e53935" }}>✅ Tối đa có thể rút: <strong>{formatCurrency(stats.totalRevenue - WITHDRAW_FEE)}</strong></p>
+            <p style={{ color: "#e53935" }}>✅ Tối đa có thể rút: <strong>{formatCurrency(stats.co_the_rut - WITHDRAW_FEE)}</strong></p>
           </div>
           <button
             onClick={handleWithdraw}
@@ -1039,28 +1055,39 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       {/* REVENUE MODAL */}
       {showRevenue && (
         <Modal onClose={() => setShowRevenue(false)} title="💰 Lịch sử doanh thu">
+          <div style={{ marginBottom: 20, padding: 15, background: "#f5f5f5", borderRadius: 10 }}>
+            <p style={{ fontSize: 14, color: "#666", marginBottom: 5 }}>📊 Tổng doanh thu: <strong style={{ color: "#e53935" }}>{formatCurrency(totalOrderRevenue)}</strong></p>
+            <p style={{ fontSize: 13, color: "#999" }}>Từ {orders.length} đơn hàng</p>
+          </div>
           <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f5f5f5" }}>
-                <th style={{ padding: "10px 8px", textAlign: "left", borderBottom: "1px solid #ddd" }}>ID</th>
-                <th style={{ padding: "10px 8px", textAlign: "left", borderBottom: "1px solid #ddd" }}>Sản phẩm</th>
-                <th style={{ padding: "10px 8px", textAlign: "right", borderBottom: "1px solid #ddd" }}>Giá</th>
-                <th style={{ padding: "10px 8px", textAlign: "right", borderBottom: "1px solid #ddd" }}>Hoa hồng</th>
-                <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: "1px solid" }}>Cấp</th>
+                <th style={{ padding: "10px 8px", textAlign: "left", borderBottom: "1px solid #ddd" }}>Mã đơn</th>
+                <th style={{ padding: "10px 8px", textAlign: "left", borderBottom: "1px solid #ddd" }}>Khách hàng</th>
+                <th style={{ padding: "10px 8px", textAlign: "right", borderBottom: "1px solid #ddd" }}>Tổng tiền</th>
+                <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: "1px solid #ddd" }}>Trạng thái</th>
                 <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: "1px solid #ddd" }}>Ngày</th>
               </tr>
             </thead>
             <tbody>
-              {commissions.map((commission) => (
-                <tr key={commission.id}>
-                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee" }}>#{commission.id}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee" }}>{commission.donHang?.ma_don_hang || "N/A"}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "right" }}>{formatCurrency(commission.donHang?.tong_tien)}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "right", color: "#4caf50", fontWeight: "600" }}>+{formatCurrency(commission.tien_hoa_hong)}</td>
+              {orders.map((order) => (
+                <tr key={order.id}>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee" }}>{order.ma_don_hang}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee" }}>{order.nguoiMua?.ho_ten || "Khách vãng lai"}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "right", fontWeight: "600" }}>{formatCurrency(order.tong_tien)}</td>
                   <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "center" }}>
-                    <span style={{ background: commission.cap_do === 1 ? "#e8f5e9" : commission.cap_do === 2 ? "#e3f2fd" : "#f3e5f5", padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: "600" }}>F{commission.cap_do}</span>
+                    <span style={{ 
+                      background: order.trang_thai === "da_giao" ? "#e8f5e9" : order.trang_thai === "da_tt" ? "#e3f2fd" : order.trang_thai === "dang_giao" ? "#fff3e0" : "#f5f5f5",
+                      color: order.trang_thai === "da_giao" ? "#4caf50" : order.trang_thai === "da_tt" ? "#2196f3" : order.trang_thai === "dang_giao" ? "#e65100" : "#666",
+                      padding: "4px 10px", 
+                      borderRadius: 20, 
+                      fontSize: 11, 
+                      fontWeight: "600" 
+                    }}>
+                      {order.trang_thai === "da_giao" ? "✅ Đã giao" : order.trang_thai === "da_tt" ? "💰 Đã thanh toán" : order.trang_thai === "dang_giao" ? "🚚 Đang giao" : order.trang_thai === "cho_tt" ? "⏳ Chờ thanh toán" : "❌ Đã hủy"}
+                    </span>
                   </td>
-                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "center", color: "#666" }}>{new Date(commission.created_at).toLocaleDateString("vi-VN")}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "center", color: "#666" }}>{new Date(order.created_at).toLocaleDateString("vi-VN")}</td>
                 </tr>
               ))}
             </tbody>

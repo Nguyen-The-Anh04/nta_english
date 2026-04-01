@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createOrder, apDungKhuyenMai, createMoMoPayment, createVNPayPayment } from "../api";
+import { createOrder, apDungKhuyenMai, createMoMoPayment, createVNPayPayment, getCTVByRefCode } from "../api";
 
 function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
   const [payment, setPayment] = useState("cod");
@@ -81,15 +81,30 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
 
     setLoading(true);
     try {
+      // Đọc cookie ref để lấy ctv_id
+      let ctv_id = null;
+      const refCookie = document.cookie.split(';').find(c => c.trim().startsWith('ref='));
+      if (refCookie) {
+        const refCode = refCookie.split('=')[1];
+        try {
+          const ctvResult = await getCTVByRefCode(refCode);
+          if (ctvResult.success && ctvResult.data) {
+            ctv_id = ctvResult.data.id;
+          }
+        } catch (error) {
+          console.error("Lỗi lấy thông tin CTV:", error);
+        }
+      }
+
       const orderData = {
         sach_ids: cart.map(item => ({
           sach_id: item.id,
           so_luong: item.quantity,
         })),
+        ctv_id,
         phuong_thuc_tt: payment,
         dia_chi_giao: `${formData.name} - ${formData.phone} - ${formData.address}, ${formData.district}, ${formData.province}, ${formData.country}`,
         ghi_chu: "",
-        phi_van_chuyen: shippingFee,
         tong_tien: finalTotal,
         khuyen_mai_id: appliedKhuyenMai?.id || null,
         ma_khoa: appliedKhuyenMai?.ma_khoa || null,

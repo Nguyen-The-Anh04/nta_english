@@ -119,6 +119,19 @@ export const fetchUserOrders = async () => {
   return result.data?.orders || [];
 };
 
+export const fetchCTVOrders = async (ctvId) => {
+  const token = localStorage.getItem('token');
+  const url = `${API_BASE_URL}/books/orders?ctv_id=${ctvId}`;
+  
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result.data?.orders || [];
+};
+
 export const fetchOrderStats = async () => {
   const token = localStorage.getItem('token');
   const response = await fetch(`${API_BASE_URL}/books/orders/stats`, {
@@ -636,6 +649,12 @@ export const getAffiliateProducts = async (params = {}) => {
       'Authorization': `Bearer ${token}`,
     },
   });
+  const result = await response.json();
+  return result;
+};
+
+export const getCTVByRefCode = async (refCode) => {
+  const response = await fetch(`${API_BASE_URL}/affiliate/by-ref/${refCode}`);
   const result = await response.json();
   return result;
 };

@@ -1269,7 +1269,20 @@ function Collab({ onAccessAffiliate }) {
                     }}
                   >
                     <p style={{ fontSize: 14, color: "#666", marginBottom: 15 }}>
-                      Đã có tài khoản CTV?
+                      Đã có tài khoản CTV?{" "}
+                      <span
+                        onClick={() =>
+                          window.navigateToAffiliate && window.navigateToAffiliate("login")
+                        }
+                        style={{
+                          color: "#e53935",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        Đăng nhập
+                      </span>
                     </p>
                     <button
                       onClick={() =>

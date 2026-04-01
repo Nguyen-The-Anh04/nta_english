@@ -33,4 +33,7 @@ router.post("/generate-link", auth, isCTV, orderController.generateAffiliateLink
 // GET /api/affiliate/products - Get products with commission info
 router.get("/products", auth, isCTV, orderController.getAffiliateProducts);
 
+// GET /api/affiliate/by-ref/:refCode - Get CTV by referral code (no auth required)
+router.get("/by-ref/:refCode", orderController.getCTVByRefCode);
+
 module.exports = router;

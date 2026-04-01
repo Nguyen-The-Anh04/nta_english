@@ -1,4 +1,4 @@
-const { LoaiSach, Sach, DonHang, ChiTietDonHang, CTV, HoaHong, RutTienCTV, NguoiDung } = require("../models");
+const { LoaiSach, Sach, DonHang, ChiTietDonHang, CTV, HoaHong, RutTienCTV, NguoiDung, CommissionProducts } = require("../models");
 const { Op } = require("sequelize");
 
 // ==================== BOOKS ====================
@@ -897,6 +897,27 @@ const getAffiliateProducts = async (req, res) => {
   }
 };
 
+// GET /api/affiliate/by-ref/:refCode - Get CTV by referral code
+const getCTVByRefCode = async (req, res) => {
+  try {
+    const { refCode } = req.params;
+
+    const ctv = await CTV.findOne({
+      where: { ma_gioi_thieu: refCode },
+      attributes: ["id", "ma_gioi_thieu", "cap_do"],
+    });
+
+    if (!ctv) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy CTV" });
+    }
+
+    res.json({ success: true, data: ctv });
+  } catch (error) {
+    console.error("Get CTV by ref code error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
 module.exports = {
   getCategories,
   getAllBooks,
@@ -910,7 +931,7 @@ module.exports = {
   createOrder,
   updateOrderStatus,
   getCTVProfile,
-  getAffiliateStats, // 👈 THÊM DÒNG NÀY
+  getAffiliateStats,
   getDownline,
   getCommissions,
   requestWithdraw,
@@ -919,4 +940,5 @@ module.exports = {
   registerAffiliate,
   generateAffiliateLink,
   getAffiliateProducts,
+  getCTVByRefCode,
 };
