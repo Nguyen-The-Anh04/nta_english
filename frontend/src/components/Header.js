@@ -22,15 +22,6 @@ const scrollTo = (id) => {
     return;
   }
 
-  if (id === "orders") {
-    if (window.navigateTo) {
-      window.navigateTo("orders");
-    } else {
-      window.location.href = "/orders";
-    }
-    return;
-  }
-  
   const element = document.getElementById(id);
   if (element) {
     element.scrollIntoView({ behavior: "smooth" });
@@ -50,7 +41,6 @@ function Header() {
     { id: "collab", label: "CTV" },
     { id: "roadmap", label: "Lộ trình" },
     { id: "teachers", label: "Giáo viên" },
-    { id: "orders", label: "Đơn hàng" },
   ];
 
   return (
@@ -86,7 +76,7 @@ function Header() {
             src={logo} 
             alt="NTA English Center Logo" 
             style={{
-              width: 80,
+              width: 50,
               height: 50,
               borderRadius: "50%",
               objectFit: "cover",

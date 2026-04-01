@@ -6,6 +6,9 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
+    country: "Việt Nam",
+    province: "",
+    district: "",
     address: "",
   });
   const [loading, setLoading] = useState(false);
@@ -71,7 +74,7 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.phone || !formData.address) {
+    if (!formData.name || !formData.phone || !formData.province || !formData.district || !formData.address) {
       alert("Vui lòng điền đầy đủ thông tin nhận hàng!");
       return;
     }
@@ -84,7 +87,7 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
           so_luong: item.quantity,
         })),
         phuong_thuc_tt: payment,
-        dia_chi_giao: `${formData.name} - ${formData.phone} - ${formData.address}`,
+        dia_chi_giao: `${formData.name} - ${formData.phone} - ${formData.address}, ${formData.district}, ${formData.province}, ${formData.country}`,
         ghi_chu: "",
         phi_van_chuyen: shippingFee,
         tong_tien: finalTotal,
@@ -307,10 +310,10 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
                 onBlur={(e) => e.target.style.borderColor = "#e0e0e0"}
               />
               <input
-                name="address"
-                value={formData.address}
+                name="country"
+                value={formData.country}
                 onChange={handleInputChange}
-                placeholder="Địa chỉ chi tiết"
+                placeholder="Quốc gia"
                 style={{
                   width: "100%",
                   padding: "14px 16px",
@@ -324,6 +327,96 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
                 onFocus={(e) => e.target.style.borderColor = "#e53935"}
                 onBlur={(e) => e.target.style.borderColor = "#e0e0e0"}
               />
+              <input
+                name="province"
+                value={formData.province}
+                onChange={handleInputChange}
+                placeholder="Tỉnh/Thành phố"
+                style={{
+                  width: "100%",
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  border: "2px solid #e0e0e0",
+                  fontSize: 14,
+                  outline: "none",
+                  transition: "all 0.3s ease",
+                  boxSizing: "border-box",
+                }}
+                onFocus={(e) => e.target.style.borderColor = "#e53935"}
+                onBlur={(e) => e.target.style.borderColor = "#e0e0e0"}
+              />
+              <input
+                name="district"
+                value={formData.district}
+                onChange={handleInputChange}
+                placeholder="Quận/Huyện/Xã"
+                style={{
+                  width: "100%",
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  border: "2px solid #e0e0e0",
+                  fontSize: 14,
+                  outline: "none",
+                  transition: "all 0.3s ease",
+                  boxSizing: "border-box",
+                }}
+                onFocus={(e) => e.target.style.borderColor = "#e53935"}
+                onBlur={(e) => e.target.style.borderColor = "#e0e0e0"}
+              />
+              <input
+                name="address"
+                value={formData.address}
+                onChange={handleInputChange}
+                placeholder="Địa chỉ nhận hàng (số nhà, tên đường)"
+                style={{
+                  width: "100%",
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  border: "2px solid #e0e0e0",
+                  fontSize: 14,
+                  outline: "none",
+                  transition: "all 0.3s ease",
+                  boxSizing: "border-box",
+                }}
+                onFocus={(e) => e.target.style.borderColor = "#e53935"}
+                onBlur={(e) => e.target.style.borderColor = "#e0e0e0"}
+              />
+            </div>
+          </div>
+
+          {/* Delivery Estimate */}
+          <div style={{
+            background: "#e3f2fd",
+            borderRadius: 12,
+            padding: 15,
+            marginBottom: 25,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}>
+            <span style={{ fontSize: 20 }}>🚚</span>
+            <div>
+              <p style={{
+                margin: 0,
+                fontSize: 14,
+                color: "#1565c0",
+                fontWeight: "600",
+              }}>
+                Dự kiến giao hàng khoảng 2-3 ngày
+              </p>
+              <p style={{
+                margin: "4px 0 0 0",
+                fontSize: 13,
+                color: "#1976d2",
+              }}>
+                {(() => {
+                  const today = new Date();
+                  const deliveryDate = new Date(today);
+                  deliveryDate.setDate(today.getDate() + 3);
+                  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                  return `Dự kiến: ${deliveryDate.toLocaleDateString('vi-VN', options)}`;
+                })()}
+              </p>
             </div>
           </div>
 

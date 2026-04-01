@@ -299,9 +299,98 @@ const refreshToken = async (req, res) => {
   }
 };
 
+// POST /api/auth/login-ctv - Login for CTV
+const loginCTV = async (req, res) => {
+  try {
+    const { email, mat_khau } = req.body;
+
+    // Find user with role
+    const user = await NguoiDung.findOne({
+      where: { email },
+      include: [{ model: ChucVu, as: "chucVu" }],
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Email hoặc mật khẩu không đúng",
+      });
+    }
+
+    // Check password
+    const isValidPassword = await bcrypt.compare(mat_khau, user.mat_khau);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: "Email hoặc mật khẩu không đúng",
+      });
+    }
+
+    // Check if user is CTV
+    if (user.chuc_vu_id !== 6) {
+      return res.status(403).json({
+        success: false,
+        message: "Tài khoản này không phải CTV",
+      });
+    }
+
+    // Check status
+    if (user.trang_thai !== "hoat_dong") {
+      return res.status(403).json({
+        success: false,
+        message: "Tài khoản đã bị vô hiệu hóa",
+      });
+    }
+
+    // Get CTV info
+    const { CTV } = require("../models");
+    const ctv = await CTV.findOne({ where: { nguoi_dung_id: user.id } });
+
+    // Save login history
+    await LichSuDangNhap.create({
+      nguoi_dung_id: user.id,
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.headers["user-agent"],
+    });
+
+    // Generate token
+    const token = generateToken(user);
+
+    res.json({
+      success: true,
+      message: "Đăng nhập thành công",
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          ho_ten: user.ho_ten,
+          sdt: user.sdt,
+          chuc_vu_id: user.chuc_vu_id,
+          chuc_vu: user.chucVu ? user.chucVu.ten_chuc_vu : null,
+        },
+        ctv: ctv ? {
+          id: ctv.id,
+          ma_gioi_thieu: ctv.ma_gioi_thieu,
+          cap_do: ctv.cap_do,
+          tong_downline: ctv.tong_downline,
+          tong_hoa_hong: ctv.tong_hoa_hong,
+        } : null,
+        token,
+      },
+    });
+  } catch (error) {
+    console.error("Login CTV error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server",
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
+  loginCTV,
   getProfile,
   updateProfile,
   changePassword,

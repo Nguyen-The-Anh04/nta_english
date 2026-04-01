@@ -184,7 +184,7 @@ export const register = async (userData) => {
 
 // Affiliate API
 export const registerAffiliate = async (data) => {
-  const response = await fetch(`${API_BASE_URL}/affiliate/register`, {
+  const response = await fetch(`${API_BASE_URL}/affiliate/register-new`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -195,10 +195,81 @@ export const registerAffiliate = async (data) => {
   return result;
 };
 
-export const fetchAffiliateStats = async () => {
-  const response = await fetch(`${API_BASE_URL}/affiliate/stats`);
+export const loginCTV = async (email, password) => {
+  const response = await fetch(`${API_BASE_URL}/auth/login-ctv`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, mat_khau: password }),
+  });
   const result = await response.json();
-  return result.data;
+  return result;
+};
+
+export const fetchAffiliateStats = () => {
+  const token = localStorage.getItem("token");
+
+  return fetch(`${API_BASE_URL}/affiliate/stats`, {
+    headers: {
+      "Authorization": `Bearer ${token}`
+    }
+  }).then(res => res.json());
+};
+
+export const fetchAffiliateCommissions = async (params = {}) => {
+  const token = localStorage.getItem('token');
+  const queryString = new URLSearchParams(params).toString();
+  const url = queryString 
+    ? `${API_BASE_URL}/affiliate/commissions?${queryString}`
+    : `${API_BASE_URL}/affiliate/commissions`;
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const fetchAffiliateDownline = async () => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/affiliate/downline`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const fetchAffiliateWithdrawals = async (params = {}) => {
+  const token = localStorage.getItem('token');
+  const queryString = new URLSearchParams(params).toString();
+  const url = queryString 
+    ? `${API_BASE_URL}/affiliate/withdrawals?${queryString}`
+    : `${API_BASE_URL}/affiliate/withdrawals`;
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const createAffiliateWithdraw = async (data) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/affiliate/withdraw`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  return result;
 };
 
 // Leads API
@@ -384,28 +455,187 @@ export const createVNPayPayment = async (paymentData) => {
   return result;
 };
 
-export default {
-  fetchBooks,
-  fetchBookById,
-  createBook,
-  updateBook,
-  deleteBook,
-  fetchCourses,
-  fetchCourseById,
-  createOrder,
-  fetchOrders,
-  fetchUserOrders,
-  fetchOrderById,
-  cancelOrder,
-  login,
-  register,
-  registerAffiliate,
-  fetchAffiliateStats,
-  createLead,
-  fetchLeads,
-  updateLead,
-  deleteLead,
-  fetchLeadStats,
-  fetchReviewsByBook,
-  createReview,
+// Admin CTV Management API
+export const fetchCTVs = async (params = {}, token) => {
+  const queryString = new URLSearchParams(params).toString();
+  const url = queryString 
+    ? `${API_BASE_URL}/affiliate/admin/ctvs?${queryString}`
+    : `${API_BASE_URL}/affiliate/admin/ctvs`;
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const updateCTVStatus = async (ctvId, status, token) => {
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/ctvs/${ctvId}/status`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ trang_thai: status }),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const deleteCTV = async (ctvId, token) => {
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/ctvs/${ctvId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
+// Admin Commission Management API
+export const fetchCommissions = async (params = {}, token) => {
+  const queryString = new URLSearchParams(params).toString();
+  const url = queryString 
+    ? `${API_BASE_URL}/affiliate/admin/commissions?${queryString}`
+    : `${API_BASE_URL}/affiliate/admin/commissions`;
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const updateCommissionStatus = async (commissionId, status, token) => {
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/commissions/${commissionId}/status`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ trang_thai: status }),
+  });
+  const result = await response.json();
+  return result;
+};
+
+// Admin Commission Products API
+export const fetchCommissionProducts = async (token) => {
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/commission-products`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const createCommissionProduct = async (data, token) => {
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/commission-products`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const updateCommissionProduct = async (id, data, token) => {
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/commission-products/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const deleteCommissionProduct = async (id, token) => {
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/commission-products/${id}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
+// User Profile API
+export const updateUserProfile = async (data) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/users/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const changePassword = async (data) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/users/change-password`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const getUserProfile = async () => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/users/profile`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
+// Affiliate Link API
+export const generateAffiliateLink = async (productId) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/affiliate/generate-link`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ product_id: productId }),
+  });
+  const result = await response.json();
+  return result;
+};
+
+export const getAffiliateProducts = async (params = {}) => {
+  const token = localStorage.getItem('token');
+  const queryString = new URLSearchParams(params).toString();
+  const url = queryString 
+    ? `${API_BASE_URL}/affiliate/products?${queryString}`
+    : `${API_BASE_URL}/affiliate/products`;
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
 };

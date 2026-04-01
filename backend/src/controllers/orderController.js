@@ -331,22 +331,71 @@ const createOrder = async (req, res) => {
     if (ctv_id) {
       const ctv = await CTV.findByPk(ctv_id);
       if (ctv) {
-        // F1 gets 10%, F2 gets 5%, F3 gets 3%
-        let ty_le = 10;
-        if (ctv.cap_do === 2) ty_le = 5;
-        if (ctv.cap_do === 3) ty_le = 3;
+        // Get commission rates from CommissionProducts
+        const commissionProduct = await CommissionProducts.findOne({
+          where: { san_pham_id: sach_ids[0]?.sach_id, trang_thai: "hoat_dong" },
+        });
 
+        // Default commission rates
+        let f1_percent = 10;
+        let f2_percent = 5;
+        let f3_percent = 2;
+
+        // Use custom rates if available
+        if (commissionProduct) {
+          f1_percent = commissionProduct.f1_percent;
+          f2_percent = commissionProduct.f2_percent;
+          f3_percent = commissionProduct.f3_percent;
+        }
+
+        // Create commission for F1 (direct CTV)
         await HoaHong.create({
-          ctv_id,
+          ctv_id: ctv.id,
           don_hang_id: order.id,
-          ty_le_pham_ram: ty_le,
-          tien_hoa_hong: (tong_tien * ty_le) / 100,
-          cap_do: ctv.cap_do,
+          ty_le_pham_ram: f1_percent,
+          tien_hoa_hong: (tong_tien * f1_percent) / 100,
+          cap_do: 1,
           trang_thai: "cho_xac_nhan",
         });
 
-        // Update CTV total
-        await ctv.update({ tong_hoa_hong: ctv.tong_hoa_hong + (tong_tien * ty_le) / 100 });
+        // Update F1 total commission
+        await ctv.update({ tong_hoa_hong: ctv.tong_hoa_hong + (tong_tien * f1_percent) / 100 });
+
+        // Create commission for F2 (parent of F1)
+        if (ctv.ctv_cha_id) {
+          const f2 = await CTV.findByPk(ctv.ctv_cha_id);
+          if (f2) {
+            await HoaHong.create({
+              ctv_id: f2.id,
+              don_hang_id: order.id,
+              ty_le_pham_ram: f2_percent,
+              tien_hoa_hong: (tong_tien * f2_percent) / 100,
+              cap_do: 2,
+              trang_thai: "cho_xac_nhan",
+            });
+
+            // Update F2 total commission
+            await f2.update({ tong_hoa_hong: f2.tong_hoa_hong + (tong_tien * f2_percent) / 100 });
+
+            // Create commission for F3 (parent of F2)
+            if (f2.ctv_cha_id) {
+              const f3 = await CTV.findByPk(f2.ctv_cha_id);
+              if (f3) {
+                await HoaHong.create({
+                  ctv_id: f3.id,
+                  don_hang_id: order.id,
+                  ty_le_pham_ram: f3_percent,
+                  tien_hoa_hong: (tong_tien * f3_percent) / 100,
+                  cap_do: 3,
+                  trang_thai: "cho_xac_nhan",
+                });
+
+                // Update F3 total commission
+                await f3.update({ tong_hoa_hong: f3.tong_hoa_hong + (tong_tien * f3_percent) / 100 });
+              }
+            }
+          }
+        }
       }
     }
 
@@ -424,6 +473,50 @@ const getCTVProfile = async (req, res) => {
     res.status(500).json({ success: false, message: "Lỗi server" });
   }
 };
+
+// GET /api/affiliate/stats - Dashboard stats
+const getAffiliateStats = async (req, res) => {
+  try {
+    const ctv = await CTV.findOne({ where: { nguoi_dung_id: req.user.id } });
+
+    if (!ctv) {
+      return res.status(404).json({ success: false, message: "CTV không tồn tại" });
+    }
+
+    const cho_xac_nhan = await HoaHong.sum("tien_hoa_hong", {
+      where: { ctv_id: ctv.id, trang_thai: "cho_xac_nhan" },
+    });
+
+    const da_tra = await HoaHong.sum("tien_hoa_hong", {
+      where: { ctv_id: ctv.id, trang_thai: "da_tra" },
+    });
+
+    const da_rut = await RutTienCTV.sum("so_tien", {
+      where: { ctv_id: ctv.id, trang_thai: "da_duyet" },
+    });
+
+    const tong_f1 = await CTV.count({ where: { ctv_cha_id: ctv.id, cap_do: 1 } });
+    const tong_f2 = await CTV.count({ where: { cap_do: 2 } });
+    const tong_f3 = await CTV.count({ where: { cap_do: 3 } });
+
+    res.json({
+      success: true,
+      data: {
+        cho_xac_nhan: cho_xac_nhan || 0,
+        da_tra: da_tra || 0,
+        da_rut: da_rut || 0,
+        co_the_rut: (da_tra || 0) - (da_rut || 0),
+        f1: tong_f1,
+        f2: tong_f2,
+        f3: tong_f3,
+      },
+    });
+  } catch (error) {
+    console.error("Get affiliate stats error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
 
 // GET /api/affiliate/downline - Get F1/F2/F3
 const getDownline = async (req, res) => {
@@ -560,7 +653,7 @@ const getWithdrawals = async (req, res) => {
   }
 };
 
-// POST /api/affiliate/register - Register as CTV
+// POST /api/affiliate/register - Register as CTV (requires auth)
 const registerAsCTV = async (req, res) => {
   try {
     const { ma_gioi_thieu } = req.body;
@@ -611,6 +704,199 @@ const registerAsCTV = async (req, res) => {
   }
 };
 
+// POST /api/affiliate/register-new - Register new user as CTV (no auth required)
+const registerAffiliate = async (req, res) => {
+  try {
+    const { ho_ten, email, mat_khau, sdt, tinh_thanh, nghe_nghiep, link_mxh, ly_do, ma_gioi_thieu } = req.body;
+
+    // Validate required fields
+    if (!ho_ten || !email || !mat_khau || !sdt) {
+      return res.status(400).json({ success: false, message: "Vui lòng điền đầy đủ thông tin" });
+    }
+
+    // Check if email already exists
+    const existingUser = await NguoiDung.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: "Email đã tồn tại" });
+    }
+
+    // Hash password
+    const bcrypt = require("bcryptjs");
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(mat_khau, salt);
+
+    // Create user
+    const user = await NguoiDung.create({
+      ho_ten,
+      email,
+      mat_khau: hashedPassword,
+      sdt,
+      chuc_vu_id: 6, // CTV role
+      trang_thai: "hoat_dong",
+    });
+
+    // Find parent CTV if referral code provided
+    let ctv_cha_id = null;
+    let cap_do = 1;
+
+    if (ma_gioi_thieu) {
+      const parentCTV = await CTV.findOne({ where: { ma_gioi_thieu } });
+      if (parentCTV) {
+        ctv_cha_id = parentCTV.id;
+        cap_do = parentCTV.cap_do < 3 ? parentCTV.cap_do + 1 : 3;
+      }
+    }
+
+    // Generate unique affiliate code
+    const ma_ctv = "CTV" + Date.now();
+
+    // Create CTV record
+    const ctv = await CTV.create({
+      nguoi_dung_id: user.id,
+      ctv_cha_id,
+      cap_do,
+      ma_gioi_thieu: ma_ctv,
+      tong_downline: 0,
+      tong_hoa_hong: 0,
+    });
+
+    // Update parent downline count
+    if (ctv_cha_id) {
+      const parentCTV = await CTV.findByPk(ctv_cha_id);
+      await parentCTV.update({ tong_downline: parentCTV.tong_downline + 1 });
+    }
+
+    // Generate JWT token
+    const jwt = require("jsonwebtoken");
+    const token = jwt.sign(
+      { id: user.id, email: user.email, chuc_vu_id: user.chuc_vu_id },
+      process.env.JWT_SECRET || "nta_secret_key_2026",
+      { expiresIn: "7d" }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Đăng ký CTV thành công",
+      data: {
+        user: {
+          id: user.id,
+          ho_ten: user.ho_ten,
+          email: user.email,
+          sdt: user.sdt,
+          chuc_vu_id: user.chuc_vu_id,
+        },
+        ctv: {
+          id: ctv.id,
+          ma_gioi_thieu: ctv.ma_gioi_thieu,
+          cap_do: ctv.cap_do,
+        },
+        token,
+      },
+    });
+  } catch (error) {
+    console.error("Register affiliate error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// POST /api/affiliate/generate-link - Generate affiliate link for a product
+const generateAffiliateLink = async (req, res) => {
+  try {
+    const { product_id } = req.body;
+    const userId = req.user.id;
+
+    // Get CTV info
+    const ctv = await CTV.findOne({ where: { nguoi_dung_id: userId } });
+    if (!ctv) {
+      return res.status(400).json({ success: false, message: "Bạn chưa đăng ký làm CTV" });
+    }
+
+    // Get product info
+    const product = await Sach.findByPk(product_id, {
+      include: [{ model: LoaiSach, as: "loaiSach" }],
+    });
+
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Sản phẩm không tồn tại" });
+    }
+
+    // Generate affiliate link
+    const baseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const affiliateLink = `${baseUrl}/product/${product_id}?ref=${ctv.ma_gioi_thieu}`;
+
+    res.json({
+      success: true,
+      data: {
+        link: affiliateLink,
+        product: {
+          id: product.id,
+          ten_sach: product.ten_sach,
+          gia_ban: product.gia_ban,
+          loaiSach: product.loaiSach,
+        },
+        ctv: {
+          ma_gioi_thieu: ctv.ma_gioi_thieu,
+          cap_do: ctv.cap_do,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Generate affiliate link error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// GET /api/affiliate/products - Get products with commission info
+const getAffiliateProducts = async (req, res) => {
+  try {
+    const { loai_sach_id, page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const where = {};
+    if (loai_sach_id) where.loai_sach_id = loai_sach_id;
+
+    const { count, rows: books } = await Sach.findAndCountAll({
+      where,
+      include: [{ model: LoaiSach, as: "loaiSach", attributes: ["id", "ten_loai"] }],
+      order: [["created_at", "DESC"]],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+
+    // Add commission rate based on category
+    const productsWithCommission = books.map(book => {
+      const categoryName = book.loaiSach?.ten_loai?.toLowerCase() || "";
+      const commission = categoryName.includes("ielts") ? 10 : 5;
+      
+      return {
+        id: book.id,
+        ten_sach: book.ten_sach,
+        gia_ban: book.gia_ban,
+        hinh_anh: book.hinh_anh,
+        mo_ta: book.mo_ta,
+        loaiSach: book.loaiSach,
+        commission,
+        commissionAmount: parseFloat(book.gia_ban) * commission / 100,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        products: productsWithCommission,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get affiliate products error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
 module.exports = {
   getCategories,
   getAllBooks,
@@ -624,9 +910,13 @@ module.exports = {
   createOrder,
   updateOrderStatus,
   getCTVProfile,
+  getAffiliateStats, // 👈 THÊM DÒNG NÀY
   getDownline,
   getCommissions,
   requestWithdraw,
   getWithdrawals,
   registerAsCTV,
+  registerAffiliate,
+  generateAffiliateLink,
+  getAffiliateProducts,
 };

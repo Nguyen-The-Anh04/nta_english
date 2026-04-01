@@ -227,6 +227,85 @@ const getTeachers = async (req, res) => {
   }
 };
 
+// GET /api/users/profile - Get current user profile
+const getProfile = async (req, res) => {
+  try {
+    const user = await NguoiDung.findByPk(req.user.id, {
+      include: [
+        { model: ChucVu, as: "chucVu" },
+        { model: PhongBan, as: "phongBan" },
+        { model: HoSo, as: "hoSo" },
+      ],
+      attributes: { exclude: ["mat_khau"] },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Người dùng không tồn tại" });
+    }
+
+    res.json({ success: true, data: user });
+  } catch (error) {
+    console.error("Get profile error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// PUT /api/users/profile - Update current user profile
+const updateProfile = async (req, res) => {
+  try {
+    const { ho_ten, sdt } = req.body;
+
+    const user = await NguoiDung.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Người dùng không tồn tại" });
+    }
+
+    await user.update({
+      ho_ten: ho_ten || user.ho_ten,
+      sdt: sdt || user.sdt,
+    });
+
+    res.json({
+      success: true,
+      message: "Cập nhật thông tin thành công",
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// PUT /api/users/change-password - Change password
+const changePassword = async (req, res) => {
+  try {
+    const { mat_khau_cu, mat_khau_moi } = req.body;
+
+    const user = await NguoiDung.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Người dùng không tồn tại" });
+    }
+
+    // Verify old password
+    const isMatch = await bcrypt.compare(mat_khau_cu, user.mat_khau);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Mật khẩu hiện tại không đúng" });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(mat_khau_moi, 10);
+
+    await user.update({ mat_khau: hashedPassword });
+
+    res.json({
+      success: true,
+      message: "Đổi mật khẩu thành công",
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -237,4 +316,7 @@ module.exports = {
   getRoles,
   getDepartments,
   getTeachers,
+  getProfile,
+  updateProfile,
+  changePassword,
 };

@@ -9,6 +9,9 @@ router.post("/register", authController.register);
 // POST /api/auth/login
 router.post("/login", authController.login);
 
+// POST /api/auth/login-ctv - Login for CTV
+router.post("/login-ctv", authController.loginCTV);
+
 // GET /api/auth/profile - Get current user profile
 router.get("/profile", auth, authController.getProfile);
 

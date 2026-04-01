@@ -30,4 +30,13 @@ router.delete("/:id", auth, isAdmin, userController.deleteUser);
 // GET /api/users/:id/login-history - Get login history
 router.get("/:id/login-history", auth, isAdmin, userController.getLoginHistory);
 
+// GET /api/users/profile - Get current user profile
+router.get("/profile", auth, userController.getProfile);
+
+// PUT /api/users/profile - Update current user profile
+router.put("/profile", auth, userController.updateProfile);
+
+// PUT /api/users/change-password - Change password
+router.put("/change-password", auth, userController.changePassword);
+
 module.exports = router;

@@ -1,4 +1,19 @@
 import { useState, useEffect } from "react";
+import {
+  loginCTV,
+  registerAffiliate,
+  fetchAffiliateStats,
+  fetchAffiliateCommissions,
+  fetchAffiliateDownline,
+  fetchAffiliateWithdrawals,
+  createAffiliateWithdraw,
+  fetchBooks,
+  fetchCategories
+} from "../api";
+import CartDrawer from "./CartDrawer";
+import CheckoutDrawer from "./CheckoutDrawer";
+import Footer from "./Footer";
+import ProductDetail from "./ProductDetail";
 
 // Business Rules
 const COMMISSION_RATES = {
@@ -12,16 +27,22 @@ const WITHDRAW_FEE = 1000;
 
 export default function AffiliateSystem({ initialPage = "register" }) {
   const [user, setUser] = useState(null);
+  const [ctvInfo, setCtvInfo] = useState(null);
   const [page, setPage] = useState(initialPage); // register, login, dashboard
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showRevenue, setShowRevenue] = useState(false);
   const [showWithdrawHistory, setShowWithdrawHistory] = useState(false);
-  const [showOrders, setShowOrders] = useState(false);
   const [showUsers, setShowUsers] = useState(false);
   const [showBankForm, setShowBankForm] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [cart, setCart] = useState([]);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   // Form states
   const [registerForm, setRegisterForm] = useState({ name: "", email: "", password: "", phone: "" });
@@ -33,56 +54,173 @@ export default function AffiliateSystem({ initialPage = "register" }) {
     accountNumber: "",
   });
 
-  // Mock data
-  const [mockUsers, setMockUsers] = useState([
-    { id: 33311, name: "Nguyễn Thị Thảo", email: "thao@example.com", joinDate: "2024-03-23", parentId: null },
-    { id: 33466, name: "Trần Thị Quỳnh", email: "quynh@example.com", joinDate: "2024-03-24", parentId: null },
-  ]);
+  // Real data from API
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    f1Count: 0,
+    f2Count: 0,
+    f3Count: 0,
+    pendingCommission: 0,
+  });
+  const [commissions, setCommissions] = useState([]);
+  const [downline, setDownline] = useState({ f1: [], f2: [], f3: [] });
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
 
-  const [mockOrders, setMockOrders] = useState([
-    { id: 46242, userId: 33311, userName: "Nguyễn Văn A", userEmail: "a@gmail.com", product: "Cambridge IELTS 18", price: 189000, commission: 18900, status: "completed", date: "2024-04-15", level: "F1" },
-    { id: 46243, userId: 33311, userName: "Nguyễn Văn B", userEmail: "b@gmail.com", product: "IELTS Speaking Booster", price: 199000, commission: 19900, status: "completed", date: "2024-04-16", level: "F1" },
-    { id: 46244, userId: 33466, userName: "Nguyễn Văn C", userEmail: "c@gmail.com", product: "Target TOEIC 900", price: 175000, commission: 8750, status: "completed", date: "2024-04-17", level: "F2" },
-  ]);
+  // Load products and categories on mount
+  useEffect(() => {
+    loadProducts();
+    loadCategories();
+  }, []);
 
-  const [mockWithdrawals, setMockWithdrawals] = useState([
-    { id: 126087, amount: 200000, fee: 1000, status: "completed", date: "2024-04-27", bankInfo: "MB BANK - ****8555" },
-    { id: 140392, amount: 300000, fee: 1000, status: "completed", date: "2024-05-18", bankInfo: "MB BANK - ****8555" },
-  ]);
-
-  // Products for sharing
-  const products = [
-    { id: 1, title: "Cambridge IELTS 18 Academic", price: 189000, image: "📚", category: "ielts" },
-    { id: 2, title: "Official TOEIC Test Vol 9", price: 159000, image: "📝", category: "toeic" },
-    { id: 3, title: "IELTS Speaking Booster", price: 199000, image: "🎤", category: "ielts" },
-    { id: 4, title: "Target TOEIC 900", price: 175000, image: "🎯", category: "toeic" },
-    { id: 5, title: "Cambridge KET Practice Tests", price: 145000, image: "🏫", category: "cambridge" },
-    { id: 6, title: "English Grammar in Use", price: 165000, image: "📖", category: "ngu-phap" },
-  ];
-
-  // Calculate stats
-  const calculateStats = () => {
-    if (!user) return { totalRevenue: 0, f1Count: 0, f2Count: 0, f3Count: 0, pendingCommission: 0 };
-
-    // Get user's downline
-    const f1Users = mockUsers.filter(u => u.parentId === user.id);
-    const f2Users = f1Users.flatMap(f1 => mockUsers.filter(u => u.parentId === f1.id));
-    const f3Users = f2Users.flatMap(f2 => mockUsers.filter(u => u.parentId === f2.id));
-
-    // Calculate revenue from orders
-    const userOrders = mockOrders.filter(o => o.userId === user.id);
-    const totalRevenue = userOrders.reduce((sum, o) => sum + o.commission, 0);
-
-    return {
-      totalRevenue,
-      f1Count: f1Users.length,
-      f2Count: f2Users.length,
-      f3Count: f3Users.length,
-      pendingCommission: 0,
-    };
+  const loadProducts = async () => {
+    try {
+      const books = await fetchBooks();
+      // Map database fields to frontend format
+      const mappedProducts = books.map(book => ({
+        id: book.id,
+        title: book.ten_sach,
+        price: parseFloat(book.gia_ban),
+        image: book.hinh_anh || "📚",
+        category: book.loaiSach?.ten_loai?.toLowerCase() || "other",
+        categoryId: book.loai_sach_id,
+      }));
+      setProducts(mappedProducts);
+    } catch (error) {
+      console.error("Lỗi tải sách:", error);
+      setProducts([]);
+    } finally {
+      setLoadingProducts(false);
+    }
   };
 
-  const stats = calculateStats();
+  const loadCategories = async () => {
+    try {
+      const categoriesData = await fetchCategories();
+      // Add "Tất cả" option
+      const allCategories = [
+        { id: "all", ten_loai: "Tất cả", icon: "📚" },
+        ...categoriesData.map(cat => ({
+          id: cat.id,
+          ten_loai: cat.ten_loai,
+          icon: cat.ten_loai.toLowerCase().includes("ielts") ? "🎯" : 
+                cat.ten_loai.toLowerCase().includes("toeic") ? "📝" : "💬"
+        }))
+      ];
+      setCategories(allCategories);
+    } catch (error) {
+      console.error("Lỗi tải categories:", error);
+      // Fallback to default categories
+      setCategories([
+        { id: "all", ten_loai: "Tất cả", icon: "📚" },
+        { id: 1, ten_loai: "Sách IELTS", icon: "🎯" },
+        { id: 2, ten_loai: "Sách TOEIC", icon: "📝" },
+        { id: 3, ten_loai: "Sách Giao tiếp", icon: "💬" },
+      ]);
+    }
+  };
+
+  // Filter products by category
+  const filteredProducts = activeCategory === "all" 
+    ? products 
+    : products.filter(p => p.categoryId === activeCategory);
+
+  // Cart management functions
+  const addToCart = (product, qty = 1) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === product.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + qty }
+            : item
+        );
+      }
+      return [...prev, { ...product, quantity: qty }];
+    });
+    setCartOpen(true);
+  };
+
+  const updateQuantity = (productId, newQuantity) => {
+    if (newQuantity < 1) return;
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === productId ? { ...item, quantity: newQuantity } : item
+      )
+    );
+  };
+
+  const removeFromCart = (productId) => {
+    setCart((prev) => prev.filter((item) => item.id !== productId));
+  };
+
+  const handleBuyNow = (product) => {
+    addToCart(product, 1);
+    setCartOpen(false);
+    setCheckoutOpen(true);
+  };
+
+  const handleViewProduct = (product) => {
+    setSelectedProduct(product);
+  };
+
+  const handleBackFromProduct = () => {
+    setSelectedProduct(null);
+  };
+
+  // Load data when user logs in
+  useEffect(() => {
+    if (user && ctvInfo) {
+      loadDashboardData();
+    }
+  }, [user, ctvInfo]);
+
+  // Check for existing token on mount
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
+    const savedCtv = localStorage.getItem("ctv");
+
+    if (token && savedUser && savedCtv) {
+      setUser(JSON.parse(savedUser));
+      setCtvInfo(JSON.parse(savedCtv));
+      setPage("dashboard");
+    }
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      // Load stats
+      const statsResult = await fetchAffiliateStats();
+      if (statsResult.success) {
+        setStats(statsResult.data);
+      }
+
+      // Load commissions
+      const commissionsResult = await fetchAffiliateCommissions();
+      if (commissionsResult.success) {
+        setCommissions(commissionsResult.data.commissions);
+      }
+
+      // Load downline
+      const downlineResult = await fetchAffiliateDownline();
+      if (downlineResult.success) {
+        setDownline(downlineResult.data);
+      }
+
+      // Load withdrawals
+      const withdrawalsResult = await fetchAffiliateWithdrawals();
+      if (withdrawalsResult.success) {
+        setWithdrawals(withdrawalsResult.data.withdrawals);
+      }
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+    }
+  };
 
   // Show toast notification
   const showToast = (message, type = "success") => {
@@ -96,62 +234,70 @@ export default function AffiliateSystem({ initialPage = "register" }) {
   };
 
   // Handle registration
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const newUser = {
-        id: Math.floor(Math.random() * 90000) + 10000,
-        name: registerForm.name,
+
+    try {
+      const result = await registerAffiliate({
+        ho_ten: registerForm.name,
         email: registerForm.email,
-        phone: registerForm.phone,
-        refCode: generateRefCode(),
-        parentId: null, // Could be set from URL parameter
-        joinDate: new Date().toISOString().split("T")[0],
-      };
-      
-      setUser(newUser);
-      setMockUsers([...mockUsers, newUser]);
-      setPage("dashboard");
+        mat_khau: registerForm.password,
+        sdt: registerForm.phone,
+      });
+
+      if (result.success) {
+        // Save token and user info
+        localStorage.setItem("token", result.data.token);
+        localStorage.setItem("user", JSON.stringify(result.data.user));
+        localStorage.setItem("ctv", JSON.stringify(result.data.ctv));
+
+        setUser(result.data.user);
+        setCtvInfo(result.data.ctv);
+        setPage("dashboard");
+        showToast("Đăng ký thành công! Chào mừng bạn đến với NTA Books!");
+      } else {
+        showToast(result.message || "Đăng ký thất bại", "error");
+      }
+    } catch (error) {
+      console.error("Register error:", error);
+      showToast("Có lỗi xảy ra. Vui lòng thử lại!", "error");
+    } finally {
       setLoading(false);
-      showToast("Đăng ký thành công! Chào mừng bạn đến với NTA Books!");
-    }, 1000);
+    }
   };
 
   // Handle login
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const foundUser = mockUsers.find(u => u.email === loginForm.email);
-      if (foundUser) {
-        setUser(foundUser);
+
+    try {
+      const result = await loginCTV(loginForm.email, loginForm.password);
+
+      if (result.success) {
+        // Save token and user info
+        localStorage.setItem("token", result.data.token);
+        localStorage.setItem("user", JSON.stringify(result.data.user));
+        localStorage.setItem("ctv", JSON.stringify(result.data.ctv));
+
+        setUser(result.data.user);
+        setCtvInfo(result.data.ctv);
         setPage("dashboard");
         showToast("Đăng nhập thành công!");
       } else {
-        // Create demo user for login
-        const demoUser = {
-          id: 12345,
-          name: "Nguyễn Văn Demo",
-          email: loginForm.email,
-          phone: "0912345678",
-          refCode: "REF" + Math.random().toString(36).substr(2, 6).toUpperCase(),
-          parentId: null,
-          joinDate: "2024-01-01",
-        };
-        setUser(demoUser);
-        setPage("dashboard");
+        showToast(result.message || "Đăng nhập thất bại", "error");
       }
+    } catch (error) {
+      console.error("Login error:", error);
+      showToast("Có lỗi xảy ra. Vui lòng thử lại!", "error");
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   // Handle withdraw
-  const handleWithdraw = () => {
+  const handleWithdraw = async () => {
     const amount = parseInt(withdrawAmount);
     if (isNaN(amount) || amount < MIN_WITHDRAW) {
       showToast(`Số tiền tối thiểu là ${MIN_WITHDRAW.toLocaleString("vi-VN")} đ`, "error");
@@ -162,19 +308,26 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       return;
     }
 
-    const newWithdrawal = {
-      id: Math.floor(Math.random() * 900000) + 100000,
-      amount,
-      fee: WITHDRAW_FEE,
-      status: "pending",
-      date: new Date().toISOString().split("T")[0],
-      bankInfo: `${bankInfo.bankName} - ****${bankInfo.accountNumber.slice(-4)}`,
-    };
+    try {
+      const token = localStorage.getItem("token");
+      const result = await createAffiliateWithdraw({
+        so_tien: amount,
+        so_tk_ngan_hang: bankInfo.accountNumber,
+        noi_dung_tt: `Rút tiền CTV - ${bankInfo.bankName}`,
+      });
 
-    setMockWithdrawals([newWithdrawal, ...mockWithdrawals]);
-    setShowWithdraw(false);
-    setWithdrawAmount("");
-    showToast("Yêu cầu rút tiền đã được gửi! Chờ duyệt trong 24-48h");
+      if (result.success) {
+        showToast("Yêu cầu rút tiền đã được gửi! Chờ duyệt trong 24-48h");
+        setShowWithdraw(false);
+        setWithdrawAmount("");
+        loadDashboardData(); // Reload data
+      } else {
+        showToast(result.message || "Rút tiền thất bại", "error");
+      }
+    } catch (error) {
+      console.error("Withdraw error:", error);
+      showToast("Có lỗi xảy ra. Vui lòng thử lại!", "error");
+    }
   };
 
   // Copy to clipboard
@@ -186,7 +339,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
   // Get referral link
   const getReferralLink = (productId = null) => {
     const baseUrl = window.location.origin;
-    const refParam = user ? `?ref=${user.refCode}` : "";
+    const refParam = ctvInfo ? `?ref=${ctvInfo.ma_gioi_thieu}` : "";
     const productParam = productId ? `/product/${productId}` : "";
     return `${baseUrl}/shop${productParam}${refParam}`;
   };
@@ -194,6 +347,17 @@ export default function AffiliateSystem({ initialPage = "register" }) {
   // Format currency
   const formatCurrency = (amount) => {
     return (amount || 0).toLocaleString("vi-VN") + " đ";
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("ctv");
+    setUser(null);
+    setCtvInfo(null);
+    setPage("login");
+    showToast("Đã đăng xuất");
   };
 
   return (
@@ -433,7 +597,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
             <div style={{ textAlign: "center", marginTop: 20 }}>
               <span style={{ color: "#666", fontSize: 14 }}>Chưa có tài khoản? </span>
               <button
-                onClick={() => window.navigateTo("collab")}
+                onClick={() => setPage("register")}
                 style={{
                   background: "none",
                   border: "none",
@@ -451,24 +615,24 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       )}
 
       {/* DASHBOARD */}
-      {page === "dashboard" && user && (
+      {page === "dashboard" && user && ctvInfo && (
         <div style={{ padding: "100px 20px 60px", maxWidth: 1200, margin: "0 auto" }}>
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30 }}>
             <div>
               <h1 style={{ fontSize: 28, fontWeight: "800", color: "#1a1a2e", marginBottom: 5 }}>CTV Dashboard</h1>
-              <p style={{ color: "#666", fontSize: 14 }}>Chào mừng, {user.name}! 👋</p>
+              <p style={{ color: "#666", fontSize: 14 }}>Chào mừng, {user.ho_ten}! 👋</p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
               <div style={{ textAlign: "right" }}>
                 <p style={{ fontSize: 14, color: "#666" }}>{user.email}</p>
-                <p style={{ fontSize: 12, color: "#999" }}>Mã CTV: {user.refCode}</p>
+                <p style={{ fontSize: 12, color: "#999" }}>Mã CTV: {ctvInfo.ma_gioi_thieu}</p>
               </div>
               <div style={{ width: 50, height: 50, borderRadius: "50%", background: "linear-gradient(135deg, #e53935 0%, #c62828 100%)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 20, fontWeight: "bold" }}>
-                {user.name.charAt(0)}
+                {user.ho_ten.charAt(0)}
               </div>
               <button
-                onClick={() => { setUser(null); setPage("login"); }}
+                onClick={handleLogout}
                 style={{ padding: "10px 20px", background: "#f5f5f5", border: "none", borderRadius: 10, cursor: "pointer", fontSize: 14 }}
               >
                 Đăng xuất
@@ -611,8 +775,71 @@ export default function AffiliateSystem({ initialPage = "register" }) {
           {/* Products for Sharing */}
           <div>
             <h3 style={{ fontSize: 20, fontWeight: "700", color: "#1a1a2e", marginBottom: 20 }}>📚 Sản phẩm để chia sẻ</h3>
+            
+            {/* Category Filter Tabs */}
+            <div style={{
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              marginBottom: 25,
+              justifyContent: "center",
+            }}>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id)}
+                  style={{
+                    background: activeCategory === cat.id 
+                      ? "linear-gradient(135deg, #e53935 0%, #c62828 100%)" 
+                      : "white",
+                    color: activeCategory === cat.id ? "white" : "#666",
+                    border: activeCategory === cat.id ? "none" : "2px solid #e0e0e0",
+                    padding: "10px 24px",
+                    borderRadius: 50,
+                    cursor: "pointer",
+                    fontSize: 14,
+                    fontWeight: "600",
+                    transition: "all 0.3s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeCategory !== cat.id) {
+                      e.target.style.borderColor = "#e53935";
+                      e.target.style.color = "#e53935";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activeCategory !== cat.id) {
+                      e.target.style.borderColor = "#e0e0e0";
+                      e.target.style.color = "#666";
+                    }
+                  }}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.ten_loai}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Product Count */}
+            <p style={{
+              fontSize: 14,
+              color: "#888",
+              marginBottom: 20,
+            }}>
+              Hiển thị {filteredProducts.length} sản phẩm
+            </p>
+
+            {loadingProducts ? (
+              <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                <span style={{ fontSize: 40, display: "block", marginBottom: 15 }}>⏳</span>
+                <p style={{ color: "#666" }}>Đang tải sản phẩm...</p>
+              </div>
+            ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <div
                   key={product.id}
                   style={{
@@ -653,29 +880,86 @@ export default function AffiliateSystem({ initialPage = "register" }) {
                   <div style={{ padding: 16 }}>
                     <h4 style={{ fontSize: 14, fontWeight: "700", color: "#1a1a2e", marginBottom: 8, lineHeight: 1.3 }}>{product.title}</h4>
                     <p style={{ fontSize: 18, fontWeight: "800", color: "#e53935", marginBottom: 12 }}>{formatCurrency(product.price)}</p>
+                    
+                    {/* Action Buttons */}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {/* Buy Now Button */}
+                      <button
+                        onClick={() => handleBuyNow(product)}
+                        style={{
+                          flex: 1,
+                          padding: "10px 12px",
+                          background: "linear-gradient(135deg, #e53935 0%, #c62828 100%)",
+                          color: "white",
+                          border: "none",
+                          borderRadius: 10,
+                          fontSize: 13,
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          transition: "all 0.3s ease",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                        }}
+                        onMouseEnter={(e) => { e.target.style.transform = "scale(1.02)"; e.target.style.boxShadow = "0 4px 12px rgba(229, 57, 53, 0.4)"; }}
+                        onMouseLeave={(e) => { e.target.style.transform = "scale(1)"; e.target.style.boxShadow = "none"; }}
+                      >
+                        🛒 Mua ngay
+                      </button>
+                      
+                      {/* Share Button */}
+                      <button
+                        onClick={() => copyToClipboard(getReferralLink(product.id))}
+                        style={{
+                          flex: 1,
+                          padding: "10px 12px",
+                          background: "#f5f5f5",
+                          color: "#333",
+                          border: "none",
+                          borderRadius: 10,
+                          fontSize: 13,
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          transition: "all 0.3s ease",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                        }}
+                        onMouseEnter={(e) => { e.target.style.background = "#e53935"; e.target.style.color = "white"; }}
+                        onMouseLeave={(e) => { e.target.style.background = "#f5f5f5"; e.target.style.color = "#333"; }}
+                      >
+                        🔗 Chia sẻ
+                      </button>
+                    </div>
+                    
+                    {/* View Details Link */}
                     <button
-                      onClick={() => copyToClipboard(getReferralLink(product.id))}
+                      onClick={() => handleViewProduct(product)}
                       style={{
                         width: "100%",
-                        padding: "10px",
-                        background: "#f5f5f5",
-                        color: "#333",
-                        border: "none",
+                        padding: "8px",
+                        marginTop: 8,
+                        background: "transparent",
+                        color: "#e53935",
+                        border: "1px solid #e53935",
                         borderRadius: 10,
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: "600",
                         cursor: "pointer",
                         transition: "all 0.3s ease",
                       }}
-                      onMouseEnter={(e) => { e.target.style.background = "#e53935"; e.target.style.color = "white"; }}
-                      onMouseLeave={(e) => { e.target.style.background = "#f5f5f5"; e.target.style.color = "#333"; }}
+                      onMouseEnter={(e) => { e.target.style.background = "#fff5f5"; }}
+                      onMouseLeave={(e) => { e.target.style.background = "transparent"; }}
                     >
-                      📋 Sao chép link
+                      👁️ Xem chi tiết
                     </button>
                   </div>
                 </div>
               ))}
             </div>
+            )}
           </div>
         </div>
       )}
@@ -754,21 +1038,21 @@ export default function AffiliateSystem({ initialPage = "register" }) {
                 <th style={{ padding: "10px 8px", textAlign: "left", borderBottom: "1px solid #ddd" }}>Sản phẩm</th>
                 <th style={{ padding: "10px 8px", textAlign: "right", borderBottom: "1px solid #ddd" }}>Giá</th>
                 <th style={{ padding: "10px 8px", textAlign: "right", borderBottom: "1px solid #ddd" }}>Hoa hồng</th>
-                <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: "1px solid #ddd" }}>Cấp</th>
+                <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: "1px solid" }}>Cấp</th>
                 <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: "1px solid #ddd" }}>Ngày</th>
               </tr>
             </thead>
             <tbody>
-              {mockOrders.map((order) => (
-                <tr key={order.id}>
-                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee" }}>#{order.id}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee" }}>{order.product}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "right" }}>{formatCurrency(order.price)}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "right", color: "#4caf50", fontWeight: "600" }}>+{formatCurrency(order.commission)}</td>
+              {commissions.map((commission) => (
+                <tr key={commission.id}>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee" }}>#{commission.id}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee" }}>{commission.donHang?.ma_don_hang || "N/A"}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "right" }}>{formatCurrency(commission.donHang?.tong_tien)}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "right", color: "#4caf50", fontWeight: "600" }}>+{formatCurrency(commission.tien_hoa_hong)}</td>
                   <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "center" }}>
-                    <span style={{ background: order.level === "F1" ? "#e8f5e9" : order.level === "F2" ? "#e3f2fd" : "#f3e5f5", padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: "600" }}>{order.level}</span>
+                    <span style={{ background: commission.cap_do === 1 ? "#e8f5e9" : commission.cap_do === 2 ? "#e3f2fd" : "#f3e5f5", padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: "600" }}>F{commission.cap_do}</span>
                   </td>
-                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "center", color: "#666" }}>{order.date}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid #eee", textAlign: "center", color: "#666" }}>{new Date(commission.created_at).toLocaleDateString("vi-VN")}</td>
                 </tr>
               ))}
             </tbody>
@@ -796,24 +1080,24 @@ export default function AffiliateSystem({ initialPage = "register" }) {
               </tr>
             </thead>
             <tbody>
-              {mockWithdrawals.map((withdraw) => (
+              {withdrawals.map((withdraw) => (
                 <tr key={withdraw.id}>
                   <td style={{ padding: "10px 8px", borderBottom: "#eee" }}>#{withdraw.id}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "right", fontWeight: "600" }}>{formatCurrency(withdraw.amount)}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "right", color: "#666" }}>{formatCurrency(withdraw.fee)}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "right", fontWeight: "600" }}>{formatCurrency(withdraw.so_tien)}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "right", color: "#666" }}>{formatCurrency(WITHDRAW_FEE)}</td>
                   <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "center" }}>
                     <span style={{ 
-                      background: withdraw.status === "completed" ? "#e8f5e9" : "#fff3e0", 
-                      color: withdraw.status === "completed" ? "#4caf50" : "#e65100",
+                      background: withdraw.trang_thai === "da_duyet" ? "#e8f5e9" : withdraw.trang_thai === "cho_duyet" ? "#fff3e0" : "#ffebee",
+                      color: withdraw.trang_thai === "da_duyet" ? "#4caf50" : withdraw.trang_thai === "cho_duyet" ? "#e65100" : "#f44336",
                       padding: "4px 10px", 
                       borderRadius: 20, 
                       fontSize: 11, 
                       fontWeight: "600" 
                     }}>
-                      {withdraw.status === "completed" ? "✅ Hoàn thành" : "⏳ Chờ duyệt"}
+                      {withdraw.trang_thai === "da_duyet" ? "✅ Đã duyệt" : withdraw.trang_thai === "cho_duyet" ? "⏳ Chờ duyệt" : "❌ Từ chối"}
                     </span>
                   </td>
-                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "center", color: "#666" }}>{withdraw.date}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "center", color: "#666" }}>{new Date(withdraw.ngay_yeu_cau).toLocaleDateString("vi-VN")}</td>
                 </tr>
               ))}
             </tbody>
@@ -834,12 +1118,12 @@ export default function AffiliateSystem({ initialPage = "register" }) {
               </tr>
             </thead>
             <tbody>
-              {mockUsers.map((u) => (
+              {(selectedLevel === "F1" ? downline.f1 : selectedLevel === "F2" ? downline.f2 : downline.f3).map((u) => (
                 <tr key={u.id}>
                   <td style={{ padding: "10px 8px", borderBottom: "#eee" }}>#{u.id}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "#eee", fontWeight: "600" }}>{u.name}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "#eee", color: "#666" }}>{u.email}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "center", color: "#666" }}>{u.joinDate}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "#eee", fontWeight: "600" }}>{u.nguoiDung?.ho_ten || "N/A"}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "#eee", color: "#666" }}>{u.nguoiDung?.email || "N/A"}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "center", color: "#666" }}>{new Date(u.created_at).toLocaleDateString("vi-VN")}</td>
                 </tr>
               ))}
             </tbody>
@@ -873,6 +1157,46 @@ export default function AffiliateSystem({ initialPage = "register" }) {
           }
         }
       `}</style>
+
+      {/* Product Detail View */}
+      {selectedProduct && (
+        <ProductDetail
+          product={selectedProduct}
+          onBack={handleBackFromProduct}
+          relatedProducts={filteredProducts.filter(p => p.id !== selectedProduct.id).slice(0, 4)}
+        />
+      )}
+
+      {/* Cart Drawer */}
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cart={cart}
+        updateQuantity={updateQuantity}
+        removeFromCart={removeFromCart}
+        onCheckout={() => {
+          setCartOpen(false);
+          setCheckoutOpen(true);
+        }}
+      />
+
+      {/* Checkout Drawer */}
+      <CheckoutDrawer
+        isOpen={checkoutOpen}
+        onClose={() => setCheckoutOpen(false)}
+        cart={cart}
+        onBack={() => {
+          setCheckoutOpen(false);
+          setCartOpen(true);
+        }}
+        onOrderSuccess={() => {
+          setCart([]);
+          setCheckoutOpen(false);
+        }}
+      />
+
+      {/* Footer */}
+      {page === "dashboard" && <Footer />}
     </div>
   );
 }

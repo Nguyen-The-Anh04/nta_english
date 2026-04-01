@@ -353,6 +353,50 @@ HoaHong.belongsTo(DonHang, { foreignKey: "don_hang_id", as: "donHang" });
 CTV.hasMany(RutTienCTV, { foreignKey: "ctv_id", as: "rutTiens" });
 RutTienCTV.belongsTo(CTV, { foreignKey: "ctv_id", as: "ctv" });
 
+const CommissionProducts = sequelize.define(
+  "CommissionProducts",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    san_pham_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    f1_percent: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: false,
+      defaultValue: 10.00,
+    },
+    f2_percent: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: false,
+      defaultValue: 5.00,
+    },
+    f3_percent: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: false,
+      defaultValue: 2.00,
+    },
+    trang_thai: {
+      type: DataTypes.ENUM("hoat_dong", "tam_dung"),
+      defaultValue: "hoat_dong",
+    },
+  },
+  {
+    tableName: "commission_products",
+    timestamps: true,
+    createdAt: "created_at",
+    updatedAt: "updated_at",
+  }
+);
+
+// Relationships for CommissionProducts
+CommissionProducts.belongsTo(Sach, { foreignKey: "san_pham_id", as: "sanPham" });
+Sach.hasMany(CommissionProducts, { foreignKey: "san_pham_id", as: "commissionProducts" });
+
 module.exports = {
   LoaiSach,
   Sach,
@@ -361,4 +405,5 @@ module.exports = {
   CTV,
   HoaHong,
   RutTienCTV,
+  CommissionProducts,
 };
