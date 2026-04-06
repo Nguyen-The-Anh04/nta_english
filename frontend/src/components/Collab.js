@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { registerAffiliate, fetchBooks, fetchCategories, updateUserProfile, changePassword, generateAffiliateLink, getUserProfile } from "../api";
+import { getCookie, setCookie } from "../utils/cookieUtils";
 
 function Collab({ onAccessAffiliate }) {
   const [activeTab, setActiveTab] = useState("register");
@@ -50,16 +51,21 @@ function Collab({ onAccessAffiliate }) {
     }
   }, [activeTab]);
 
-  // Lấy mã giới thiệu từ URL khi component mount
+  // Lấy mã giới thiệu từ URL hoặc cookie khi component mount
   useEffect(() => {
+    // First try to get from URL
     const urlParams = new URLSearchParams(window.location.search);
-    const refCode = urlParams.get("ref");
+    let refCode = urlParams.get("ref");
+    
+    // If not in URL, try to get from cookie
+    if (!refCode) {
+      refCode = getCookie("ref");
+    }
+    
     if (refCode) {
       setFormData((prev) => ({ ...prev, referralCode: refCode }));
       // Lưu cookie 7 ngày
-      const expires = new Date();
-      expires.setDate(expires.getDate() + 7);
-      document.cookie = `ref=${refCode}; expires=${expires.toUTCString()}; path=/`;
+      setCookie("ref", refCode, 7);
     }
   }, []);
 
@@ -145,10 +151,11 @@ function Collab({ onAccessAffiliate }) {
       setMessage({ type: "error", text: "Vui lòng nhập họ và tên" });
       return false;
     }
-    if (!formData.phone.trim()) {
-      setMessage({ type: "error", text: "Vui lòng nhập số điện thoại" });
-      return false;
-    }
+    // Phone is optional now
+    // if (!formData.phone.trim()) {
+    //   setMessage({ type: "error", text: "Vui lòng nhập số điện thoại" });
+    //   return false;
+    // }
     if (!formData.email.trim()) {
       setMessage({ type: "error", text: "Vui lòng nhập email" });
       return false;
@@ -164,14 +171,6 @@ function Collab({ onAccessAffiliate }) {
     }
     if (formData.password.length < 6) {
       setMessage({ type: "error", text: "Mật khẩu phải có ít nhất 6 ký tự" });
-      return false;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setMessage({ type: "error", text: "Mật khẩu xác nhận không khớp" });
-      return false;
-    }
-    if (!formData.province) {
-      setMessage({ type: "error", text: "Vui lòng chọn Tỉnh/Thành phố" });
       return false;
     }
     return true;

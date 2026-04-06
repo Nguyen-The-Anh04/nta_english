@@ -427,7 +427,9 @@ const updateOrderStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Trạng thái không hợp lệ" });
     }
 
-    const order = await DonHang.findByPk(req.params.id);
+    const order = await DonHang.findByPk(req.params.id, {
+      include: [{ model: CTV, as: "ctv" }]
+    });
     if (!order) {
       return res.status(404).json({ success: false, message: "Đơn hàng không tồn tại" });
     }
@@ -438,6 +440,30 @@ const updateOrderStatus = async (req, res) => {
       for (let item of items) {
         const book = await Sach.findByPk(item.sach_id);
         await book.update({ so_luong_ton: book.so_luong_ton + item.so_luong });
+      }
+    }
+
+    // AUTO TẠO HOA HỒNG khi đơn chuyển sang "đã thanh toán"
+    if (trang_thai === "da_tt" && order.trang_thai !== "da_tt") {
+      // Phải tìm CTV qua bảng ctv (ctv_id trên đơn hàng là nguoi_dung_id của CTV)
+      const ctv = await CTV.findOne({ where: { nguoi_dung_id: order.ctv_id } });
+      if (ctv) {
+        // Kiểm tra đã có hoa hồng cho đơn này chưa (tránh tạo trùng)
+        const existing = await HoaHong.findOne({ where: { ctv_id: ctv.id, don_hang_id: order.id } });
+        if (!existing) {
+          const commissionAmount = parseFloat(order.tong_tien) * 0.10;
+          if (commissionAmount > 0) {
+            await HoaHong.create({
+              ctv_id: ctv.id,
+              don_hang_id: order.id,
+              tien_hoa_hong: commissionAmount,
+              cap_do: 1,
+              ty_le_pham_ram: 10,
+              trang_thai: "da_tra",
+            });
+            console.log(`Tạo hoa hồng ${commissionAmount} cho CTV id=${ctv.id} từ đơn ${order.id}`);
+          }
+        }
       }
     }
 
@@ -495,9 +521,17 @@ const getAffiliateStats = async (req, res) => {
       where: { ctv_id: ctv.id, trang_thai: "da_duyet" },
     });
 
-    const tong_f1 = await CTV.count({ where: { ctv_cha_id: ctv.id, cap_do: 1 } });
-    const tong_f2 = await CTV.count({ where: { cap_do: 2 } });
-    const tong_f3 = await CTV.count({ where: { cap_do: 3 } });
+    const tong_f1 = await CTV.count({ where: { ctv_cha_id: ctv.id } });
+    
+    // F2: children of F1
+    const f1_downlines = await CTV.findAll({ where: { ctv_cha_id: ctv.id }, attributes: ['id'] });
+    const f1_ids = f1_downlines.map(f => f.id);
+    const tong_f2 = f1_ids.length > 0 ? await CTV.count({ where: { ctv_cha_id: { [Op.in]: f1_ids } } }) : 0;
+    
+    // F3: children of F2
+    const f2_downlines = f1_ids.length > 0 ? await CTV.findAll({ where: { ctv_cha_id: { [Op.in]: f1_ids } }, attributes: ['id'] }) : [];
+    const f2_ids = f2_downlines.map(f => f.id);
+    const tong_f3 = f2_ids.length > 0 ? await CTV.count({ where: { ctv_cha_id: { [Op.in]: f2_ids } } }) : 0;
 
     res.json({
       success: true,
@@ -526,25 +560,25 @@ const getDownline = async (req, res) => {
       return res.status(404).json({ success: false, message: "CTV không tồn tại" });
     }
 
-    // Get F1 (level 1)
+    // Get F1 (direct children of current CTV)
     const f1 = await CTV.findAll({
-      where: { ctv_cha_id: ctv.id, cap_do: 1 },
+      where: { ctv_cha_id: ctv.id },
       include: [{ model: NguoiDung, as: "nguoiDung", attributes: ["ho_ten", "email"] }],
     });
 
-    // Get F2 (level 2)
+    // Get F2 (children of F1)
     const f1_ids = f1.map(c => c.id);
-    const f2 = await CTV.findAll({
-      where: { ctv_cha_id: { [Op.in]: f1_ids }, cap_do: 2 },
+    const f2 = f1_ids.length > 0 ? await CTV.findAll({
+      where: { ctv_cha_id: { [Op.in]: f1_ids } },
       include: [{ model: NguoiDung, as: "nguoiDung", attributes: ["ho_ten", "email"] }],
-    });
+    }) : [];
 
-    // Get F3 (level 3)
+    // Get F3 (children of F2)
     const f2_ids = f2.map(c => c.id);
-    const f3 = await CTV.findAll({
-      where: { ctv_cha_id: { [Op.in]: f2_ids }, cap_do: 3 },
+    const f3 = f2_ids.length > 0 ? await CTV.findAll({
+      where: { ctv_cha_id: { [Op.in]: f2_ids } },
       include: [{ model: NguoiDung, as: "nguoiDung", attributes: ["ho_ten", "email"] }],
-    });
+    }) : [];
 
     res.json({
       success: true,
@@ -552,6 +586,87 @@ const getDownline = async (req, res) => {
     });
   } catch (error) {
     console.error("Get downline error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// GET /api/affiliate/admin/ctvs - Admin: Get all CTVs with full downline tree
+const getAllCTVsWithDownline = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search = "" } = req.query;
+    const offset = (page - 1) * limit;
+
+    // Build where clause for search
+    const whereClause = {};
+    if (search) {
+      whereClause[Op.or] = [
+        { "$nguoiDung.ho_ten$": { [Op.like]: `%${search}%` } },
+        { "$nguoiDung.email$": { [Op.like]: `%${search}%` } },
+        { ma_gioi_thieu: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    // Get all CTVs with user info
+    const { count, rows: ctvs } = await CTV.findAndCountAll({
+      where: whereClause,
+      include: [
+        { model: NguoiDung, as: "nguoiDung", attributes: ["id", "ho_ten", "email", "sdt"] },
+        { model: CTV, as: "cha", attributes: ["id", "ma_gioi_thieu"], include: [{ model: NguoiDung, as: "nguoiDung", attributes: ["ho_ten"] }] },
+      ],
+      order: [["id", "DESC"]],
+      limit: parseInt(limit),
+      offset,
+    });
+
+    // For each CTV, get their downline tree
+    const ctvList = [];
+    for (const ctv of ctvs) {
+      // Get F1 (direct downlines)
+      const f1 = await CTV.findAll({
+        where: { ctv_cha_id: ctv.id },
+        include: [{ model: NguoiDung, as: "nguoiDung", attributes: ["ho_ten", "email"] }],
+      });
+
+      // Get F2 (children of F1)
+      const f1_ids = f1.map(f => f.id);
+      const f2 = f1_ids.length > 0 ? await CTV.findAll({
+        where: { ctv_cha_id: { [Op.in]: f1_ids } },
+        include: [{ model: NguoiDung, as: "nguoiDung", attributes: ["ho_ten", "email"] }],
+      }) : [];
+
+      // Get F3 (children of F2)
+      const f2_ids = f2.map(f => f.id);
+      const f3 = f2_ids.length > 0 ? await CTV.findAll({
+        where: { ctv_cha_id: { [Op.in]: f2_ids } },
+        include: [{ model: NguoiDung, as: "nguoiDung", attributes: ["ho_ten", "email"] }],
+      }) : [];
+
+      ctvList.push({
+        ...ctv.toJSON(),
+        downline: {
+          f1: f1.map(f => ({ id: f.id, ho_ten: f.nguoiDung?.ho_ten, email: f.nguoiDung?.email })),
+          f2: f2.map(f => ({ id: f.id, ho_ten: f.nguoiDung?.ho_ten, email: f.nguoiDung?.email })),
+          f3: f3.map(f => ({ id: f.id, ho_ten: f.nguoiDung?.ho_ten, email: f.nguoiDung?.email })),
+        },
+        tong_f1: f1.length,
+        tong_f2: f2.length,
+        tong_f3: f3.length,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ctvs: ctvList,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          totalPages: Math.ceil(count / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get all CTVs error:", error);
     res.status(500).json({ success: false, message: "Lỗi server" });
   }
 };
@@ -591,7 +706,7 @@ const getCommissions = async (req, res) => {
 // POST /api/affiliate/withdraw - Request withdrawal
 const requestWithdraw = async (req, res) => {
   try {
-    const { so_tien, so_tk_ngan_hang, noi_dung_tt } = req.body;
+    const { so_tien, so_tk_ngan_hang, ten_ngan_hang, ten_chu_tk, phuong_thuc, noi_dung_tt } = req.body;
 
     const ctv = await CTV.findOne({ where: { nguoi_dung_id: req.user.id } });
     if (!ctv) {
@@ -618,6 +733,9 @@ const requestWithdraw = async (req, res) => {
       ctv_id: ctv.id,
       so_tien,
       so_tk_ngan_hang,
+      ten_ngan_hang: ten_ngan_hang || "MB BANK",
+      ten_chu_tk,
+      phuong_thuc: phuong_thuc || "bank",
       noi_dung_tt,
       trang_thai: "cho_duyet",
     });
@@ -649,6 +767,157 @@ const getWithdrawals = async (req, res) => {
     res.json({ success: true, data: withdrawals });
   } catch (error) {
     console.error("Get withdrawals error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// Mock MoMo service
+const { mockMoMoDisbursement, generateWithdrawalQR, generateTransferInfo } = require("../services/withdrawalMockService");
+
+// GET /api/affiliate/admin/withdrawals - Get all withdrawals (Admin)
+const getAllWithdrawals = async (req, res) => {
+  try {
+    const withdrawals = await RutTienCTV.findAll({
+      order: [["ngay_yeu_cau", "DESC"]],
+      include: [
+        {
+          model: CTV,
+          as: "ctv",
+          include: [{ model: NguoiDung, as: "nguoiDung" }],
+        },
+      ],
+    });
+
+    res.json({ success: true, data: withdrawals });
+  } catch (error) {
+    console.error("Get all withdrawals error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// POST /api/affiliate/admin/withdrawals/:id/approve - Approve withdrawal (Admin)
+const approveWithdrawal = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Lấy phương thức từ yêu cầu của CTV (CTV đã chọn rồi)
+    const { phuong_thuc: methodFromRequest } = req.body;
+    const selectedMethod = methodFromRequest || 'bank';
+
+    const withdrawal = await RutTienCTV.findByPk(id, {
+      include: [{ model: CTV, as: "ctv", include: [{ model: NguoiDung, as: "nguoiDung" }] }],
+    });
+
+    if (!withdrawal) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy yêu cầu rút tiền" });
+    }
+
+    if (withdrawal.trang_thai !== "cho_duyet") {
+      return res.status(400).json({ success: false, message: "Yêu cầu này đã được xử lý" });
+    }
+
+    // Sử dụng phương thức mà CTV đã chọn khi yêu cầu
+    const method = withdrawal.phuong_thuc || 'bank';
+
+    let result;
+    if (method === "momo") {
+      // Gọi mock MoMo disbursement API
+      result = await mockMoMoDisbursement({
+        phone: withdrawal.ctv?.nguoiDung?.sdt,
+        amount: withdrawal.so_tien,
+      });
+    } else {
+      // Chuyển qua ngân hàng (thủ công)
+      result = {
+        resultCode: 0,
+        message: "Chuyển qua ngân hàng",
+        transId: "BANK" + Date.now(),
+      };
+    }
+
+    if (result.resultCode === 0) {
+      await withdrawal.update({
+        trang_thai: "da_duyet",
+        ngay_duyet: new Date(),
+        ghi_chu: result.message,
+        ma_giao_dich: result.transId,
+        phuong_thuc: method || "bank",
+      });
+
+      res.json({
+        success: true,
+        message: "Đã duyệt yêu cầu rút tiền",
+        transactionId: result.transId,
+        method: method || "bank",
+      });
+    } else {
+      await withdrawal.update({
+        trang_thai: "da_tu_choi",
+        ghi_chu: result.message,
+      });
+
+      res.json({
+        success: false,
+        message: result.message,
+      });
+    }
+  } catch (error) {
+    console.error("Approve withdrawal error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// POST /api/affiliate/admin/withdrawals/:id/reject - Reject withdrawal (Admin)
+const rejectWithdrawal = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const withdrawal = await RutTienCTV.findByPk(id);
+
+    if (!withdrawal) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy yêu cầu rút tiền" });
+    }
+
+    if (withdrawal.trang_thai !== "cho_duyet") {
+      return res.status(400).json({ success: false, message: "Yêu cầu này đã được xử lý" });
+    }
+
+    await withdrawal.update({
+      trang_thai: "da_tu_choi",
+      ngay_duyet: new Date(),
+      ghi_chu: reason || "Từ chối",
+    });
+
+    res.json({ success: true, message: "Đã từ chối yêu cầu rút tiền" });
+  } catch (error) {
+    console.error("Reject withdrawal error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// GET /api/affiliate/admin/withdrawals/:id/qr - Get withdrawal QR code
+const getWithdrawalQR = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const withdrawal = await RutTienCTV.findByPk(id);
+
+    if (!withdrawal) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy yêu cầu rút tiền" });
+    }
+
+    const qrUrl = generateWithdrawalQR(withdrawal);
+    const transferInfo = generateTransferInfo(withdrawal);
+
+    res.json({
+      success: true,
+      data: {
+        qrUrl,
+        ...transferInfo,
+      },
+    });
+  } catch (error) {
+    console.error("Get withdrawal QR error:", error);
     res.status(500).json({ success: false, message: "Lỗi server" });
   }
 };
@@ -710,9 +979,18 @@ const registerAffiliate = async (req, res) => {
     const { ho_ten, email, mat_khau, sdt, tinh_thanh, nghe_nghiep, link_mxh, ly_do, ma_gioi_thieu } = req.body;
 
     // Validate required fields
-    if (!ho_ten || !email || !mat_khau || !sdt) {
-      return res.status(400).json({ success: false, message: "Vui lòng điền đầy đủ thông tin" });
+    if (!ho_ten || !email || !mat_khau) {
+      return res.status(400).json({ success: false, message: "Vui lòng điền đầy đủ thông tin (họ tên, email, mật khẩu)" });
     }
+
+    // Convert empty strings to null for optional fields
+    const optionalFields = {
+      sdt: sdt || null,
+      tinh_thanh: tinh_thanh || null,
+      nghe_nghiep: nghe_nghiep || null,
+      link_mxh: link_mxh || null,
+      ly_do: ly_do || null,
+    };
 
     // Check if email already exists
     const existingUser = await NguoiDung.findOne({ where: { email } });
@@ -730,7 +1008,7 @@ const registerAffiliate = async (req, res) => {
       ho_ten,
       email,
       mat_khau: hashedPassword,
-      sdt,
+      sdt: sdt || null,
       chuc_vu_id: 6, // CTV role
       trang_thai: "hoat_dong",
     });
@@ -743,7 +1021,8 @@ const registerAffiliate = async (req, res) => {
       const parentCTV = await CTV.findOne({ where: { ma_gioi_thieu } });
       if (parentCTV) {
         ctv_cha_id = parentCTV.id;
-        cap_do = parentCTV.cap_do < 3 ? parentCTV.cap_do + 1 : 3;
+        // cap_do = cap_do của cha + 1, tối đa 3
+        cap_do = Math.min(parentCTV.cap_do + 1, 3);
       }
     }
 
@@ -918,6 +1197,121 @@ const getCTVByRefCode = async (req, res) => {
   }
 };
 
+// POST /api/affiliate/admin/fix-cap-do - Tính lại cap_do cho toàn bộ CTV
+const fixCapDo = async (req, res) => {
+  try {
+    // Lấy tất cả CTV không có cha (gốc) → cap_do = 1
+    const roots = await CTV.findAll({ where: { ctv_cha_id: null } });
+    let updated = 0;
+
+    const fixRecursive = async (parentId, parentCapDo) => {
+      const children = await CTV.findAll({ where: { ctv_cha_id: parentId } });
+      for (const child of children) {
+        const correctCapDo = Math.min(parentCapDo + 1, 3);
+        if (child.cap_do !== correctCapDo) {
+          await child.update({ cap_do: correctCapDo });
+          updated++;
+        }
+        await fixRecursive(child.id, correctCapDo);
+      }
+    };
+
+    for (const root of roots) {
+      if (root.cap_do !== 1) {
+        await root.update({ cap_do: 1 });
+        updated++;
+      }
+      await fixRecursive(root.id, 1);
+    }
+
+    res.json({ success: true, message: `Đã cập nhật cap_do cho ${updated} CTV`, data: { updated } });
+  } catch (error) {
+    console.error("Fix cap_do error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// POST /api/affiliate/admin/backfill-commissions - Tạo hoa hồng cho các đơn da_tt chưa có
+const backfillCommissions = async (req, res) => {
+  try {
+    // Lấy tất cả đơn da_tt có ctv_id (kể cả đơn không có ctv_id để debug)
+    const allOrders = await DonHang.findAll({
+      where: { trang_thai: "da_tt" },
+    });
+
+    const details = [];
+    let created = 0;
+    let skipped = 0;
+
+    for (const order of allOrders) {
+      const info = { order_id: order.id, ma_don_hang: order.ma_don_hang, ctv_id: order.ctv_id, reason: null };
+
+      if (!order.ctv_id) {
+        info.reason = "no_ctv_id";
+        skipped++;
+        details.push(info);
+        continue;
+      }
+
+      // Kiểm tra đã có hoa hồng chưa
+      const existing = await HoaHong.findOne({ where: { don_hang_id: order.id } });
+      if (existing) {
+        // Nếu hoa hồng đang cho_xac_nhan → update thành da_tra
+        if (existing.trang_thai === "cho_xac_nhan") {
+          await existing.update({ trang_thai: "da_tra" });
+          info.reason = `updated cho_xac_nhan -> da_tra (hoa_hong_id=${existing.id})`;
+          created++;
+        } else {
+          info.reason = `already_has_commission (hoa_hong_id=${existing.id}, trang_thai=${existing.trang_thai})`;
+          skipped++;
+        }
+        details.push(info);
+        continue;
+      }
+
+      // Tìm CTV — ctv_id trên đơn hàng có thể là nguoi_dung_id hoặc ctv.id trực tiếp
+      let ctv = await CTV.findOne({ where: { nguoi_dung_id: order.ctv_id } });
+      if (!ctv) {
+        // Thử tìm trực tiếp theo ctv.id
+        ctv = await CTV.findByPk(order.ctv_id);
+      }
+      if (!ctv) {
+        info.reason = `ctv_not_found (tried nguoi_dung_id=${order.ctv_id} and ctv.id=${order.ctv_id})`;
+        skipped++;
+        details.push(info);
+        continue;
+      }
+
+      const commissionAmount = parseFloat(order.tong_tien) * 0.10;
+      if (commissionAmount > 0) {
+        await HoaHong.create({
+          ctv_id: ctv.id,
+          don_hang_id: order.id,
+          tien_hoa_hong: commissionAmount,
+          cap_do: 1,
+          ty_le_pham_ram: 10,
+          trang_thai: "da_tra",
+        });
+        info.reason = `created (ctv_id=${ctv.id}, amount=${commissionAmount})`;
+        created++;
+      } else {
+        info.reason = "amount_zero";
+        skipped++;
+      }
+      details.push(info);
+    }
+
+    res.json({
+      success: true,
+      message: `Đã tạo ${created} hoa hồng, bỏ qua ${skipped} đơn`,
+      data: { created, skipped, details },
+    });
+  } catch (error) {
+    console.error("Backfill commissions error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
 module.exports = {
   getCategories,
   getAllBooks,
@@ -936,9 +1330,16 @@ module.exports = {
   getCommissions,
   requestWithdraw,
   getWithdrawals,
+  getAllWithdrawals,
+  approveWithdrawal,
+  rejectWithdrawal,
+  getWithdrawalQR,
   registerAsCTV,
   registerAffiliate,
   generateAffiliateLink,
   getAffiliateProducts,
   getCTVByRefCode,
+  backfillCommissions,
+  fixCapDo,
+  getAllCTVsWithDownline,
 };

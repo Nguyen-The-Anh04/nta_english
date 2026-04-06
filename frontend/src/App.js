@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { setCookie } from "./utils/cookieUtils";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import Home from "./pages/Home";
 import Books from "./components/Books";
@@ -13,7 +14,7 @@ import AdminLogin from "./admin/AdminLogin";
 import Footer from "./components/Footer";
 
 // ProductDetail Wrapper - Fetch data from API
-function ProductDetailWrapper({ productId, onBack }) {
+function ProductDetailWrapper({ productId, onBack, onViewProduct }) {
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -124,6 +125,10 @@ function ProductDetailWrapper({ productId, onBack }) {
       product={product}
       onBack={onBack}
       relatedProducts={relatedProducts}
+      onViewProduct={(item) => {
+        // Navigate to the new product page
+        window.location.href = `/product/${item.id}`;
+      }}
     />
   );
 }
@@ -178,6 +183,22 @@ function AppContent() {
   // Get URL path - SỬ DỤNG useLocation() THAY VÌ window.location.pathname
   const path = location.pathname;
 
+  // Check if there's a ref code in URL - redirect to collab if exists
+  const refProcessedRef = useRef(false);
+  useEffect(() => {
+    if (refProcessedRef.current) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCodeFromUrl = urlParams.get("ref");
+    if (path === "/" && refCodeFromUrl) {
+      refProcessedRef.current = true;
+      // Store ref code in cookie for later use
+      setCookie("ref", refCodeFromUrl, 7);
+      // Redirect to collab page
+      navigate("/collab");
+    }
+  }, [path, navigate]);
+
   // Redirect /books/shop to /shop
   if (path === "/books/shop") {
     navigate("/shop");
@@ -216,6 +237,12 @@ function AppContent() {
   }
 
   if (path === "/collab") {
+    // Get ref code from URL and store in cookie
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get("ref");
+    if (refCode) {
+      setCookie("ref", refCode, 7);
+    }
     return (
       <>
         <header style={{
@@ -240,7 +267,16 @@ function AppContent() {
   }
 
   if (path === "/affiliate") {
-    const affiliateInitialPage = window.affiliateInitialPage || "register";
+    // Get ref code from URL and store in cookie
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get("ref");
+    if (refCode) {
+      setCookie("ref", refCode, 7);
+    }
+    // If ref code exists in URL, always show registration page (not dashboard even if logged in)
+    const affiliateInitialPage = refCode ? "register" : (window.affiliateInitialPage || "register");
+    // Clear the initial page after using it to prevent persistence issues
+    window.affiliateInitialPage = null;
     return (
       <>
         <header style={{
@@ -307,6 +343,9 @@ function AppContent() {
       <ProductDetailWrapper
         productId={productId}
         onBack={() => navigate("/shop")}
+        onViewProduct={(item) => {
+          window.location.href = `/product/${item.id}`;
+        }}
       />
     );
   }

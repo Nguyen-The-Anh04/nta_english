@@ -147,3 +147,40 @@ img {
 #root {
   min-height: 100vh;
 }
+
+/* LMS Sidebar - Scroll but hide scrollbar */
+.lms-sidebar {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbar for WebKit (Chrome, Safari, Edge) */
+.lms-sidebar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Hide scrollbar for Firefox */
+.lms-sidebar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+/* Also apply to sidebar menu */
+.lms-sidebar-menu {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.lms-sidebar-menu::-webkit-scrollbar {
+  width: 0;
+  display: none;
+}
+
+.lms-sidebar-menu {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}

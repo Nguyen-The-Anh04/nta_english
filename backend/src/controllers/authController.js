@@ -326,8 +326,11 @@ const loginCTV = async (req, res) => {
       });
     }
 
-    // Check if user is CTV
-    if (user.chuc_vu_id !== 6) {
+    // Check if user is CTV (by chuc_vu_id OR has a record in ctv table)
+    const { CTV } = require("../models");
+    const ctv = await CTV.findOne({ where: { nguoi_dung_id: user.id } });
+
+    if (user.chuc_vu_id !== 6 && !ctv) {
       return res.status(403).json({
         success: false,
         message: "Tài khoản này không phải CTV",
@@ -341,10 +344,6 @@ const loginCTV = async (req, res) => {
         message: "Tài khoản đã bị vô hiệu hóa",
       });
     }
-
-    // Get CTV info
-    const { CTV } = require("../models");
-    const ctv = await CTV.findOne({ where: { nguoi_dung_id: user.id } });
 
     // Save login history
     await LichSuDangNhap.create({

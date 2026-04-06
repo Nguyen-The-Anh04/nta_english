@@ -29,7 +29,8 @@ const WITHDRAW_FEE = 1000;
 export default function AffiliateSystem({ initialPage = "register" }) {
   const [user, setUser] = useState(null);
   const [ctvInfo, setCtvInfo] = useState(null);
-  const [page, setPage] = useState(initialPage); // register, login, dashboard
+  const [page, setPage] = useState(initialPage || "register"); // register, login, dashboard
+  const [error, setError] = useState(null);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showRevenue, setShowRevenue] = useState(false);
   const [showWithdrawHistory, setShowWithdrawHistory] = useState(false);
@@ -37,6 +38,14 @@ export default function AffiliateSystem({ initialPage = "register" }) {
   const [showBankForm, setShowBankForm] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [toast, setToast] = useState(null);
+  
+  // New states for Commission and Customer sections
+  const [showCommissions, setShowCommissions] = useState(false);
+  const [showCustomers, setShowCustomers] = useState(false);
+  const [commissionTab, setCommissionTab] = useState("tong_quan"); // tong_quan, f1, f2, f3
+  const [customerTab, setCustomerTab] = useState("all"); // all, f1, f2, f3
+  const [commissionSearch, setCommissionSearch] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -51,6 +60,9 @@ export default function AffiliateSystem({ initialPage = "register" }) {
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [bankInfo, setBankInfo] = useState({
     bankName: "MB BANK",
+    accountName: "",
+    accountNumber: "",
+    method: "bank", // 'momo' hoặc 'bank'
     accountName: "",
     accountNumber: "",
   });
@@ -75,8 +87,11 @@ export default function AffiliateSystem({ initialPage = "register" }) {
 
   // Load products and categories on mount
   useEffect(() => {
-    loadProducts();
-    loadCategories();
+    Promise.all([loadProducts(), loadCategories()])
+      .catch((err) => {
+        console.error("Load data error:", err);
+        setError("Không thể tải dữ liệu. Vui lòng tải lại trang.");
+      });
   }, []);
 
   const loadProducts = async () => {
@@ -228,7 +243,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       // Load withdrawals
       const withdrawalsResult = await fetchAffiliateWithdrawals();
       if (withdrawalsResult.success) {
-        setWithdrawals(withdrawalsResult.data.withdrawals);
+        setWithdrawals(Array.isArray(withdrawalsResult.data) ? withdrawalsResult.data : (withdrawalsResult.data?.withdrawals || []));
       }
 
       // Load orders for current CTV and calculate total revenue
@@ -294,9 +309,11 @@ export default function AffiliateSystem({ initialPage = "register" }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
+    console.log("Starting login with:", loginForm.email);
 
     try {
       const result = await loginCTV(loginForm.email, loginForm.password);
+      console.log("Login result:", result);
 
       if (result.success) {
         // Save token and user info
@@ -306,6 +323,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
 
         setUser(result.data.user);
         setCtvInfo(result.data.ctv);
+        console.log("Setting page to dashboard, user:", result.data.user, "ctv:", result.data.ctv);
         setPage("dashboard");
         showToast("Đăng nhập thành công!");
       } else {
@@ -336,11 +354,14 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       const result = await createAffiliateWithdraw({
         so_tien: amount,
         so_tk_ngan_hang: bankInfo.accountNumber,
+        ten_ngan_hang: bankInfo.bankName,
+        ten_chu_tk: bankInfo.accountName,
+        phuong_thuc: bankInfo.method, // 'momo' hoặc 'bank'
         noi_dung_tt: `Rút tiền CTV - ${bankInfo.bankName}`,
       });
 
       if (result.success) {
-        showToast("Yêu cầu rút tiền đã được gửi! Chờ duyệt trong 24-48h");
+        showToast("✅ Yêu cầu rút tiền đã được gửi!\n💰 Admin sẽ duyệt và gửi QR Code MoMo hoặc chuyển ngân hàng");
         setShowWithdraw(false);
         setWithdrawAmount("");
         loadDashboardData(); // Reload data
@@ -362,7 +383,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
   // Get referral link
   const getReferralLink = (productId = null) => {
     const baseUrl = window.location.origin;
-    const refParam = ctvInfo ? `?ref=${ctvInfo.ma_gioi_thieu}` : "";
+    const refParam = ctvInfo?.ma_gioi_thieu ? `?ref=${ctvInfo.ma_gioi_thieu}` : "";
     const productParam = productId ? `/product/${productId}` : "";
     return `${baseUrl}${productParam}${refParam}`;
   };
@@ -405,8 +426,35 @@ export default function AffiliateSystem({ initialPage = "register" }) {
         </div>
       )}
 
+      {/* ERROR STATE */}
+      {error && (
+        <div style={{ padding: "100px 20px", textAlign: "center" }}>
+          <div style={{ background: "#ffebee", padding: 20, borderRadius: 12, maxWidth: 500, margin: "0 auto" }}>
+            <h3 style={{ color: "#c62828", marginBottom: 10 }}>Đã xảy ra lỗi</h3>
+            <p style={{ color: "#666" }}>{error}</p>
+            <button 
+              onClick={async () => { 
+                setError(null); 
+                setPage("register"); 
+                await Promise.all([loadProducts(), loadCategories()]);
+              }}
+              style={{ marginTop: 15, padding: "10px 20px", background: "#1976d2", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}
+            >
+              Thử lại
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* LOADING STATE */}
+      {loadingProducts && (
+        <div style={{ padding: "100px 20px 60px", textAlign: "center" }}>
+          <div style={{ fontSize: 18 }}>⏳ Đang tải dữ liệu...</div>
+        </div>
+      )}
+
       {/* REGISTER PAGE */}
-      {page === "register" && (
+      {!loadingProducts && page === "register" && (
         <div style={{ padding: "100px 20px 60px", display: "flex", justifyContent: "center" }}>
           <div style={{ background: "white", borderRadius: 24, padding: 40, maxWidth: 450, width: "100%", boxShadow: "0 10px 40px rgba(0,0,0,0.08)" }}>
             <div style={{ textAlign: "center", marginBottom: 30 }}>
@@ -548,7 +596,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       )}
 
       {/* LOGIN PAGE */}
-      {page === "login" && (
+      {!loadingProducts && page === "login" && (
         <div style={{ padding: "100px 20px 60px", display: "flex", justifyContent: "center" }}>
           <div style={{ background: "white", borderRadius: 24, padding: 40, maxWidth: 450, width: "100%", boxShadow: "0 10px 40px rgba(0,0,0,0.08)" }}>
             <div style={{ textAlign: "center", marginBottom: 30 }}>
@@ -637,8 +685,8 @@ export default function AffiliateSystem({ initialPage = "register" }) {
         </div>
       )}
 
-      {/* DASHBOARD */}
-      {page === "dashboard" && user && ctvInfo && !selectedProduct && (
+      {/* DASHBOARD - only show when logged in */}
+      {page === "dashboard" && user && (
         <div style={{ padding: "100px 20px 60px", maxWidth: 1200, margin: "0 auto" }}>
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30 }}>
@@ -649,7 +697,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
             <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
               <div style={{ textAlign: "right" }}>
                 <p style={{ fontSize: 14, color: "#666" }}>{user.email}</p>
-                <p style={{ fontSize: 12, color: "#999" }}>Mã CTV: {ctvInfo.ma_gioi_thieu}</p>
+                <p style={{ fontSize: 12, color: "#999" }}>Mã CTV: {ctvInfo?.ma_gioi_thieu || "Chưa có"}</p>
               </div>
               <div style={{ width: 50, height: 50, borderRadius: "50%", background: "linear-gradient(135deg, #e53935 0%, #c62828 100%)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 20, fontWeight: "bold" }}>
                 {user.ho_ten.charAt(0)}
@@ -749,7 +797,43 @@ export default function AffiliateSystem({ initialPage = "register" }) {
           </div>
 
           {/* Quick Actions */}
-          <div style={{ display: "flex", gap: 15, marginBottom: 30 }}>
+          <div style={{ display: "flex", gap: 15, marginBottom: 30, flexWrap: "wrap" }}>
+            <button
+              onClick={() => setShowCommissions(true)}
+              style={{
+                padding: "16px 30px",
+                background: "linear-gradient(135deg, #4caf50 0%, #388e3c 100%)",
+                color: "white",
+                border: "none",
+                borderRadius: 12,
+                fontSize: 15,
+                fontWeight: "700",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              💰 Hoa hồng của tôi
+            </button>
+            <button
+              onClick={() => setShowCustomers(true)}
+              style={{
+                padding: "16px 30px",
+                background: "linear-gradient(135deg, #2196f3 0%, #1976d2 100%)",
+                color: "white",
+                border: "none",
+                borderRadius: 12,
+                fontSize: 15,
+                fontWeight: "700",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              👥 Khách hàng của tôi
+            </button>
             <button
               onClick={() => setShowWithdraw(true)}
               style={{
@@ -1027,6 +1111,53 @@ export default function AffiliateSystem({ initialPage = "register" }) {
               style={{ width: "100%", padding: "12px", border: "2px solid #e0e0e0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }}
             />
           </div>
+          
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: "block", fontSize: 13, color: "#666", marginBottom: 8 }}>Phương thức nhận tiền</label>
+            <div style={{ display: "flex", gap: 12 }}>
+              <label style={{ 
+                flex: 1, 
+                padding: "12px 15px", 
+                border: bankInfo.method === "momo" ? "2px solid #8e24aa" : "2px solid #e0e0e0",
+                borderRadius: 10, 
+                cursor: "pointer",
+                textAlign: "center",
+                background: bankInfo.method === "momo" ? "#f3e5f5" : "white"
+              }}>
+                <input 
+                  type="radio" 
+                  name="method" 
+                  value="momo" 
+                  checked={bankInfo.method === "momo"}
+                  onChange={(e) => setBankInfo({ ...bankInfo, method: e.target.value })}
+                  style={{ marginRight: 8 }}
+                />
+                <span style={{ color: bankInfo.method === "momo" ? "#8e24aa" : "#333", fontWeight: 600 }}>💰 MoMo</span>
+              </label>
+              <label style={{ 
+                flex: 1, 
+                padding: "12px 15px", 
+                border: bankInfo.method === "bank" ? "2px solid #1e88e5" : "2px solid #e0e0e0",
+                borderRadius: 10, 
+                cursor: "pointer",
+                textAlign: "center",
+                background: bankInfo.method === "bank" ? "#e3f2fd" : "white"
+              }}>
+                <input 
+                  type="radio" 
+                  name="method" 
+                  value="bank" 
+                  checked={bankInfo.method === "bank"}
+                  onChange={(e) => setBankInfo({ ...bankInfo, method: e.target.value })}
+                  style={{ marginRight: 8 }}
+                />
+                <span style={{ color: bankInfo.method === "bank" ? "#1e88e5" : "#333", fontWeight: 600 }}>🏦 Ngân hàng</span>
+              </label>
+            </div>
+            <p style={{ fontSize: 11, color: "#888", marginTop: 6 }}>
+              {bankInfo.method === "momo" ? "→ Nhận tiền qua QR Code MoMo (nhanh)" : "→ Nhận tiền qua chuyển khoản ngân hàng"}
+            </p>
+          </div>
           <div style={{ background: "#f5f5f5", borderRadius: 10, padding: 15, marginBottom: 20, fontSize: 13 }}>
             <p style={{ marginBottom: 5, color: "#666" }}>💰 Số dư khả dụng: <strong>{formatCurrency(stats.co_the_rut)}</strong></p>
             <p style={{ marginBottom: 5, color: "#666" }}>📝 Tối thiểu: <strong>{formatCurrency(MIN_WITHDRAW)}</strong></p>
@@ -1166,6 +1297,322 @@ export default function AffiliateSystem({ initialPage = "register" }) {
         </Modal>
       )}
 
+
+      {/* COMMISSION DETAIL MODAL - Hoa hồng của tôi */}
+      {showCommissions && (
+        <Modal onClose={() => { setShowCommissions(false); setCommissionTab("tong_quan"); }} title="💰 Hoa hồng của tôi">
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+            {[
+              { id: "tong_quan", label: "Tổng quan", icon: "📊" },
+              { id: "f1", label: "F1 - 10%", icon: "👤" },
+              { id: "f2", label: "F2 - 5%", icon: "👥" },
+              { id: "f3", label: "F3 - 2%", icon: "👥👥" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setCommissionTab(tab.id)}
+                style={{
+                  padding: "10px 20px",
+                  background: commissionTab === tab.id 
+                    ? "linear-gradient(135deg, #4caf50 0%, #388e3c 100%)" 
+                    : "white",
+                  color: commissionTab === tab.id ? "white" : "#666",
+                  border: commissionTab === tab.id ? "none" : "2px solid #e0e0e0",
+                  borderRadius: 25,
+                  fontSize: 13,
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                }}
+              >
+                {tab.icon} {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div style={{ marginBottom: 15 }}>
+            <input
+              type="text"
+              value={commissionSearch}
+              onChange={(e) => setCommissionSearch(e.target.value)}
+              placeholder="🔍 Tìm kiếm theo mã đơn hoặc tên khách..."
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                border: "2px solid #e0e0e0",
+                borderRadius: 10,
+                fontSize: 14,
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {/* Summary Cards */}
+          {commissionTab === "tong_quan" && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
+              <div style={{ background: "#fff3e0", padding: 15, borderRadius: 12, textAlign: "center" }}>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>⏳ Chờ xác nhận</p>
+                <p style={{ fontSize: 20, fontWeight: "800", color: "#e65100" }}>{formatCurrency(stats.cho_xac_nhan)}</p>
+              </div>
+              <div style={{ background: "#e8f5e9", padding: 15, borderRadius: 12, textAlign: "center" }}>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>✅ Đã trả</p>
+                <p style={{ fontSize: 20, fontWeight: "800", color: "#4caf50" }}>{formatCurrency(stats.da_tra)}</p>
+              </div>
+              <div style={{ background: "#e3f2fd", padding: 15, borderRadius: 12, textAlign: "center" }}>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>💸 Có thể rút</p>
+                <p style={{ fontSize: 20, fontWeight: "800", color: "#1976d2" }}>{formatCurrency(stats.co_the_rut)}</p>
+              </div>
+            </div>
+          )}
+
+
+          {commissionTab !== "tong_quan" && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 20 }}>
+              <div style={{ background: "#f5f5f5", padding: 15, borderRadius: 12 }}>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
+                  {commissionTab === "f1" ? "👤" : commissionTab === "f2" ? "👥" : "👥👥"} Số lượng {commissionTab.toUpperCase()}
+                </p>
+                <p style={{ fontSize: 24, fontWeight: "800", color: "#333" }}>
+                  {commissionTab === "f1" ? stats.f1 : commissionTab === "f2" ? stats.f2 : stats.f3} người
+                </p>
+              </div>
+              <div style={{ background: commissionTab === "f1" ? "#e8f5e9" : commissionTab === "f2" ? "#e3f2fd" : "#f3e5f5", padding: 15, borderRadius: 12 }}>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>💰 Tổng hoa hồng</p>
+                <p style={{ fontSize: 24, fontWeight: "800", color: commissionTab === "f1" ? "#4caf50" : commissionTab === "f2" ? "#2196f3" : "#9c27b0" }}>
+                  {formatCurrency(
+                    commissions
+                      .filter(c => {
+                        if (commissionTab === "f1") return c.cap_do === 1;
+                        if (commissionTab === "f2") return c.cap_do === 2;
+                        return c.cap_do === 3;
+                      })
+                      .reduce((sum, c) => sum + parseFloat(c.tien_hoa_hong || 0), 0)
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Commission List */}
+          <div style={{ maxHeight: 400, overflowY: "auto" }}>
+            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5", position: "sticky", top: 0 }}>
+                  <th style={{ padding: "10px 6px", textAlign: "left", borderBottom: "1px solid #ddd" }}>Mã đơn</th>
+                  <th style={{ padding: "10px 6px", textAlign: "left", borderBottom: "1px solid #ddd" }}>Khách hàng</th>
+                  <th style={{ padding: "10px 6px", textAlign: "right", borderBottom: "1px solid #ddd" }}>Tiền hàng</th>
+                  <th style={{ padding: "10px 6px", textAlign: "right", borderBottom: "1px solid #ddd" }}>Hoa hồng</th>
+                  <th style={{ padding: "10px 6px", textAlign: "center", borderBottom: "1px solid #ddd" }}>Trạng thái</th>
+                  <th style={{ padding: "10px 6px", textAlign: "center", borderBottom: "1px solid #ddd" }}>Ngày</th>
+                </tr>
+              </thead>
+              <tbody>
+                {commissions
+                  .filter(c => {
+                    // Filter by tab
+                    if (commissionTab !== "tong_quan") {
+                      if (commissionTab === "f1" && c.cap_do !== 1) return false;
+                      if (commissionTab === "f2" && c.cap_do !== 2) return false;
+                      if (commissionTab === "f3" && c.cap_do !== 3) return false;
+                    }
+                    // Filter by search
+                    if (commissionSearch) {
+                      const searchLower = commissionSearch.toLowerCase();
+                      return (
+                        c.donHang?.ma_don_hang?.toLowerCase().includes(searchLower) ||
+                        c.donHang?.nguoiMua?.ho_ten?.toLowerCase().includes(searchLower)
+                      );
+                    }
+                    return true;
+                  })
+                  .map((commission) => (
+                    <tr key={commission.id}>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee" }}>{commission.donHang?.ma_don_hang || `#${commission.id}`}</td>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee", fontWeight: "600" }}>{commission.donHang?.nguoiMua?.ho_ten || "Khách vãng lai"}</td>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee", textAlign: "right" }}>{formatCurrency(commission.donHang?.tong_tien)}</td>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee", textAlign: "right", fontWeight: "700", color: "#4caf50" }}>+{formatCurrency(commission.tien_hoa_hong)}</td>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee", textAlign: "center" }}>
+                        <span style={{ 
+                          background: commission.trang_thai === "da_tra" ? "#e8f5e9" : "#fff3e0",
+                          color: commission.trang_thai === "da_tra" ? "#4caf50" : "#e65100",
+                          padding: "3px 8px", 
+                          borderRadius: 10, 
+                          fontSize: 10, 
+                          fontWeight: "600" 
+                        }}>
+                          {commission.trang_thai === "da_tra" ? "✅ Đã trả" : "⏳ Chờ"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee", textAlign: "center", color: "#666", fontSize: 11 }}>
+                        {commission.created_at ? new Date(commission.created_at).toLocaleDateString("vi-VN") : "-"}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            {commissions.filter(c => commissionTab === "tong_quan" || (commissionTab === "f1" && c.cap_do === 1) || (commissionTab === "f2" && c.cap_do === 2) || (commissionTab === "f3" && c.cap_do === 3)).length === 0 && (
+              <div style={{ textAlign: "center", padding: 40, color: "#999" }}>
+                <span style={{ fontSize: 40, display: "block" }}>📭</span>
+                <p>Chưa có hoa hồng nào</p>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+
+      {/* CUSTOMER DETAIL MODAL - Khách hàng của tôi */}
+      {showCustomers && (
+        <Modal onClose={() => { setShowCustomers(false); setCustomerTab("all"); }} title="👥 Khách hàng của tôi">
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+            {[
+              { id: "all", label: "Tất cả", icon: "📋" },
+              { id: "f1", label: "Từ F1", icon: "👤" },
+              { id: "f2", label: "Từ F2", icon: "👥" },
+              { id: "f3", label: "Từ F3", icon: "👥👥" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setCustomerTab(tab.id)}
+                style={{
+                  padding: "10px 20px",
+                  background: customerTab === tab.id 
+                    ? "linear-gradient(135deg, #2196f3 0%, #1976d2 100%)" 
+                    : "white",
+                  color: customerTab === tab.id ? "white" : "#666",
+                  border: customerTab === tab.id ? "none" : "2px solid #e0e0e0",
+                  borderRadius: 25,
+                  fontSize: 13,
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                }}
+              >
+                {tab.icon} {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div style={{ marginBottom: 15 }}>
+            <input
+              type="text"
+              value={customerSearch}
+              onChange={(e) => setCustomerSearch(e.target.value)}
+              placeholder="🔍 Tìm kiếm theo tên hoặc SĐT..."
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                border: "2px solid #e0e0e0",
+                borderRadius: 10,
+                fontSize: 14,
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {/* Summary Stats */}
+          <div style={{ background: "#e3f2fd", padding: 15, borderRadius: 12, marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 3 }}>📊 Tổng số khách hàng</p>
+                <p style={{ fontSize: 28, fontWeight: "800", color: "#1976d2" }}>
+                  {customerTab === "all" 
+                    ? orders.length 
+                    : orders.filter(o => o.cap_do === (customerTab === "f1" ? 1 : customerTab === "f2" ? 2 : 3)).length}
+                </p>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 3 }}>💰 Tổng doanh thu</p>
+                <p style={{ fontSize: 20, fontWeight: "700", color: "#4caf50" }}>
+                  {formatCurrency(
+                    (customerTab === "all" ? orders : orders.filter(o => o.cap_do === (customerTab === "f1" ? 1 : customerTab === "f2" ? 2 : 3)))
+                      .reduce((sum, o) => sum + parseFloat(o.tong_tien || 0), 0)
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Customer List */}
+          <div style={{ maxHeight: 400, overflowY: "auto" }}>
+            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5", position: "sticky", top: 0 }}>
+                  <th style={{ padding: "10px 6px", textAlign: "left", borderBottom: "1px solid #ddd" }}>Mã đơn</th>
+                  <th style={{ padding: "10px 6px", textAlign: "left", borderBottom: "1px solid #ddd" }}>Khách hàng</th>
+                  <th style={{ padding: "10px 6px", textAlign: "left", borderBottom: "1px solid #ddd" }}>SĐT</th>
+                  <th style={{ padding: "10px 6px", textAlign: "right", borderBottom: "1px solid #ddd" }}>Tổng tiền</th>
+                  <th style={{ padding: "10px 6px", textAlign: "center", borderBottom: "1px solid #ddd" }}>Nguồn</th>
+                  <th style={{ padding: "10px 6px", textAlign: "center", borderBottom: "1px solid #ddd" }}>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders
+                  .filter(o => {
+                    // Filter by tab
+                    if (customerTab !== "all") {
+                      if (customerTab === "f1" && o.cap_do !== 1) return false;
+                      if (customerTab === "f2" && o.cap_do !== 2) return false;
+                      if (customerTab === "f3" && o.cap_do !== 3) return false;
+                    }
+                    // Filter by search
+                    if (customerSearch) {
+                      const searchLower = customerSearch.toLowerCase();
+                      return (
+                        o.nguoiMua?.ho_ten?.toLowerCase().includes(searchLower) ||
+                        o.nguoiMua?.sdt?.includes(searchLower)
+                      );
+                    }
+                    return true;
+                  })
+                  .map((order) => (
+                    <tr key={order.id}>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee" }}>{order.ma_don_hang}</td>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee", fontWeight: "600" }}>{order.nguoiMua?.ho_ten || "Khách vãng lai"}</td>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee", color: "#666" }}>{order.nguoiMua?.sdt || "-"}</td>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee", textAlign: "right", fontWeight: "600" }}>{formatCurrency(order.tong_tien)}</td>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee", textAlign: "center" }}>
+                        <span style={{ 
+                          background: order.cap_do === 1 ? "#e8f5e9" : order.cap_do === 2 ? "#e3f2fd" : "#f3e5f5",
+                          color: order.cap_do === 1 ? "#4caf50" : order.cap_do === 2 ? "#2196f3" : "#9c27b0",
+                          padding: "3px 8px", 
+                          borderRadius: 10, 
+                          fontSize: 10, 
+                          fontWeight: "600" 
+                        }}>
+                          {order.cap_do === 1 ? "F1" : order.cap_do === 2 ? "F2" : "F3"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "8px 6px", borderBottom: "#eee", textAlign: "center" }}>
+                        <span style={{ 
+                          background: order.trang_thai === "da_giao" ? "#e8f5e9" : order.trang_thai === "da_tt" ? "#e3f2fd" : order.trang_thai === "dang_giao" ? "#fff3e0" : "#f5f5f5",
+                          color: order.trang_thai === "da_giao" ? "#4caf50" : order.trang_thai === "da_tt" ? "#2196f3" : order.trang_thai === "dang_giao" ? "#e65100" : "#666",
+                          padding: "3px 8px", 
+                          borderRadius: 10, 
+                          fontSize: 10, 
+                          fontWeight: "600" 
+                        }}>
+                          {order.trang_thai === "da_giao" ? "✅" : order.trang_thai === "da_tt" ? "💰" : order.trang_thai === "dang_giao" ? "🚚" : "⏳"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            {orders.filter(o => customerTab === "all" || o.cap_do === (customerTab === "f1" ? 1 : customerTab === "f2" ? 2 : 3)).length === 0 && (
+              <div style={{ textAlign: "center", padding: 40, color: "#999" }}>
+                <span style={{ fontSize: 40, display: "block" }}>👥</span>
+                <p>Chưa có khách hàng nào</p>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
       {/* CSS Animation */}
       <style>{`
         @keyframes slideIn {
@@ -1199,6 +1646,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
           product={selectedProduct}
           onBack={handleBackFromProduct}
           relatedProducts={filteredProducts.filter(p => p.id !== selectedProduct.id).slice(0, 4)}
+          onViewProduct={handleViewProduct}
         />
       )}
 

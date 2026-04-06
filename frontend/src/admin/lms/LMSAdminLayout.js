@@ -51,6 +51,7 @@ export default function LMSAdminLayout({ children, activePage = "leads", onNavig
     <div style={{ display: "flex", minHeight: "100vh", background: "#f5f5f5" }}>
       {/* Sidebar */}
       <aside
+        className="lms-sidebar"
         style={{
           width: sidebarOpen ? 240 : 70,
           background: "#e11d48",
@@ -59,7 +60,6 @@ export default function LMSAdminLayout({ children, activePage = "leads", onNavig
           position: "fixed",
           height: "100vh",
           zIndex: 100,
-          overflow: "hidden",
         }}
       >
         {/* Logo */}
@@ -125,7 +125,7 @@ export default function LMSAdminLayout({ children, activePage = "leads", onNavig
         </button>
 
         {/* Menu */}
-        <nav style={{ padding: "16px 8px", overflow: "hidden" }}>
+        <nav className="lms-sidebar-menu" style={{ padding: "16px 8px" }}>
           {menuItems.map((item) => {
             const isActive = activePage === item.id;
             return (
@@ -169,27 +169,31 @@ export default function LMSAdminLayout({ children, activePage = "leads", onNavig
           })}
         </nav>
 
-        {/* Back to Admin */}
+        {/* Back to Admin - fixed at bottom with spacing */}
         <div
           style={{
-            position: "absolute",
-            bottom: 16,
-            left: 8,
-            right: 8,
-            padding: "12px 14px",
-            borderRadius: 8,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            background: "rgba(255,255,255,0.1)",
-            color: "white",
-            justifyContent: sidebarOpen ? "flex-start" : "center",
+            marginTop: "auto",
+            padding: "16px 8px",
+            borderTop: "1px solid rgba(255,255,255,0.2)",
           }}
-          onClick={() => onNavigate && onNavigate("main-admin")}
         >
-          <span style={{ fontSize: 18 }}>🏠</span>
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: 8,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              background: "rgba(255,255,255,0.1)",
+              color: "white",
+              justifyContent: sidebarOpen ? "flex-start" : "center",
+            }}
+            onClick={() => onNavigate && onNavigate("main-admin")}
+          >
+            <span style={{ fontSize: 18 }}>🏠</span>
           {sidebarOpen && <span style={{ fontSize: 14 }}>Quay lại Admin</span>}
+          </div>
         </div>
       </aside>
 

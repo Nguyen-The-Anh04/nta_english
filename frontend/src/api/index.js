@@ -1,19 +1,39 @@
+import { getCookie } from "../utils/cookieUtils";
+
 const API_BASE_URL = "http://localhost:5000/api";
 
 // Books API
 export const fetchBooks = async (category = null) => {
-  const url = category 
-    ? `${API_BASE_URL}/books?category=${category}`
-    : `${API_BASE_URL}/books`;
-  const response = await fetch(url);
-  const result = await response.json();
-  return result.data.books;
+  try {
+    const url = category 
+      ? `${API_BASE_URL}/books?category=${category}`
+      : `${API_BASE_URL}/books`;
+    const response = await fetch(url);
+    const result = await response.json();
+    if (result.success === false) {
+      console.warn("API returned error:", result.message);
+      return [];
+    }
+    return result.data?.books || [];
+  } catch (error) {
+    console.error("fetchBooks error:", error);
+    return [];
+  }
 };
 
 export const fetchCategories = async () => {
-  const response = await fetch(`${API_BASE_URL}/books/categories`);
-  const result = await response.json();
-  return result.data;
+  try {
+    const response = await fetch(`${API_BASE_URL}/books/categories`);
+    const result = await response.json();
+    if (result.success === false) {
+      console.warn("API returned error:", result.message);
+      return [];
+    }
+    return result.data || [];
+  } catch (error) {
+    console.error("fetchCategories error:", error);
+    return [];
+  }
 };
 
 export const fetchBookById = async (id) => {
@@ -140,7 +160,23 @@ export const fetchOrderStats = async () => {
     },
   });
   const result = await response.json();
-  return result.data || {};
+  return result.data || { all: 0, cho_tt: 0, da_tt: 0, dang_giao: 0, da_giao: 0, da_huy: 0 };
+};
+
+// Update order status (admin)
+export const updateOrderStatus = async (orderId, status) => {
+  const token = localStorage.getItem('token');
+  // Backend expects: { trang_thai: "da_tt" }
+  const response = await fetch(`${API_BASE_URL}/books/orders/${orderId}/status`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ trang_thai: status }),
+  });
+  const result = await response.json();
+  return result;
 };
 
 export const fetchOrderById = async (id) => {
@@ -197,12 +233,23 @@ export const register = async (userData) => {
 
 // Affiliate API
 export const registerAffiliate = async (data) => {
+  // Get ref code from cookie if not provided in data
+  let refCode = data.ma_gioi_thieu;
+  if (!refCode) {
+    refCode = getCookie("ref");
+  }
+  
+  const payload = { ...data };
+  if (refCode) {
+    payload.ma_gioi_thieu = refCode;
+  }
+  
   const response = await fetch(`${API_BASE_URL}/affiliate/register-new`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
   const result = await response.json();
   return result;
@@ -280,6 +327,69 @@ export const createAffiliateWithdraw = async (data) => {
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  return result;
+};
+
+// Admin: Backfill hoa hồng cho đơn da_tt chưa có
+export const backfillCommissions = async () => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/backfill-commissions`, {
+    method: "POST",
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  return response.json();
+};
+
+export const fetchAllWithdrawals = async () => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/withdrawals`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+  return result;
+};
+
+// Admin: Duyệt rút tiền (CTV đã chọn phương thức rồi)
+export const approveWithdrawal = async (id) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/withdrawals/${id}/approve`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({}),
+  });
+  const result = await response.json();
+  return result;
+};
+
+// Admin: Từ chối rút tiền
+export const rejectWithdrawal = async (id, reason = '') => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/withdrawals/${id}/reject`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ reason }),
+  });
+  const result = await response.json();
+  return result;
+};
+
+// Admin: Lấy QR code cho withdrawal
+export const getWithdrawalQR = async (id) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/affiliate/admin/withdrawals/${id}/qr`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
   });
   const result = await response.json();
   return result;

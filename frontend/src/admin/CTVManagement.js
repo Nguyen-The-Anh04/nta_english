@@ -319,6 +319,51 @@ export default function CTVManagement() {
                 <label style={{ fontWeight: "600", color: "#666" }}>Số downline:</label>
                 <p style={{ fontSize: 16, marginTop: 5 }}>{selectedCTV.tong_downline}</p>
               </div>
+              
+              {/* Downline F1, F2, F3 */}
+              {selectedCTV.downline && (
+                <div style={{ marginTop: 15, paddingTop: 15, borderTop: "1px solid #eee" }}>
+                  <label style={{ fontWeight: "600", color: "#666", display: "block", marginBottom: 10 }}>
+                    Cấu trúc downline:
+                  </label>
+                  
+                  {/* F1 */}
+                  <div style={{ marginBottom: 10 }}>
+                    <span style={{ fontWeight: "600", color: "#4caf50" }}>F1: </span>
+                    <span>{selectedCTV.tong_f1 || selectedCTV.downline.f1?.length || 0} người</span>
+                    {selectedCTV.downline.f1 && selectedCTV.downline.f1.length > 0 && (
+                      <div style={{ marginLeft: 10, fontSize: 13, color: "#666" }}>
+                        {selectedCTV.downline.f1.slice(0, 3).map(f => f.ho_ten || f.email).join(", ")}
+                        {selectedCTV.downline.f1.length > 3 && ` +${selectedCTV.downline.f1.length - 3} người`}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* F2 */}
+                  <div style={{ marginBottom: 10 }}>
+                    <span style={{ fontWeight: "600", color: "#2196f3" }}>F2: </span>
+                    <span>{selectedCTV.tong_f2 || selectedCTV.downline.f2?.length || 0} người</span>
+                    {selectedCTV.downline.f2 && selectedCTV.downline.f2.length > 0 && (
+                      <div style={{ marginLeft: 10, fontSize: 13, color: "#666" }}>
+                        {selectedCTV.downline.f2.slice(0, 3).map(f => f.ho_ten || f.email).join(", ")}
+                        {selectedCTV.downline.f2.length > 3 && ` +${selectedCTV.downline.f2.length - 3} người`}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* F3 */}
+                  <div>
+                    <span style={{ fontWeight: "600", color: "#9c27b0" }}>F3: </span>
+                    <span>{selectedCTV.tong_f3 || selectedCTV.downline.f3?.length || 0} người</span>
+                    {selectedCTV.downline.f3 && selectedCTV.downline.f3.length > 0 && (
+                      <div style={{ marginLeft: 10, fontSize: 13, color: "#666" }}>
+                        {selectedCTV.downline.f3.slice(0, 3).map(f => f.ho_ten || f.email).join(", ")}
+                        {selectedCTV.downline.f3.length > 3 && ` +${selectedCTV.downline.f3.length - 3} người`}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               <div>
                 <label style={{ fontWeight: "600", color: "#666" }}>Ngày tham gia:</label>
                 <p style={{ fontSize: 16, marginTop: 5 }}>

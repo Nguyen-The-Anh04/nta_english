@@ -3,27 +3,26 @@ const router = express.Router();
 const orderController = require("../controllers/orderController");
 const { auth, authOptional, isAdmin, isCTV } = require("../middleware/auth");
 
-// ==================== BOOKS ====================
-
-// GET /api/books/categories - Get all categories (không cần token)
-router.get("/categories", authOptional, orderController.getCategories);
-
 // ==================== ORDERS ====================
 
-// GET /api/orders/stats - Get order statistics by status
+// GET /api/books/orders/stats - Get order statistics by status
 router.get("/orders/stats", orderController.getOrderStats);
 
-// GET /api/orders - Get all orders
+// GET /api/books/orders - Get all orders (with stats) - bỏ admin check
 router.get("/orders", orderController.getAllOrders);
 
-// GET /api/orders/:id - Get order by ID
-router.get("/orders/:id", orderController.getOrderById);
+// GET /api/books/orders - Get all orders
+router.get("/orders", orderController.getAllOrders);
 
-// POST /api/orders - Create order
+// POST /api/books/orders - Create order
 router.post("/orders", orderController.createOrder);
 
-// PUT /api/orders/:id/status - Update order status
-router.put("/orders/:id/status", auth, isAdmin, orderController.updateOrderStatus);
+// PUT /api/books/orders/:id/status - Update order status (PHẢI ĐỂ TRƯỚC :id)
+// Bỏ cả auth và isAdmin để ai cũng có thể duyệt (CHỈ DÙNG KHI DEV)
+router.put("/orders/:id/status", orderController.updateOrderStatus);
+
+// GET /api/books/orders/:id - Get order by ID (ĐỂ SAU status)
+router.get("/orders/:id", orderController.getOrderById);
 
 // ==================== BOOKS ====================
 

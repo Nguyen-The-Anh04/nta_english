@@ -8,7 +8,10 @@ const { auth, authOptional, isAdmin, isAdminOrTeacher } = require("../middleware
 // GET /api/courses - Get all courses (không cần token)
 router.get("/", authOptional, courseController.getAllCourses);
 
-// GET /api/courses/:id - Get course by ID (không cần token)
+// GET /api/courses/:id/classes - Get classes by course (PHẢI ĐỂ TRƯỚC :id)
+router.get("/:id/classes", courseController.getClassesByCourse);
+
+// GET /api/courses/:id - Get course by ID (ĐỂ SAU :id/classes)
 router.get("/:id", authOptional, courseController.getCourseById);
 
 // POST /api/courses - Create course (Admin/Teacher)
@@ -20,24 +23,21 @@ router.put("/:id", auth, isAdminOrTeacher, courseController.updateCourse);
 // DELETE /api/courses/:id - Delete course
 router.delete("/:id", auth, isAdmin, courseController.deleteCourse);
 
-// GET /api/courses/:id/classes - Get classes by course
-router.get("/:id/classes", courseController.getClassesByCourse);
-
 // ==================== CLASSES ====================
 
-// GET /api/classes - Get all classes
+// GET /api/courses/classes/all - Get all classes
 router.get("/classes/all", courseController.getAllClasses);
 
-// POST /api/classes - Create class
+// POST /api/courses/classes - Create class
 router.post("/classes", auth, isAdminOrTeacher, courseController.createClass);
 
-// GET /api/classes/:id/students - Get students in class
+// GET /api/courses/classes/:id/students - Get students in class (PHẢI ĐỂ TRƯỚC /classes/:id)
 router.get("/classes/:id/students", auth, courseController.getClassStudents);
 
-// POST /api/classes/:id/enroll - Enroll student
+// POST /api/courses/classes/:id/enroll - Enroll student (PHẢI ĐỂ TRƯỚC /classes/:id)
 router.post("/classes/:id/enroll", auth, courseController.enrollStudent);
 
-// PUT /api/classes/:id/confirm - Confirm enrollment
+// PUT /api/courses/classes/:id/confirm - Confirm enrollment (PHẢI ĐỂ TRƯỚC /classes/:id)
 router.put("/classes/:id/confirm", auth, isAdminOrTeacher, courseController.confirmEnrollment);
 
 // ==================== ROOMS ====================

@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
-import { fetchOrders, fetchOrderStats, fetchOrderById } from "../api";
+import { fetchOrders, fetchOrderStats, fetchOrderById, updateOrderStatus, backfillCommissions } from "../api";
+
+const fixCapDo = async () => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`http://localhost:5000/api/affiliate/admin/fix-cap-do`, {
+    method: "POST",
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  return response.json();
+};
 
 export default function OrderManagement() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -24,11 +33,15 @@ export default function OrderManagement() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [ordersData, statsData] = await Promise.all([
-        fetchOrders(),
-        fetchOrderStats()
-      ]);
-      setOrders(ordersData);
+      const ordersData = await fetchOrders();
+      setOrders(ordersData || []);
+      
+      // Tính stats từ orders thay vì gọi API riêng
+      const statsData = { all: 0, cho_tt: 0, da_tt: 0, dang_giao: 0, da_giao: 0, da_huy: 0 };
+      (ordersData || []).forEach(o => {
+        statsData[o.trang_thai] = (statsData[o.trang_thai] || 0) + 1;
+        statsData.all++;
+      });
       setStats(statsData);
     } catch (error) {
       console.error("Error loading orders:", error);
@@ -45,6 +58,49 @@ export default function OrderManagement() {
     if (!dateString) return "";
     const date = new Date(dateString);
     return date.toLocaleDateString("vi-VN");
+  };
+
+  // Backfill commissions for already-approved orders
+  const handleBackfillCommissions = async () => {
+    if (!window.confirm("Đồng bộ hoa hồng cho tất cả đơn 'Đã thanh toán' chưa có hoa hồng?")) return;
+    try {
+      const result = await backfillCommissions();
+      const details = result.data?.details?.map(d => `#${d.ma_don_hang}: ${d.reason}`).join('\n') || '';
+      alert(`${result.message}\n\nChi tiết:\n${details}`);
+    } catch (error) {
+      alert("Có lỗi xảy ra");
+    }
+  };
+
+  const handleFixCapDo = async () => {
+    if (!window.confirm("Tính lại cấp độ F1/F2/F3 cho toàn bộ CTV?")) return;
+    try {
+      const result = await fixCapDo();
+      alert(result.message || "Hoàn tất");
+    } catch (error) {
+      alert("Có lỗi xảy ra");
+    }
+  };
+
+  // Approve all pending orders
+  const handleApproveAll = async () => {
+    if (!window.confirm("Duyệt TẤT CẢ đơn hàng?\nĐơn sẽ chuyển sang 'Đã thanh toán' và tạo hoa hồng CTV.")) return;
+    
+    try {
+      const pendingOrders = orders.filter(o => o.trang_thai === "cho_tt");
+      let count = 0;
+      
+      for (const order of pendingOrders) {
+        const result = await updateOrderStatus(order.id, "da_tt");
+        if (result.success) count++;
+      }
+      
+      alert(`✅ Đã duyệt ${count} đơn hàng!\nCTV sẽ có hoa hồng.`);
+      loadData();
+    } catch (error) {
+      console.error("Approve all error:", error);
+      alert("Có lỗi xảy ra");
+    }
   };
 
   const filteredOrders = orders.filter((order) => {
@@ -161,6 +217,48 @@ export default function OrderManagement() {
 
       {/* Actions Bar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 25 }}>
+        <button
+          onClick={handleApproveAll}
+          style={{
+            padding: "10px 20px",
+            background: "linear-gradient(135deg, #4caf50 0%, #388e3c 100%)",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            fontWeight: "600",
+            cursor: "pointer",
+          }}
+        >
+          ✅ Duyệt tất cả đơn
+        </button>
+        <button
+          onClick={handleBackfillCommissions}
+          style={{
+            padding: "10px 20px",
+            background: "linear-gradient(135deg, #ff9800 0%, #e65100 100%)",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            fontWeight: "600",
+            cursor: "pointer",
+          }}
+        >
+          🔄 Đồng bộ hoa hồng
+        </button>
+        <button
+          onClick={handleFixCapDo}
+          style={{
+            padding: "10px 20px",
+            background: "linear-gradient(135deg, #9c27b0 0%, #6a1b9a 100%)",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            fontWeight: "600",
+            cursor: "pointer",
+          }}
+        >
+          🔧 Fix cấp độ F1/F2/F3
+        </button>
         <div style={{ display: "flex", gap: 15 }}>
           {/* Search */}
           <div style={{ position: "relative" }}>

@@ -15,7 +15,13 @@ router.get("/departments", authOptional, userController.getDepartments);
 // GET /api/users/teachers - Get all teachers (không cần token)
 router.get("/teachers", authOptional, userController.getTeachers);
 
-// GET /api/users/:id - Get user by ID
+// GET /api/users/profile - Get current user profile (PHẢI ĐỂ TRƯỚC :id)
+router.get("/profile", auth, userController.getProfile);
+
+// PUT /api/users/profile - Update current user profile (PHẢI ĐỂ TRƯỚC :id)
+router.put("/profile", auth, userController.updateProfile);
+
+// GET /api/users/:id - Get user by ID (ĐỂ SAU profile)
 router.get("/:id", authOptional, userController.getUserById);
 
 // POST /api/users - Create user (Admin)
@@ -27,14 +33,8 @@ router.put("/:id", auth, userController.updateUser);
 // DELETE /api/users/:id - Delete user (Admin)
 router.delete("/:id", auth, isAdmin, userController.deleteUser);
 
-// GET /api/users/:id/login-history - Get login history
+// GET /api/users/:id/login-history - Get login history (đặt trước :id)
 router.get("/:id/login-history", auth, isAdmin, userController.getLoginHistory);
-
-// GET /api/users/profile - Get current user profile
-router.get("/profile", auth, userController.getProfile);
-
-// PUT /api/users/profile - Update current user profile
-router.put("/profile", auth, userController.updateProfile);
 
 // PUT /api/users/change-password - Change password
 router.put("/change-password", auth, userController.changePassword);

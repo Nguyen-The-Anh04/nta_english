@@ -32,6 +32,9 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f5f5f5" }}>
+      <style>{`
+        aside::-webkit-scrollbar { display: none; }
+      `}</style>
       {/* Sidebar */}
       <aside
         style={{
@@ -42,7 +45,10 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
           position: "fixed",
           height: "100vh",
           zIndex: 100,
-          overflow: "hidden",
+          overflowY: "auto",
+          overflowX: "hidden",
+          scrollbarWidth: "none",        /* Firefox */
+          msOverflowStyle: "none",       /* IE/Edge */
         }}
       >
         {/* Logo */}
@@ -111,7 +117,7 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
         </button>
 
         {/* Menu */}
-        <nav style={{ padding: "16px 8px", overflow: "hidden" }}>
+        <nav style={{ padding: "16px 8px", overflowX: "hidden" }}>
           {menuItems.map((item) => {
             const isActive = activePage === item.id || (item.hasSubmenu && activePage.startsWith("stats-"));
             
@@ -204,10 +210,7 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
         {/* User */}
         <div
           style={{
-            position: "absolute",
-            bottom: 60,
-            left: 8,
-            right: 8,
+            margin: "8px 8px 4px",
             padding: "12px 14px",
             borderRadius: 8,
             cursor: "pointer",
@@ -228,10 +231,7 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
         <div
           onClick={handleLogout}
           style={{
-            position: "absolute",
-            bottom: 16,
-            left: 8,
-            right: 8,
+            margin: "0 8px 16px",
             padding: "12px 14px",
             borderRadius: 8,
             cursor: "pointer",

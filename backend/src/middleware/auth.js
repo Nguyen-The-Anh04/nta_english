@@ -92,6 +92,13 @@ const checkRole = (...roles) => {
       });
     }
 
+    if (!req.user.chuc_vu_id) {
+      return res.status(403).json({
+        success: false,
+        message: "Tài khoản không có quyền",
+      });
+    }
+
     const userRole = req.user.chuc_vu_id;
     if (!roles.includes(userRole)) {
       return res.status(403).json({
@@ -116,6 +123,12 @@ const checkRole = (...roles) => {
 
 // Middleware cho Admin
 const isAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Vui lòng đăng nhập",
+    });
+  }
   if (req.user.chuc_vu_id !== 1) {
     return res.status(403).json({
       success: false,
@@ -127,6 +140,12 @@ const isAdmin = (req, res, next) => {
 
 // Middleware cho Teacher
 const isTeacher = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Vui lòng đăng nhập",
+    });
+  }
   if (req.user.chuc_vu_id !== 3) {
     return res.status(403).json({
       success: false,
@@ -138,6 +157,12 @@ const isTeacher = (req, res, next) => {
 
 // Middleware cho Student
 const isStudent = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Vui lòng đăng nhập",
+    });
+  }
   if (req.user.chuc_vu_id !== 5) {
     return res.status(403).json({
       success: false,
@@ -148,18 +173,36 @@ const isStudent = (req, res, next) => {
 };
 
 // Middleware cho CTV (Affiliate)
-const isCTV = (req, res, next) => {
-  if (req.user.chuc_vu_id !== 6) {
-    return res.status(403).json({
+const isCTV = async (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
       success: false,
-      message: "Chỉ CTV mới có quyền truy cập",
+      message: "Vui lòng đăng nhập",
     });
   }
-  next();
+  // Cho phép nếu chuc_vu_id = 6 HOẶC có bản ghi trong bảng ctv
+  if (req.user.chuc_vu_id === 6) return next();
+
+  try {
+    const { CTV } = require("../models");
+    const ctv = await CTV.findOne({ where: { nguoi_dung_id: req.user.id } });
+    if (ctv) return next();
+  } catch (e) {}
+
+  return res.status(403).json({
+    success: false,
+    message: "Chỉ CTV mới có quyền truy cập",
+  });
 };
 
 // Middleware cho Admin & Teacher
 const isAdminOrTeacher = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Vui lòng đăng nhập",
+    });
+  }
   if (req.user.chuc_vu_id !== 1 && req.user.chuc_vu_id !== 3) {
     return res.status(403).json({
       success: false,
@@ -171,6 +214,12 @@ const isAdminOrTeacher = (req, res, next) => {
 
 // Middleware cho Admin & Employee (KD)
 const isAdminOrEmployee = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Vui lòng đăng nhập",
+    });
+  }
   if (req.user.chuc_vu_id !== 1 && req.user.chuc_vu_id !== 2) {
     return res.status(403).json({
       success: false,
