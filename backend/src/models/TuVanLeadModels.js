@@ -61,16 +61,6 @@ const TuVanLead = sequelize.define(
   }
 );
 
-// Relationship với NguoiDung
-const UserModels = require("./UserModels");
-const NguoiDung = UserModels.NguoiDung;
-TuVanLead.belongsTo(NguoiDung, { 
-  foreignKey: "nguoi_phan_cong_id", 
-  as: "nguoiPhanCong" 
-});
-NguoiDung.hasMany(TuVanLead, { 
-  foreignKey: "nguoi_phan_cong_id", 
-  as: "tuVanLeads" 
-});
+// Relationship with NguoiDung is set up in index.js to avoid circular dependency
 
 module.exports = { TuVanLead };

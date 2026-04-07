@@ -107,7 +107,7 @@ export default function OrderManagement() {
     const matchesSearch = 
       order.ma_don_hang?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.nguoiMua?.ho_ten?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.ctv?.ho_ten?.toLowerCase().includes(searchTerm.toLowerCase());
+      order.nguoiCTV?.ho_ten?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || order.trang_thai === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -358,7 +358,7 @@ export default function OrderManagement() {
                   <td style={{ padding: "12px 8px" }}>
                     <div>
                       <p style={{ margin: 0, fontSize: 14, color: "#333" }}>
-                        {order.ctv?.ho_ten || "Không có"}
+                        {order.nguoiCTV?.ho_ten || "Không có"}
                       </p>
                     </div>
                   </td>
@@ -447,7 +447,7 @@ export default function OrderManagement() {
               </div>
               <div>
                 <p style={{ margin: "0 0 5px 0", fontSize: 13, color: "#666" }}>CTV giới thiệu</p>
-                <p style={{ margin: 0, fontWeight: "600" }}>{selectedOrder.ctv?.ho_ten || "Không có"}</p>
+                <p style={{ margin: 0, fontWeight: "600" }}>{selectedOrder.nguoiCTV?.ho_ten || "Không có"}</p>
               </div>
             </div>
 

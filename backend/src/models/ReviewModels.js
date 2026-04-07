@@ -56,13 +56,11 @@ const DanhGia = sequelize.define(
 
 // Import models for relationships
 const { Sach } = require("./OrderModels");
-const { NguoiDung } = require("./UserModels");
 
 // Relationships
 Sach.hasMany(DanhGia, { foreignKey: "sach_id", as: "danhGias" });
 DanhGia.belongsTo(Sach, { foreignKey: "sach_id", as: "sach" });
 
-NguoiDung.hasMany(DanhGia, { foreignKey: "nguoi_dung_id", as: "danhGias" });
-DanhGia.belongsTo(NguoiDung, { foreignKey: "nguoi_dung_id", as: "nguoiDung" });
+// DanhGia <-> NguoiDung relationship is set up in index.js
 
 module.exports = { DanhGia };

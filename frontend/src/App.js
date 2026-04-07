@@ -11,6 +11,7 @@ import OrderHistory from "./components/OrderHistory";
 import OrderDetail from "./components/OrderDetail";
 import Admin from "./admin/Admin";
 import AdminLogin from "./admin/AdminLogin";
+import HocVienPortal from "./pages/HocVienPortal";
 import Footer from "./components/Footer";
 
 // ProductDetail Wrapper - Fetch data from API
@@ -211,6 +212,10 @@ function AppContent() {
       return <AdminLogin onLogin={handleLogin} />;
     }
     return <Admin onLogout={handleLogout} />;
+  }
+
+  if (path === "/hoc-vien") {
+    return <HocVienPortal />;
   }
 
   // Render based on URL

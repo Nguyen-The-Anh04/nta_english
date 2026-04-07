@@ -768,3 +768,125 @@ export const getCTVByRefCode = async (refCode) => {
   const result = await response.json();
   return result;
 };
+
+// ==================== LMS API ====================
+const lmsGet = (path) => {
+  const token = localStorage.getItem('token');
+  return fetch(`${API_BASE_URL}/lms/${path}`, { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json());
+};
+const lmsPost = (path, data) => {
+  const token = localStorage.getItem('token');
+  return fetch(`${API_BASE_URL}/lms/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) }).then(r => r.json());
+};
+const lmsPut = (path, data) => {
+  const token = localStorage.getItem('token');
+  return fetch(`${API_BASE_URL}/lms/${path}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) }).then(r => r.json());
+};
+
+export const lmsAPI = {
+  // Khoa hoc
+  getKhoaHocs: () => lmsGet('khoa-hoc'),
+  createKhoaHoc: (data) => lmsPost('khoa-hoc', data),
+  updateKhoaHoc: (id, data) => lmsPut(`khoa-hoc/${id}`, data),
+
+  // Phong hoc & Giao vien
+  getPhongHocs: () => lmsGet('phong-hoc'),
+  getGiaoViens: () => lmsGet('giao-vien'),
+
+  // Lop hoc
+  getLopHocs: (params = {}) => lmsGet(`lop-hoc?${new URLSearchParams(params)}`),
+  getLopHocById: (id) => lmsGet(`lop-hoc/${id}`),
+  createLopHoc: (data) => lmsPost('lop-hoc', data),
+  updateLopHoc: (id, data) => lmsPut(`lop-hoc/${id}`, data),
+
+  // Hoc vien
+  getHocViens: (params = {}) => lmsGet(`hoc-vien?${new URLSearchParams(params)}`),
+  createHocVien: (data) => lmsPost('hoc-vien', data),
+  updateHocVien: (id, data) => lmsPut(`hoc-vien/${id}`, data),
+
+  // Dang ky
+  getDangKyByLop: (lopId) => lmsGet(`lop-hoc/${lopId}/hoc-vien`),
+  addHocVienVaoLop: (data) => lmsPost('dang-ky', data),
+  updateDangKy: (id, data) => lmsPut(`dang-ky/${id}`, data),
+
+  // Hop dong & thanh toan
+  getHopDongs: (params = {}) => lmsGet(`hop-dong?${new URLSearchParams(params)}`),
+  createHopDong: (data) => lmsPost('hop-dong', data),
+  createThanhToan: (data) => lmsPost('thanh-toan', data),
+};
+
+// ==================== LMS MODULE 2 API ====================
+const lmsPost2 = (path, data) => {
+  const token = localStorage.getItem('token');
+  return fetch(`${API_BASE_URL}/lms/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) }).then(r => r.json());
+};
+const lmsPut2 = (path, data) => {
+  const token = localStorage.getItem('token');
+  return fetch(`${API_BASE_URL}/lms/${path}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) }).then(r => r.json());
+};
+const lmsGet2 = (path) => {
+  const token = localStorage.getItem('token');
+  return fetch(`${API_BASE_URL}/lms/${path}`, { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json());
+};
+
+export const lmsAPI2 = {
+  // Điểm danh
+  getDiemDanh: (lopId, ngay) => lmsGet2(`diem-danh/${lopId}?ngay=${ngay}`),
+  getLichSuDiemDanh: (lopId) => lmsGet2(`diem-danh/${lopId}/lich-su`),
+  diemDanhBulk: (data) => lmsPost2('diem-danh/bulk', data),
+
+  // Bài tập
+  getBaiTaps: (params = {}) => lmsGet2(`bai-tap?${new URLSearchParams(params)}`),
+  getBaiTapById: (id) => lmsGet2(`bai-tap/${id}`),
+  createBaiTap: (data) => lmsPost2('bai-tap', data),
+  updateBaiTap: (id, data) => lmsPut2(`bai-tap/${id}`, data),
+
+  // Chấm điểm
+  chamDiem: (data) => lmsPost2('cham-diem', data),
+  getDiemSoLop: (lopId) => lmsGet2(`diem-so/${lopId}`),
+
+  // Đánh giá giảng viên
+  createDanhGia: (data) => fetch(`${API_BASE_URL}/lms/danh-gia-gv`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
+  getDanhGiaGiaoVien: (giaoVienId) => lmsGet2(`danh-gia-gv/${giaoVienId}`),
+};
+
+// ==================== LMS MODULE 3: KE TOAN ====================
+const _keToanGet = (path) => {
+  const token = localStorage.getItem('token');
+  return fetch(`${API_BASE_URL}/lms/${path}`, { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json());
+};
+const _keToanPost = (path, data) => {
+  const token = localStorage.getItem('token');
+  return fetch(`${API_BASE_URL}/lms/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) }).then(r => r.json());
+};
+
+export const keToanAPI = {
+  getTongQuan: (thang, nam) => _keToanGet(`ke-toan/tong-quan?thang=${thang}&nam=${nam}`),
+  getCongNo: (search = '') => _keToanGet(`ke-toan/cong-no?search=${search}`),
+  getPhieuThus: (params = {}) => _keToanGet(`ke-toan/phieu-thu?${new URLSearchParams(params)}`),
+  createPhieuThu: (data) => _keToanPost('ke-toan/phieu-thu', data),
+  getPhieuChis: (params = {}) => _keToanGet(`ke-toan/phieu-chi?${new URLSearchParams(params)}`),
+  createPhieuChi: (data) => _keToanPost('ke-toan/phieu-chi', data),
+  getBaoCao: (params = {}) => _keToanGet(`ke-toan/bao-cao?${new URLSearchParams(params)}`),
+};
+
+// ==================== LMS MODULE 4: PORTAL HOC VIEN ====================
+const _hvGet = (path) => {
+  const token = localStorage.getItem('hv_token') || localStorage.getItem('token');
+  return fetch(`${API_BASE_URL}/lms/${path}`, { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json());
+};
+const _hvPost = (path, data) => {
+  const token = localStorage.getItem('hv_token') || localStorage.getItem('token');
+  return fetch(`${API_BASE_URL}/lms/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) }).then(r => r.json());
+};
+
+export const hvPortalAPI = {
+  getDashboard: () => _hvGet('hoc-vien/portal/dashboard'),
+  getLopHoc: () => _hvGet('hoc-vien/portal/lop-hoc'),
+  getBaiTap: () => _hvGet('hoc-vien/portal/bai-tap'),
+  nopBai: (data) => _hvPost('hoc-vien/portal/nop-bai', data),
+  getDiemSo: () => _hvGet('hoc-vien/portal/diem-so'),
+  getDiemDanh: () => _hvGet('hoc-vien/portal/diem-danh'),
+  danhGia: (data) => _hvPost('hoc-vien/portal/danh-gia', data),
+  getHocPhi: () => _hvGet('hoc-vien/portal/hoc-phi'),
+};

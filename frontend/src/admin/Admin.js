@@ -18,6 +18,14 @@ import TransferredStudents from "./lms/TransferredStudents";
 import RegistrationAppointments from "./lms/RegistrationAppointments";
 import StudentFeedback from "./lms/StudentFeedback";
 import PaymentManagement from "./lms/PaymentManagement";
+import ClassManagement from "./lms/ClassManagement";
+import StudentManagement from "./lms/StudentManagement";
+import DiemDanh from "./lms/DiemDanh";
+import BaiTap from "./lms/BaiTap";
+import BangDiem from "./lms/BangDiem";
+import KeToanDashboard from "./lms/KeToanDashboard";
+import CongNo from "./lms/CongNo";
+import PhieuThuChi from "./lms/PhieuThuChi";
 
 export default function Admin({ onLogout }) {
   const [activePage, setActivePage] = useState("dashboard");
@@ -60,6 +68,22 @@ export default function Admin({ onLogout }) {
         return <PaymentManagement />;
       case "feedback":
         return <StudentFeedback />;
+      case "class-management":
+        return <ClassManagement />;
+      case "student-management":
+        return <StudentManagement />;
+      case "diem-danh":
+        return <DiemDanh />;
+      case "bai-tap":
+        return <BaiTap />;
+      case "bang-diem":
+        return <BangDiem />;
+      case "ke-toan":
+        return <KeToanDashboard onNavigate={handleLmsNavigate} />;
+      case "cong-no":
+        return <CongNo />;
+      case "phieu-thu-chi":
+        return <PhieuThuChi />;
       default:
         return <Leads />;
     }

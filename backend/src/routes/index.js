@@ -8,6 +8,7 @@ const leadRoutes = require("./leads");
 const reviewRoutes = require("./reviews");
 const khuyenMaiRoutes = require("./khuyenMai");
 const paymentRoutes = require("./payment");
+const lmsRoutes = require("./lms");
 
 module.exports = (app) => {
   app.use("/api/auth", authRoutes);
@@ -19,4 +20,5 @@ module.exports = (app) => {
   app.use("/api/reviews", reviewRoutes);
   app.use("/api/khuyen-mai", khuyenMaiRoutes);
   app.use("/api/payment", paymentRoutes);
+  app.use("/api/lms", lmsRoutes);
 };

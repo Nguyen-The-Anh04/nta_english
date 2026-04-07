@@ -210,7 +210,7 @@ const getAllOrders = async (req, res) => {
       where,
       include: [
         { model: NguoiDung, as: "nguoiMua", attributes: ["id", "ho_ten", "email", "sdt"] },
-        { model: NguoiDung, as: "ctv", attributes: ["id", "ho_ten"] },
+        { model: NguoiDung, as: "nguoiCTV", attributes: ["id", "ho_ten"] },
         { 
           model: ChiTietDonHang, 
           as: "chiTiets", 
@@ -241,7 +241,7 @@ const getOrderById = async (req, res) => {
     const order = await DonHang.findByPk(req.params.id, {
       include: [
         { model: NguoiDung, as: "nguoiMua", attributes: ["id", "ho_ten", "email", "sdt", "dia_chi"] },
-        { model: NguoiDung, as: "ctv", attributes: ["id", "ho_ten", "ma_gioi_thieu"] },
+        { model: NguoiDung, as: "nguoiCTV", attributes: ["id", "ho_ten", "ma_gioi_thieu"] },
         { 
           model: ChiTietDonHang, 
           as: "chiTiets", 

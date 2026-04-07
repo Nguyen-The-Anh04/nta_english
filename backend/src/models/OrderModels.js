@@ -322,14 +322,9 @@ const RutTienCTV = sequelize.define(
 const { NguoiDung } = require("./UserModels");
 
 // ===== RELATIONSHIPS =====
+// NOTE: Relationships với NguoiDung được khai báo trong index.js để tránh trùng alias
 LoaiSach.hasMany(Sach, { foreignKey: "loai_sach_id", as: "saches" });
 Sach.belongsTo(LoaiSach, { foreignKey: "loai_sach_id", as: "loaiSach" });
-
-DonHang.belongsTo(NguoiDung, { foreignKey: "nguoi_dung_id", as: "nguoiMua" });
-NguoiDung.hasMany(DonHang, { foreignKey: "nguoi_dung_id", as: "donHangs" });
-
-DonHang.belongsTo(NguoiDung, { foreignKey: "ctv_id", as: "ctv" });
-NguoiDung.hasMany(DonHang, { foreignKey: "ctv_id", as: "donHangsCTV" });
 
 DonHang.hasMany(ChiTietDonHang, { foreignKey: "don_hang_id", as: "chiTiets" });
 ChiTietDonHang.belongsTo(DonHang, { foreignKey: "don_hang_id", as: "donHang" });
@@ -337,10 +332,7 @@ ChiTietDonHang.belongsTo(DonHang, { foreignKey: "don_hang_id", as: "donHang" });
 Sach.hasMany(ChiTietDonHang, { foreignKey: "sach_id", as: "chiTiets" });
 ChiTietDonHang.belongsTo(Sach, { foreignKey: "sach_id", as: "sach" });
 
-// Affiliate relationships
-CTV.belongsTo(NguoiDung, { foreignKey: "nguoi_dung_id", as: "nguoiDung" });
-NguoiDung.hasOne(CTV, { foreignKey: "nguoi_dung_id", as: "ctv" });
-
+// Affiliate relationships (không liên quan NguoiDung)
 CTV.hasMany(CTV, { foreignKey: "ctv_cha_id", as: "downlines" });
 CTV.belongsTo(CTV, { foreignKey: "ctv_cha_id", as: "cha" });
 

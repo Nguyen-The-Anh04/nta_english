@@ -300,24 +300,16 @@ const LichSuLop = sequelize.define(
   }
 );
 
-// Import NguoiDung để tạo relationships
-const { NguoiDung } = require("./UserModels");
-
 // ===== RELATIONSHIPS =====
+// NOTE: Cross-model relationships with NguoiDung are set up in index.js to avoid circular dependency
 KhoaHoc.hasMany(LopHoc, { foreignKey: "khoa_hoc_id", as: "lopHocs" });
 LopHoc.belongsTo(KhoaHoc, { foreignKey: "khoa_hoc_id", as: "khoaHoc" });
-
-LopHoc.belongsTo(NguoiDung, { foreignKey: "giao_vien_id", as: "giaoVien" });
-NguoiDung.hasMany(LopHoc, { foreignKey: "giao_vien_id", as: "lopDays" });
 
 LopHoc.belongsTo(PhongHoc, { foreignKey: "phong_hoc_id", as: "phongHoc" });
 PhongHoc.hasMany(LopHoc, { foreignKey: "phong_hoc_id", as: "lopHocs" });
 
 LopHoc.hasMany(DKLopHoc, { foreignKey: "lop_hoc_id", as: "dkLopHocs" });
 DKLopHoc.belongsTo(LopHoc, { foreignKey: "lop_hoc_id", as: "lopHoc" });
-
-DKLopHoc.belongsTo(NguoiDung, { foreignKey: "hoc_vien_id", as: "hocVien" });
-NguoiDung.hasMany(DKLopHoc, { foreignKey: "hoc_vien_id", as: "dkLopHocs" });
 
 LopHoc.hasMany(LichHoc, { foreignKey: "lop_hoc_id", as: "lichHocs" });
 LichHoc.belongsTo(LopHoc, { foreignKey: "lop_hoc_id", as: "lopHoc" });
@@ -328,13 +320,8 @@ DiemDanh.belongsTo(DKLopHoc, { foreignKey: "dk_lop_hoc_id", as: "dkLopHoc" });
 LichHoc.hasMany(DiemDanh, { foreignKey: "lich_hoc_id", as: "diemDanhs" });
 DiemDanh.belongsTo(LichHoc, { foreignKey: "lich_hoc_id", as: "lichHoc" });
 
-NguoiDung.hasMany(BangCapGV, { foreignKey: "giao_vien_id", as: "bangCaps" });
-BangCapGV.belongsTo(NguoiDung, { foreignKey: "giao_vien_id", as: "giaoVien" });
-
 LopHoc.hasMany(LichSuLop, { foreignKey: "lop_hoc_id", as: "lichSus" });
 LichSuLop.belongsTo(LopHoc, { foreignKey: "lop_hoc_id", as: "lopHoc" });
-
-LichSuLop.belongsTo(NguoiDung, { foreignKey: "nguoi_thuc_hien_id", as: "nguoiThucHien" });
 
 module.exports = {
   KhoaHoc,
