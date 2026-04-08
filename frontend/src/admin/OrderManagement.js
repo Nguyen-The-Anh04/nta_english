@@ -1,493 +1,237 @@
-import { useState, useEffect } from "react";
-import { fetchOrders, fetchOrderStats, fetchOrderById, updateOrderStatus, backfillCommissions } from "../api";
+import { useState, useEffect } from 'react';
+import { fetchOrders, fetchOrderById, updateOrderStatus, backfillCommissions } from '../api';
+
+const API = 'http://localhost:5000/api';
+const fmt = n => (n||0).toLocaleString('vi-VN')+'đ';
+const fmtDate = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+const authHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' });
 
 const fixCapDo = async () => {
-  const token = localStorage.getItem('token');
-  const response = await fetch(`http://localhost:5000/api/affiliate/admin/fix-cap-do`, {
-    method: "POST",
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
-  return response.json();
+  const r = await fetch(`${API}/affiliate/admin/fix-cap-do`, { method: 'POST', headers: authHeader() });
+  return r.json();
 };
 
+const STATUS_CFG = {
+  cho_tt: { color: '#f59e0b', text: 'Chờ TT' },
+  da_tt: { color: '#3b82f6', text: 'Đã TT' },
+  dang_giao: { color: '#8b5cf6', text: 'Đang giao' },
+  da_giao: { color: '#10b981', text: 'Đã giao' },
+  da_huy: { color: '#e11d48', text: 'Đã hủy' },
+};
+
+const PAYMENT_MAP = { cod: 'Tiền mặt', vnpay: 'VNPay', momo: 'MoMo', chuyen_khoan: 'CK' };
+
+const badge = (text, color) => (
+  <span style={{ background: color+'22', color, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{text}</span>
+);
+
 export default function OrderManagement() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
   const [orders, setOrders] = useState([]);
-  const [stats, setStats] = useState({
-    all: 0,
-    cho_tt: 0,
-    da_tt: 0,
-    dang_giao: 0,
-    da_giao: 0,
-    da_huy: 0
-  });
+  const [stats, setStats] = useState({ all: 0, cho_tt: 0, da_tt: 0, dang_giao: 0, da_giao: 0, da_huy: 0 });
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  const loadData = async () => {
+  const load = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const ordersData = await fetchOrders();
-      setOrders(ordersData || []);
-      
-      // Tính stats từ orders thay vì gọi API riêng
-      const statsData = { all: 0, cho_tt: 0, da_tt: 0, dang_giao: 0, da_giao: 0, da_huy: 0 };
-      (ordersData || []).forEach(o => {
-        statsData[o.trang_thai] = (statsData[o.trang_thai] || 0) + 1;
-        statsData.all++;
-      });
-      setStats(statsData);
-    } catch (error) {
-      console.error("Error loading orders:", error);
-    } finally {
-      setLoading(false);
-    }
+      const data = await fetchOrders();
+      setOrders(data || []);
+      const s = { all: 0, cho_tt: 0, da_tt: 0, dang_giao: 0, da_giao: 0, da_huy: 0 };
+      (data || []).forEach(o => { s[o.trang_thai] = (s[o.trang_thai]||0)+1; s.all++; });
+      setStats(s);
+    } catch { setOrders([]); } finally { setLoading(false); }
   };
 
-  const formatCurrency = (amount) => {
-    return (amount || 0).toLocaleString("vi-VN") + " đ";
+  const handleApproveAll = async () => {
+    if (!window.confirm('Duyệt TẤT CẢ đơn chờ thanh toán?')) return;
+    const pending = orders.filter(o => o.trang_thai === 'cho_tt');
+    let count = 0;
+    for (const o of pending) { const r = await updateOrderStatus(o.id, 'da_tt'); if (r.success) count++; }
+    alert(`✅ Đã duyệt ${count} đơn`); load();
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("vi-VN");
-  };
-
-  // Backfill commissions for already-approved orders
-  const handleBackfillCommissions = async () => {
-    if (!window.confirm("Đồng bộ hoa hồng cho tất cả đơn 'Đã thanh toán' chưa có hoa hồng?")) return;
-    try {
-      const result = await backfillCommissions();
-      const details = result.data?.details?.map(d => `#${d.ma_don_hang}: ${d.reason}`).join('\n') || '';
-      alert(`${result.message}\n\nChi tiết:\n${details}`);
-    } catch (error) {
-      alert("Có lỗi xảy ra");
-    }
+  const handleBackfill = async () => {
+    if (!window.confirm('Đồng bộ hoa hồng cho đơn đã TT chưa có HH?')) return;
+    const r = await backfillCommissions();
+    alert(r.message || 'Hoàn tất'); load();
   };
 
   const handleFixCapDo = async () => {
-    if (!window.confirm("Tính lại cấp độ F1/F2/F3 cho toàn bộ CTV?")) return;
-    try {
-      const result = await fixCapDo();
-      alert(result.message || "Hoàn tất");
-    } catch (error) {
-      alert("Có lỗi xảy ra");
-    }
+    if (!window.confirm('Tính lại cấp độ F1/F2/F3 cho toàn bộ CTV?')) return;
+    const r = await fixCapDo();
+    alert(r.message || 'Hoàn tất');
   };
 
-  // Approve all pending orders
-  const handleApproveAll = async () => {
-    if (!window.confirm("Duyệt TẤT CẢ đơn hàng?\nĐơn sẽ chuyển sang 'Đã thanh toán' và tạo hoa hồng CTV.")) return;
-    
-    try {
-      const pendingOrders = orders.filter(o => o.trang_thai === "cho_tt");
-      let count = 0;
-      
-      for (const order of pendingOrders) {
-        const result = await updateOrderStatus(order.id, "da_tt");
-        if (result.success) count++;
-      }
-      
-      alert(`✅ Đã duyệt ${count} đơn hàng!\nCTV sẽ có hoa hồng.`);
-      loadData();
-    } catch (error) {
-      console.error("Approve all error:", error);
-      alert("Có lỗi xảy ra");
-    }
+  const handleViewDetail = async (id) => {
+    const d = await fetchOrderById(id);
+    setSelectedOrder(d); setShowDetail(true);
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch = 
-      order.ma_don_hang?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.nguoiMua?.ho_ten?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.nguoiCTV?.ho_ten?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || order.trang_thai === filterStatus;
-    return matchesSearch && matchesStatus;
+  const handleChangeStatus = async (id, status) => {
+    await updateOrderStatus(id, status);
+    const d = await fetchOrderById(id);
+    setSelectedOrder(d); load();
+  };
+
+  const filtered = orders.filter(o => {
+    const s = search.toLowerCase();
+    return (filterStatus === 'all' || o.trang_thai === filterStatus)
+      && (!s || o.ma_don_hang?.toLowerCase().includes(s) || o.nguoiMua?.ho_ten?.toLowerCase().includes(s) || o.nguoiCTV?.ho_ten?.toLowerCase().includes(s));
   });
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      cho_tt: { bg: "#fff3e0", color: "#ff9800", text: "Chờ thanh toán" },
-      da_tt: { bg: "#e8f5e9", color: "#4caf50", text: "Đã thanh toán" },
-      dang_giao: { bg: "#e3f2fd", color: "#2196f3", text: "Đang giao" },
-      da_giao: { bg: "#f3e5f5", color: "#9c27b0", text: "Đã giao" },
-      da_huy: { bg: "#ffebee", color: "#f44336", text: "Đã hủy" },
-    };
-    const config = statusConfig[status] || statusConfig.cho_tt;
-    return (
-      <span
-        style={{
-          background: config.bg,
-          color: config.color,
-          padding: "5px 12px",
-          borderRadius: 20,
-          fontSize: 12,
-          fontWeight: "600",
-        }}
-      >
-        {config.text}
-      </span>
-    );
-  };
+  const totalRevenue = orders.filter(o => o.trang_thai === 'da_giao').reduce((s, o) => s+(+o.tong_tien||0), 0);
 
-  const getPaymentMethod = (method) => {
-    const methodConfig = {
-      cod: "Tiền mặt",
-      vnpay: "VNPay",
-      momo: "MoMo",
-      chuyen_khoan: "Chuyển khoản",
-    };
-    return methodConfig[method] || method;
-  };
-
-  const handleViewDetail = async (orderId) => {
-    try {
-      const orderDetail = await fetchOrderById(orderId);
-      setSelectedOrder(orderDetail);
-      setShowDetail(true);
-    } catch (error) {
-      console.error("Error fetching order detail:", error);
-    }
-  };
-
-  // Stats
-  const totalRevenue = orders.filter(o => o.trang_thai === "da_giao").reduce((sum, o) => sum + parseFloat(o.tong_tien || 0), 0);
-  const pendingOrders = stats.cho_tt || 0;
-
-  const tabs = [
-    { key: "all", label: "Tất cả", count: stats.all || 0 },
-    { key: "cho_tt", label: "Chờ thanh toán", count: stats.cho_tt || 0 },
-    { key: "da_tt", label: "Đã thanh toán", count: stats.da_tt || 0 },
-    { key: "dang_giao", label: "Đang giao", count: stats.dang_giao || 0 },
-    { key: "da_giao", label: "Đã giao", count: stats.da_giao || 0 },
-    { key: "da_huy", label: "Đã hủy", count: stats.da_huy || 0 },
+  const TABS = [
+    { key: 'all', label: 'Tất cả' }, { key: 'cho_tt', label: 'Chờ TT' }, { key: 'da_tt', label: 'Đã TT' },
+    { key: 'dang_giao', label: 'Đang giao' }, { key: 'da_giao', label: 'Đã giao' }, { key: 'da_huy', label: 'Đã hủy' },
   ];
 
-  if (loading) {
-    return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 400 }}>
-        <div style={{ fontSize: 16, color: "#666" }}>Đang tải...</div>
-      </div>
-    );
-  }
+  const btn = (bg, color='#fff') => ({ padding: '8px 16px', background: bg, color, border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontSize: 13, fontFamily: 'system-ui' });
 
   return (
-    <div>
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 25, borderBottom: "2px solid #f0f0f0", paddingBottom: 15 }}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setFilterStatus(tab.key)}
-            style={{
-              padding: "10px 20px",
-              borderRadius: 8,
-              border: filterStatus === tab.key ? "none" : "1px solid #e0e0e0",
-              background: filterStatus === tab.key ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" : "white",
-              color: filterStatus === tab.key ? "white" : "#666",
-              fontWeight: "600",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              transition: "all 0.3s ease",
-            }}
-          >
-            {tab.label}
-            <span
-              style={{
-                background: filterStatus === tab.key ? "rgba(255,255,255,0.3)" : "#f0f0f0",
-                padding: "2px 8px",
-                borderRadius: 12,
-                fontSize: 12,
-              }}
-            >
-              {tab.count}
+    <div style={{ fontFamily: 'system-ui', padding: 24 }}>
+      {/* Status Tabs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '2px solid #f3f4f6', paddingBottom: 12, flexWrap: 'wrap' }}>
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setFilterStatus(t.key)} style={{
+            padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
+            background: filterStatus===t.key ? '#e11d48' : '#f3f4f6', color: filterStatus===t.key ? '#fff' : '#374151', fontFamily: 'system-ui'
+          }}>
+            {t.label}
+            <span style={{ marginLeft: 6, background: filterStatus===t.key?'rgba(255,255,255,0.3)':'#e5e7eb', padding: '1px 7px', borderRadius: 12, fontSize: 11 }}>
+              {t.key === 'all' ? stats.all : (stats[t.key]||0)}
             </span>
           </button>
         ))}
       </div>
 
-      {/* Actions Bar */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 25 }}>
-        <button
-          onClick={handleApproveAll}
-          style={{
-            padding: "10px 20px",
-            background: "linear-gradient(135deg, #4caf50 0%, #388e3c 100%)",
-            color: "white",
-            border: "none",
-            borderRadius: 8,
-            fontWeight: "600",
-            cursor: "pointer",
-          }}
-        >
-          ✅ Duyệt tất cả đơn
-        </button>
-        <button
-          onClick={handleBackfillCommissions}
-          style={{
-            padding: "10px 20px",
-            background: "linear-gradient(135deg, #ff9800 0%, #e65100 100%)",
-            color: "white",
-            border: "none",
-            borderRadius: 8,
-            fontWeight: "600",
-            cursor: "pointer",
-          }}
-        >
-          🔄 Đồng bộ hoa hồng
-        </button>
-        <button
-          onClick={handleFixCapDo}
-          style={{
-            padding: "10px 20px",
-            background: "linear-gradient(135deg, #9c27b0 0%, #6a1b9a 100%)",
-            color: "white",
-            border: "none",
-            borderRadius: 8,
-            fontWeight: "600",
-            cursor: "pointer",
-          }}
-        >
-          🔧 Fix cấp độ F1/F2/F3
-        </button>
-        <div style={{ display: "flex", gap: 15 }}>
-          {/* Search */}
-          <div style={{ position: "relative" }}>
-            <input
-              type="text"
-              placeholder="Tìm kiếm đơn hàng..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                padding: "12px 15px 12px 45px",
-                borderRadius: 10,
-                border: "1px solid #e0e0e0",
-                width: 300,
-                fontSize: 14,
-                outline: "none",
-              }}
-            />
-            <span style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)", color: "#999" }}>
-              🔍
-            </span>
+      {/* Action bar */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <input placeholder="🔍 Tìm đơn hàng..." value={search} onChange={e => setSearch(e.target.value)}
+            style={{ padding: '9px 12px 9px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14, outline: 'none', width: 240 }} />
+        </div>
+        <div style={{ flex: 1 }} />
+        <button onClick={handleApproveAll} style={btn('#10b981')}>✅ Duyệt tất cả</button>
+        <button onClick={handleBackfill} style={btn('#f59e0b')}>🔄 Đồng bộ HH</button>
+        <button onClick={handleFixCapDo} style={btn('#8b5cf6')}>🔧 Fix F1/F2/F3</button>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
+        {[
+          { label: 'Tổng đơn', value: stats.all, color: '#3b82f6' },
+          { label: 'Doanh thu đã giao', value: fmt(totalRevenue), color: '#10b981' },
+          { label: 'Đã giao', value: stats.da_giao||0, color: '#8b5cf6' },
+          { label: 'Chờ TT', value: stats.cho_tt||0, color: '#f59e0b' },
+        ].map(s => (
+          <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', flex: 1 }}>
+            <div style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
           </div>
-        </div>
-
-        <button
-          style={{
-            padding: "12px 25px",
-            background: "linear-gradient(135deg, #4caf50 0%, #388e3c 100%)",
-            color: "white",
-            border: "none",
-            borderRadius: 10,
-            fontWeight: "600",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          📥 Export Excel
-        </button>
+        ))}
       </div>
 
-      {/* Stats Summary */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 15, marginBottom: 25 }}>
-        <div style={{ background: "white", borderRadius: 12, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
-          <p style={{ margin: 0, fontSize: 13, color: "#666" }}>Tổng đơn hàng</p>
-          <p style={{ margin: 0, fontSize: 24, fontWeight: "800", color: "#2196f3" }}>{stats.all || 0}</p>
-        </div>
-        <div style={{ background: "white", borderRadius: 12, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
-          <p style={{ margin: 0, fontSize: 13, color: "#666" }}>Doanh thu</p>
-          <p style={{ margin: 0, fontSize: 24, fontWeight: "800", color: "#4caf50" }}>{formatCurrency(totalRevenue)}</p>
-        </div>
-        <div style={{ background: "white", borderRadius: 12, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
-          <p style={{ margin: 0, fontSize: 13, color: "#666" }}>Đã giao</p>
-          <p style={{ margin: 0, fontSize: 24, fontWeight: "800", color: "#9c27b0" }}>{stats.da_giao || 0}</p>
-        </div>
-        <div style={{ background: "white", borderRadius: 12, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
-          <p style={{ margin: 0, fontSize: 13, color: "#666" }}>Chờ thanh toán</p>
-          <p style={{ margin: 0, fontSize: 24, fontWeight: "800", color: "#ff9800" }}>{pendingOrders}</p>
-        </div>
-      </div>
-
-      {/* Orders Table */}
-      <div style={{ background: "white", borderRadius: 16, padding: 20, boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ borderBottom: "2px solid #f0f0f0" }}>
-              <th style={{ padding: "12px 8px", textAlign: "left", color: "#666", fontSize: 13 }}>Mã đơn</th>
-              <th style={{ padding: "12px 8px", textAlign: "left", color: "#666", fontSize: 13 }}>Khách hàng</th>
-              <th style={{ padding: "12px 8px", textAlign: "left", color: "#666", fontSize: 13 }}>CTV giới thiệu</th>
-              <th style={{ padding: "12px 8px", textAlign: "right", color: "#666", fontSize: 13 }}>Tổng tiền</th>
-              <th style={{ padding: "12px 8px", textAlign: "right", color: "#666", fontSize: 13 }}>Giảm giá</th>
-              <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Thanh toán</th>
-              <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Trạng thái</th>
-              <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Ngày</th>
-              <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredOrders.length === 0 ? (
-              <tr>
-                <td colSpan="9" style={{ padding: 40, textAlign: "center", color: "#999" }}>
-                  Không có đơn hàng nào
-                </td>
+      {/* Table */}
+      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'auto' }}>
+        {loading ? <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div> : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+            <thead>
+              <tr style={{ background: '#f9fafb' }}>
+                {['Mã đơn','Khách hàng','CTV giới thiệu','Tổng tiền','Giảm giá','Thanh toán','Trạng thái','Ngày','Thao tác'].map(h => (
+                  <th key={h} style={{ padding: '11px 12px', textAlign: 'left', fontSize: 12, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
               </tr>
-            ) : (
-              filteredOrders.map((order) => (
-                <tr key={order.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                  <td style={{ padding: "12px 8px", fontWeight: "700", color: "#1a1a2e" }}>#{order.ma_don_hang}</td>
-                  <td style={{ padding: "12px 8px" }}>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 14, fontWeight: "600", color: "#333" }}>
-                        {order.nguoiMua?.ho_ten || "Khách vãng lai"}
-                      </p>
-                      <p style={{ margin: 0, fontSize: 12, color: "#888" }}>{order.nguoiMua?.email}</p>
-                    </div>
+            </thead>
+            <tbody>
+              {filtered.map(o => (
+                <tr key={o.id} style={{ borderTop: '1px solid #f3f4f6' }}
+                  onMouseEnter={e => e.currentTarget.style.background='#fef2f2'}
+                  onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                  <td style={{ padding: '11px 12px', fontWeight: 700, color: '#1a1a2e', fontSize: 13 }}>#{o.ma_don_hang}</td>
+                  <td style={{ padding: '11px 12px' }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{o.nguoiMua?.ho_ten || 'Khách vãng lai'}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{o.nguoiMua?.email}</div>
                   </td>
-                  <td style={{ padding: "12px 8px" }}>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 14, color: "#333" }}>
-                        {order.nguoiCTV?.ho_ten || "Không có"}
-                      </p>
-                    </div>
-                  </td>
-                  <td style={{ padding: "12px 8px", textAlign: "right", fontWeight: "600", color: "#333" }}>
-                    {formatCurrency(order.tong_tien)}
-                  </td>
-                  <td style={{ padding: "12px 8px", textAlign: "right", fontWeight: "600", color: "#e53935" }}>
-                    {order.giam_gia > 0 ? `-${formatCurrency(order.giam_gia)}` : "0 đ"}
-                  </td>
-                  <td style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>
-                    {getPaymentMethod(order.phuong_thuc_tt)}
-                  </td>
-                  <td style={{ padding: "12px 8px", textAlign: "center" }}>{getStatusBadge(order.trang_thai)}</td>
-                  <td style={{ padding: "12px 8px", textAlign: "center", color: "#888", fontSize: 13 }}>
-                    {formatDate(order.created_at)}
-                  </td>
-                  <td style={{ padding: "12px 8px", textAlign: "center" }}>
-                    <button
-                      onClick={() => handleViewDetail(order.id)}
-                      style={{
-                        padding: "6px 12px",
-                        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                        color: "white",
-                        border: "none",
-                        borderRadius: 6,
-                        fontSize: 12,
-                        fontWeight: "600",
-                        cursor: "pointer"
-                      }}
-                    >
-                      Xem
-                    </button>
+                  <td style={{ padding: '11px 12px', fontSize: 13, color: '#6b7280' }}>{o.nguoiCTV?.ho_ten || '—'}</td>
+                  <td style={{ padding: '11px 12px', fontWeight: 700, fontSize: 13 }}>{fmt(o.tong_tien)}</td>
+                  <td style={{ padding: '11px 12px', fontSize: 13, color: '#e11d48' }}>{o.giam_gia > 0 ? `-${fmt(o.giam_gia)}` : '—'}</td>
+                  <td style={{ padding: '11px 12px', fontSize: 12, color: '#6b7280' }}>{PAYMENT_MAP[o.phuong_thuc_tt] || o.phuong_thuc_tt}</td>
+                  <td style={{ padding: '11px 12px' }}>{badge((STATUS_CFG[o.trang_thai]||{text:o.trang_thai}).text, (STATUS_CFG[o.trang_thai]||{color:'#6b7280'}).color)}</td>
+                  <td style={{ padding: '11px 12px', fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>{fmtDate(o.created_at)}</td>
+                  <td style={{ padding: '11px 12px' }}>
+                    <button onClick={() => handleViewDetail(o.id)} style={{ padding: '5px 12px', background: '#e11d48', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Xem</button>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+              {filtered.length === 0 && <tr><td colSpan={9} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>Không có đơn hàng</td></tr>}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {/* Order Detail Modal */}
+      {/* Detail Modal */}
       {showDetail && selectedOrder && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(0,0,0,0.5)",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: "white",
-            borderRadius: 16,
-            padding: 30,
-            width: "80%",
-            maxWidth: 800,
-            maxHeight: "80vh",
-            overflow: "auto"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h2 style={{ margin: 0 }}>Chi tiết đơn hàng #{selectedOrder.ma_don_hang}</h2>
-              <button
-                onClick={() => setShowDetail(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: 24,
-                  cursor: "pointer",
-                  color: "#999"
-                }}
-              >
-                ×
-              </button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '80%', maxWidth: 760, maxHeight: '85vh', overflow: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 18 }}>📦 Đơn hàng #{selectedOrder.ma_don_hang}</h3>
+              <button onClick={() => setShowDetail(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#9ca3af' }}>×</button>
             </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-              <div>
-                <p style={{ margin: "0 0 5px 0", fontSize: 13, color: "#666" }}>Khách hàng</p>
-                <p style={{ margin: 0, fontWeight: "600" }}>{selectedOrder.nguoiMua?.ho_ten || "Khách vãng lai"}</p>
-                <p style={{ margin: 0, fontSize: 13, color: "#888" }}>{selectedOrder.nguoiMua?.email}</p>
-                <p style={{ margin: 0, fontSize: 13, color: "#888" }}>{selectedOrder.nguoiMua?.sdt}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+              <div style={{ background: '#f9fafb', borderRadius: 10, padding: '14px 16px' }}>
+                <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 6 }}>Khách hàng</div>
+                <div style={{ fontWeight: 700 }}>{selectedOrder.nguoiMua?.ho_ten || 'Khách vãng lai'}</div>
+                <div style={{ fontSize: 13, color: '#6b7280' }}>{selectedOrder.nguoiMua?.email}</div>
+                <div style={{ fontSize: 13, color: '#6b7280' }}>{selectedOrder.nguoiMua?.sdt}</div>
               </div>
-              <div>
-                <p style={{ margin: "0 0 5px 0", fontSize: 13, color: "#666" }}>CTV giới thiệu</p>
-                <p style={{ margin: 0, fontWeight: "600" }}>{selectedOrder.nguoiCTV?.ho_ten || "Không có"}</p>
+              <div style={{ background: '#f9fafb', borderRadius: 10, padding: '14px 16px' }}>
+                <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 6 }}>CTV giới thiệu</div>
+                <div style={{ fontWeight: 700 }}>{selectedOrder.nguoiCTV?.ho_ten || '—'}</div>
+                <div style={{ fontSize: 13, color: '#6b7280' }}>{selectedOrder.nguoiCTV?.email}</div>
               </div>
             </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <p style={{ margin: "0 0 10px 0", fontSize: 13, color: "#666" }}>Sản phẩm</p>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #f0f0f0" }}>
-                    <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 13 }}>Sản phẩm</th>
-                    <th style={{ padding: "10px 8px", textAlign: "right", fontSize: 13 }}>Đơn giá</th>
-                    <th style={{ padding: "10px 8px", textAlign: "right", fontSize: 13 }}>Số lượng</th>
-                    <th style={{ padding: "10px 8px", textAlign: "right", fontSize: 13 }}>Thành tiền</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedOrder.chiTiets?.map((item, index) => (
-                    <tr key={index} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                      <td style={{ padding: "10px 8px" }}>{item.sach?.ten_sach}</td>
-                      <td style={{ padding: "10px 8px", textAlign: "right" }}>{formatCurrency(item.gia_sp)}</td>
-                      <td style={{ padding: "10px 8px", textAlign: "right" }}>{item.so_luong}</td>
-                      <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: "600" }}>{formatCurrency(item.thanh_tien)}</td>
-                    </tr>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
+              <thead>
+                <tr style={{ background: '#f9fafb' }}>
+                  {['Sản phẩm','Đơn giá','SL','Thành tiền'].map(h => (
+                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 13, color: '#6b7280', fontWeight: 600 }}>{h}</th>
                   ))}
-                </tbody>
-              </table>
+                </tr>
+              </thead>
+              <tbody>
+                {(selectedOrder.chiTiets||[]).map((item, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '10px 12px', fontSize: 14 }}>{item.sach?.ten_sach || item.ten_sach}</td>
+                    <td style={{ padding: '10px 12px', fontSize: 13 }}>{fmt(item.gia_sp)}</td>
+                    <td style={{ padding: '10px 12px', fontSize: 13 }}>{item.so_luong}</td>
+                    <td style={{ padding: '10px 12px', fontWeight: 700, color: '#10b981' }}>{fmt(item.thanh_tien)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
+              {[['Tổng gốc', fmt(selectedOrder.tong_tien_goc), '#374151'],['Giảm giá', `-${fmt(selectedOrder.giam_gia)}`, '#e11d48'],['Thanh toán', fmt(selectedOrder.tong_tien), '#10b981']].map(([k,v,c]) => (
+                <div key={k} style={{ flex: 1, background: '#f9fafb', borderRadius: 10, padding: '12px 16px' }}>
+                  <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 4 }}>{k}</div>
+                  <div style={{ fontWeight: 800, fontSize: 18, color: c }}>{v}</div>
+                </div>
+              ))}
             </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
-              <div>
-                <p style={{ margin: "0 0 5px 0", fontSize: 13, color: "#666" }}>Tổng tiền gốc</p>
-                <p style={{ margin: 0, fontWeight: "600", fontSize: 18 }}>{formatCurrency(selectedOrder.tong_tien_goc)}</p>
-              </div>
-              <div>
-                <p style={{ margin: "0 0 5px 0", fontSize: 13, color: "#666" }}>Giảm giá</p>
-                <p style={{ margin: 0, fontWeight: "600", fontSize: 18, color: "#e53935" }}>-{formatCurrency(selectedOrder.giam_gia)}</p>
-              </div>
-              <div>
-                <p style={{ margin: "0 0 5px 0", fontSize: 13, color: "#666" }}>Tổng thanh toán</p>
-                <p style={{ margin: 0, fontWeight: "600", fontSize: 18, color: "#4caf50" }}>{formatCurrency(selectedOrder.tong_tien)}</p>
-              </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: '#6b7280', alignSelf: 'center' }}>Đổi trạng thái:</span>
+              {Object.entries(STATUS_CFG).map(([key, cfg]) => (
+                <button key={key} onClick={() => handleChangeStatus(selectedOrder.id, key)}
+                  disabled={selectedOrder.trang_thai === key}
+                  style={{ padding: '6px 14px', background: selectedOrder.trang_thai===key?'#f3f4f6':cfg.color+'22', color: selectedOrder.trang_thai===key?'#9ca3af':cfg.color, border: `1px solid ${cfg.color}44`, borderRadius: 8, fontWeight: 600, cursor: selectedOrder.trang_thai===key?'default':'pointer', fontSize: 12 }}>
+                  {cfg.text}
+                </button>
+              ))}
             </div>
           </div>
         </div>

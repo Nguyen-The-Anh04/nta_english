@@ -6,17 +6,23 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [statsSubmenuOpen, setStatsSubmenuOpen] = useState(false);
 
-  const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: "📊" },
-    { id: "lms", label: "Quản lý học viên", icon: "🎓" },
-    { id: "users", label: "Quản lý CTV", icon: "👥" },
-    { id: "orders", label: "Quản lý đơn hàng", icon: "📦" },
-    { id: "commissions", label: "Quản lý hoa hồng", icon: "💰" },
-    { id: "withdrawals", label: "Quản lý rút tiền", icon: "💸" },
-    { id: "products", label: "Quản lý sản phẩm", icon: "📚" },
-    { id: "statistics", label: "Thống kê", icon: "📈", hasSubmenu: true },
-    { id: "settings", label: "Cài đặt", icon: "⚙️" },
+  // Lấy role từ localStorage
+  const chucVuId = parseInt(localStorage.getItem("chuc_vu_id") || "1");
+  const userName = localStorage.getItem("user_name") || "Admin";
+
+  const allMenuItems = [
+    { id: "dashboard",  label: "Dashboard",          icon: "📊", roles: [1] },
+    { id: "lms",        label: "Quản lý học viên",   icon: "🎓", roles: [1, 2, 3, 4] },
+    { id: "ctv",        label: "Quản lý CTV",        icon: "👥", roles: [1] },
+    { id: "orders",     label: "Quản lý đơn hàng",   icon: "📦", roles: [1] },
+    { id: "commissions",label: "Quản lý hoa hồng",   icon: "💰", roles: [1] },
+    { id: "withdrawals",label: "Quản lý rút tiền",   icon: "💸", roles: [1] },
+    { id: "products",   label: "Quản lý sản phẩm",   icon: "📚", roles: [1] },
+    { id: "statistics", label: "Thống kê",            icon: "📈", roles: [1], hasSubmenu: true },
+    { id: "settings",   label: "Cài đặt",             icon: "⚙️", roles: [1] },
   ];
+
+  const menuItems = allMenuItems.filter(m => m.roles.includes(chucVuId));
 
   const statsSubmenus = [
     { id: "stats-revenue", label: "Doanh thu", icon: "💰" },
@@ -136,7 +142,7 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.background = "rgba(207, 46, 46, 0.2)";
+                      e.currentTarget.style.background = "rgba(100, 100, 100, 0.4)";
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -182,6 +188,16 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
                         <div
                           key={sub.id}
                           onClick={() => onNavigate && onNavigate(sub.id)}
+                          onMouseEnter={(e) => {
+                            if (!isSubActive) {
+                              e.currentTarget.style.background = "rgba(100, 100, 100, 0.4)";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSubActive) {
+                              e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                            }
+                          }}
                           style={{
                             padding: "10px 14px",
                             marginBottom: 2,
@@ -290,9 +306,9 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
             ☰
           </button>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 14, color: "black", fontWeight: "600" }}>Admin NTA</span>
+            <span style={{ fontSize: 14, color: "black", fontWeight: "600" }}>{userName}</span>
             <div style={{ width: 36, height: 36, borderRadius: 8, background: "#e11d48", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: "bold" }}>
-              A
+              {userName.charAt(0)}
             </div>
           </div>
         </header>

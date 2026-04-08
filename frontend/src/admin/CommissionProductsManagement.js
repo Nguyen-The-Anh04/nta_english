@@ -1,388 +1,152 @@
-import { useState, useEffect } from "react";
-import { fetchCommissionProducts, createCommissionProduct, updateCommissionProduct, deleteCommissionProduct } from "../api";
+import { useState, useEffect } from 'react';
+
+const API = 'http://localhost:5000/api';
+const fmt = n => (n||0).toLocaleString('vi-VN')+'đ';
+const authHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' });
+
+const badge = (text, color) => (
+  <span style={{ background: color+'22', color, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{text}</span>
+);
+
+const INIT_FORM = { san_pham_id: '', f1_percent: 10, f2_percent: 5, f3_percent: 2, trang_thai: 'hoat_dong' };
 
 export default function CommissionProductsManagement() {
-  const [products, setProducts] = useState([]);
+  const [items, setItems] = useState([]);
+  const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [formData, setFormData] = useState({
-    san_pham_id: "",
-    f1_percent: 10,
-    f2_percent: 5,
-    f3_percent: 2,
-    trang_thai: "hoat_dong",
-  });
+  const [editingItem, setEditingItem] = useState(null);
+  const [form, setForm] = useState(INIT_FORM);
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
+  useEffect(() => { load(); loadBooks(); }, []);
 
-  const loadProducts = async () => {
+  const load = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      const result = await fetchCommissionProducts(token);
-
-      if (result.success) {
-        setProducts(result.data);
-      }
-    } catch (error) {
-      console.error("Error loading commission products:", error);
-    } finally {
-      setLoading(false);
-    }
+      const r = await fetch(`${API}/affiliate/admin/commission-products`, { headers: authHeader() });
+      const d = await r.json();
+      setItems(d.data || d.items || []);
+    } catch { setItems([]); } finally { setLoading(false); }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const loadBooks = async () => {
     try {
-      const token = localStorage.getItem("token");
-      let result;
-
-      if (editingProduct) {
-        result = await updateCommissionProduct(editingProduct.id, formData, token);
-      } else {
-        result = await createCommissionProduct(formData, token);
-      }
-
-      if (result.success) {
-        loadProducts();
-        setShowModal(false);
-        setEditingProduct(null);
-        setFormData({
-          san_pham_id: "",
-          f1_percent: 10,
-          f2_percent: 5,
-          f3_percent: 2,
-          trang_thai: "hoat_dong",
-        });
-        alert(editingProduct ? "Cập nhật thành công!" : "Tạo mới thành công!");
-      } else {
-        alert(result.message || "Thao tác thất bại");
-      }
-    } catch (error) {
-      console.error("Error saving commission product:", error);
-      alert("Có lỗi xảy ra");
-    }
+      const r = await fetch(`${API}/books`);
+      const d = await r.json();
+      setBooks(d.data?.books || d.data || []);
+    } catch { setBooks([]); }
   };
 
-  const handleEdit = (product) => {
-    setEditingProduct(product);
-    setFormData({
-      san_pham_id: product.san_pham_id,
-      f1_percent: product.f1_percent,
-      f2_percent: product.f2_percent,
-      f3_percent: product.f3_percent,
-      trang_thai: product.trang_thai,
-    });
+  const openAdd = () => { setEditingItem(null); setForm(INIT_FORM); setShowModal(true); };
+  const openEdit = (item) => {
+    setEditingItem(item);
+    setForm({ san_pham_id: item.san_pham_id, f1_percent: item.f1_percent, f2_percent: item.f2_percent, f3_percent: item.f3_percent, trang_thai: item.trang_thai });
     setShowModal(true);
   };
 
-  const handleDelete = async (productId) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa cấu hình này?")) {
-      return;
-    }
-
+  const handleSave = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const result = await deleteCommissionProduct(productId, token);
-
-      if (result.success) {
-        loadProducts();
-        alert("Xóa thành công!");
+      if (editingItem) {
+        await fetch(`${API}/affiliate/admin/commission-products/${editingItem.id}`, { method: 'PUT', headers: authHeader(), body: JSON.stringify(form) });
       } else {
-        alert(result.message || "Xóa thất bại");
+        await fetch(`${API}/affiliate/admin/commission-products`, { method: 'POST', headers: authHeader(), body: JSON.stringify(form) });
       }
-    } catch (error) {
-      console.error("Error deleting commission product:", error);
-      alert("Có lỗi xảy ra");
-    }
+      setShowModal(false); load();
+    } catch (e) { alert('Lỗi: ' + e.message); }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Xóa cấu hình này?')) return;
+    await fetch(`${API}/affiliate/admin/commission-products/${id}`, { method: 'DELETE', headers: authHeader() });
+    load();
+  };
+
+  const inp = { padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14, outline: 'none', fontFamily: 'system-ui', width: '100%', boxSizing: 'border-box' };
+  const btn = (bg, color='#fff') => ({ padding: '7px 14px', background: bg, color, border: 'none', borderRadius: 7, fontWeight: 600, cursor: 'pointer', fontSize: 12, fontFamily: 'system-ui' });
+
   return (
-    <div style={{ padding: 30 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30 }}>
-        <h1 style={{ fontSize: 28, fontWeight: "800" }}>
-          ⚙️ Cấu hình hoa hồng theo sản phẩm
-        </h1>
-        <button
-          onClick={() => {
-            setEditingProduct(null);
-            setFormData({
-              san_pham_id: "",
-              f1_percent: 10,
-              f2_percent: 5,
-              f3_percent: 2,
-              trang_thai: "hoat_dong",
-            });
-            setShowModal(true);
-          }}
-          style={{
-            padding: "12px 24px",
-            background: "#e53935",
-            color: "white",
-            border: "none",
-            borderRadius: 10,
-            fontWeight: "600",
-            cursor: "pointer",
-          }}
-        >
-          ➕ Thêm cấu hình
-        </button>
+    <div style={{ fontFamily: 'system-ui', padding: 24 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>⚙️ Cấu hình hoa hồng sản phẩm</h2>
+        <div style={{ flex: 1 }} />
+        <button onClick={openAdd} style={{ ...btn('#e11d48'), padding: '9px 18px', fontSize: 13 }}>+ Thêm cấu hình</button>
+      </div>
+
+      {/* Info box */}
+      <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: '#1d4ed8' }}>
+        💡 <strong>F1</strong> = Người giới thiệu trực tiếp &nbsp;|&nbsp; <strong>F2</strong> = Cấp 2 (người giới thiệu F1) &nbsp;|&nbsp; <strong>F3</strong> = Cấp 3
       </div>
 
       {/* Table */}
-      <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#f5f5f5" }}>
-              <th style={{ padding: 15, textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>ID</th>
-              <th style={{ padding: 15, textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Sản phẩm</th>
-              <th style={{ padding: 15, textAlign: "center", borderBottom: "2px solid #e0e0e0" }}>F1 (%)</th>
-              <th style={{ padding: 15, textAlign: "center", borderBottom: "2px solid #e0e0e0" }}>F2 (%)</th>
-              <th style={{ padding: 15, textAlign: "center", borderBottom: "2px solid #e0e0e0" }}>F3 (%)</th>
-              <th style={{ padding: 15, textAlign: "center", borderBottom: "2px solid #e0e0e0" }}>Trạng thái</th>
-              <th style={{ padding: 15, textAlign: "center", borderBottom: "2px solid #e0e0e0" }}>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={7} style={{ padding: 40, textAlign: "center" }}>
-                  Đang tải...
-                </td>
+      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+        {loading ? <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div> : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f9fafb' }}>
+                {['STT','Sản phẩm','F1%','F2%','F3%','Trạng thái','Thao tác'].map(h => (
+                  <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 13, color: '#6b7280', fontWeight: 600 }}>{h}</th>
+                ))}
               </tr>
-            ) : products.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ padding: 40, textAlign: "center" }}>
-                  Chưa có cấu hình nào
-                </td>
-              </tr>
-            ) : (
-              products.map((product) => (
-                <tr key={product.id} style={{ borderBottom: "1px solid #eee" }}>
-                  <td style={{ padding: 15 }}>#{product.id}</td>
-                  <td style={{ padding: 15, fontWeight: "600" }}>
-                    {product.sanPham?.ten_sach || "N/A"}
+            </thead>
+            <tbody>
+              {items.map((item, i) => (
+                <tr key={item.id} style={{ borderTop: '1px solid #f3f4f6' }}
+                  onMouseEnter={e => e.currentTarget.style.background='#fef2f2'}
+                  onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                  <td style={{ padding: '11px 14px', color: '#9ca3af', fontSize: 13 }}>{i+1}</td>
+                  <td style={{ padding: '11px 14px' }}>
+                    <div style={{ fontWeight: 600 }}>{item.ten_sach || item.ten_san_pham}</div>
+                    <div style={{ fontSize: 12, color: '#10b981' }}>{fmt(item.gia_ban)}</div>
                   </td>
-                  <td style={{ padding: 15, textAlign: "center", fontWeight: "600", color: "#4caf50" }}>
-                    {product.f1_percent}%
-                  </td>
-                  <td style={{ padding: 15, textAlign: "center", fontWeight: "600", color: "#2196f3" }}>
-                    {product.f2_percent}%
-                  </td>
-                  <td style={{ padding: 15, textAlign: "center", fontWeight: "600", color: "#9c27b0" }}>
-                    {product.f3_percent}%
-                  </td>
-                  <td style={{ padding: 15, textAlign: "center" }}>
-                    <span style={{
-                      background: product.trang_thai === "hoat_dong" ? "#e8f5e9" : "#ffebee",
-                      color: product.trang_thai === "hoat_dong" ? "#4caf50" : "#f44336",
-                      padding: "4px 12px",
-                      borderRadius: 20,
-                      fontSize: 12,
-                      fontWeight: "600",
-                    }}>
-                      {product.trang_thai === "hoat_dong" ? "✅ Hoạt động" : "❌ Tạm dừng"}
-                    </span>
-                  </td>
-                  <td style={{ padding: 15, textAlign: "center" }}>
-                    <button
-                      onClick={() => handleEdit(product)}
-                      style={{
-                        padding: "6px 12px",
-                        background: "#2196f3",
-                        color: "white",
-                        border: "none",
-                        borderRadius: 6,
-                        fontSize: 12,
-                        cursor: "pointer",
-                        marginRight: 5,
-                      }}
-                    >
-                      ✏️ Sửa
-                    </button>
-                    <button
-                      onClick={() => handleDelete(product.id)}
-                      style={{
-                        padding: "6px 12px",
-                        background: "#f44336",
-                        color: "white",
-                        border: "none",
-                        borderRadius: 6,
-                        fontSize: 12,
-                        cursor: "pointer",
-                      }}
-                    >
-                      🗑️ Xóa
-                    </button>
+                  <td style={{ padding: '11px 14px' }}>{badge(`${item.f1_percent}%`, '#e11d48')}</td>
+                  <td style={{ padding: '11px 14px' }}>{badge(`${item.f2_percent}%`, '#3b82f6')}</td>
+                  <td style={{ padding: '11px 14px' }}>{badge(`${item.f3_percent}%`, '#8b5cf6')}</td>
+                  <td style={{ padding: '11px 14px' }}>{badge(item.trang_thai==='hoat_dong'?'Hoạt động':'Tạm dừng', item.trang_thai==='hoat_dong'?'#10b981':'#9ca3af')}</td>
+                  <td style={{ padding: '11px 14px' }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => openEdit(item)} style={btn('#3b82f6')}>✏️ Sửa</button>
+                      <button onClick={() => handleDelete(item.id)} style={btn('#e11d48')}>🗑️ Xóa</button>
+                    </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+              {items.length === 0 && <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>Chưa có cấu hình nào</td></tr>}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Modal */}
       {showModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-          }}
-          onClick={() => setShowModal(false)}
-        >
-          <div
-            style={{
-              background: "white",
-              borderRadius: 20,
-              padding: 30,
-              width: "100%",
-              maxWidth: 500,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 style={{ fontSize: 24, fontWeight: "800", marginBottom: 20 }}>
-              {editingProduct ? "✏️ Sửa cấu hình" : "➕ Thêm cấu hình"}
-            </h2>
-            <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: 15 }}>
-                <label style={{ display: "block", fontWeight: "600", marginBottom: 5 }}>
-                  Sản phẩm ID
-                </label>
-                <input
-                  type="number"
-                  value={formData.san_pham_id}
-                  onChange={(e) => setFormData({ ...formData, san_pham_id: e.target.value })}
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    border: "2px solid #e0e0e0",
-                    borderRadius: 10,
-                    fontSize: 14,
-                  }}
-                />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440, boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ margin: '0 0 20px', fontSize: 18 }}>{editingItem ? '✏️ Sửa cấu hình' : '➕ Thêm cấu hình'}</h3>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 13, color: '#374151', display: 'block', marginBottom: 5 }}>Sản phẩm</label>
+              <select value={form.san_pham_id} onChange={e => setForm(p => ({ ...p, san_pham_id: e.target.value }))} style={inp}>
+                <option value="">-- Chọn sản phẩm --</option>
+                {books.map(b => <option key={b.id} value={b.id}>{b.ten_sach} — {fmt(b.gia_ban)}</option>)}
+              </select>
+            </div>
+            {[['F1% (Trực tiếp)','f1_percent'],['F2% (Cấp 2)','f2_percent'],['F3% (Cấp 3)','f3_percent']].map(([label, key]) => (
+              <div key={key} style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 13, color: '#374151', display: 'block', marginBottom: 5 }}>{label}</label>
+                <input type="number" min={0} max={100} step={0.5} value={form[key]}
+                  onChange={e => setForm(p => ({ ...p, [key]: +e.target.value }))} style={inp} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 15, marginBottom: 15 }}>
-                <div>
-                  <label style={{ display: "block", fontWeight: "600", marginBottom: 5 }}>
-                    F1 (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.f1_percent}
-                    onChange={(e) => setFormData({ ...formData, f1_percent: parseFloat(e.target.value) })}
-                    required
-                    style={{
-                      width: "100%",
-                      padding: "12px",
-                      border: "2px solid #e0e0e0",
-                      borderRadius: 10,
-                      fontSize: 14,
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontWeight: "600", marginBottom: 5 }}>
-                    F2 (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.f2_percent}
-                    onChange={(e) => setFormData({ ...formData, f2_percent: parseFloat(e.target.value) })}
-                    required
-                    style={{
-                      width: "100%",
-                      padding: "12px",
-                      border: "2px solid #e0e0e0",
-                      borderRadius: 10,
-                      fontSize: 14,
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontWeight: "600", marginBottom: 5 }}>
-                    F3 (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.f3_percent}
-                    onChange={(e) => setFormData({ ...formData, f3_percent: parseFloat(e.target.value) })}
-                    required
-                    style={{
-                      width: "100%",
-                      padding: "12px",
-                      border: "2px solid #e0e0e0",
-                      borderRadius: 10,
-                      fontSize: 14,
-                    }}
-                  />
-                </div>
-              </div>
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontWeight: "600", marginBottom: 5 }}>
-                  Trạng thái
-                </label>
-                <select
-                  value={formData.trang_thai}
-                  onChange={(e) => setFormData({ ...formData, trang_thai: e.target.value })}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    border: "2px solid #e0e0e0",
-                    borderRadius: 10,
-                    fontSize: 14,
-                  }}
-                >
-                  <option value="hoat_dong">✅ Hoạt động</option>
-                  <option value="tam_dung">❌ Tạm dừng</option>
-                </select>
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  type="submit"
-                  style={{
-                    flex: 1,
-                    padding: "12px",
-                    background: "#e53935",
-                    color: "white",
-                    border: "none",
-                    borderRadius: 10,
-                    fontWeight: "600",
-                    cursor: "pointer",
-                  }}
-                >
-                  {editingProduct ? "💾 Lưu thay đổi" : "➕ Tạo mới"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  style={{
-                    flex: 1,
-                    padding: "12px",
-                    background: "#f5f5f5",
-                    color: "#333",
-                    border: "none",
-                    borderRadius: 10,
-                    fontWeight: "600",
-                    cursor: "pointer",
-                  }}
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
+            ))}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ fontSize: 13, color: '#374151', display: 'block', marginBottom: 5 }}>Trạng thái</label>
+              <select value={form.trang_thai} onChange={e => setForm(p => ({ ...p, trang_thai: e.target.value }))} style={inp}>
+                <option value="hoat_dong">Hoạt động</option>
+                <option value="tam_dung">Tạm dừng</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowModal(false)} style={btn('#f3f4f6','#374151')}>Hủy</button>
+              <button onClick={handleSave} style={btn('#e11d48')}>Lưu</button>
+            </div>
           </div>
         </div>
       )}

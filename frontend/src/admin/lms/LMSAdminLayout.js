@@ -1,17 +1,10 @@
 import { useState } from "react";
 import logo from "../../assets/logo/Logo.jpeg";
 
-export default function LMSAdminLayout({ children, activePage = "leads", onNavigate, onLogout }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [notifications] = useState([
-    { id: 1, title: "Học viên mới đăng ký", time: "5 phút trước", unread: true },
-    { id: 2, title: "Lớp IELTS 5.5 sắp khai giảng", time: "1 giờ trước", unread: true },
-    { id: 3, title: "Có 3 học viên xin bảo lưu", time: "2 giờ trước", unread: false },
-  ]);
-  const [notifOpen, setNotifOpen] = useState(false);
-
-  const menuItems = [
+// Menu cấu hình theo từng role
+const MENU_CONFIGS = {
+  // Admin - Full access
+  1: [
     { id: "leads", label: "Leads", icon: "👤" },
     { id: "test-appointment", label: "Hẹn test", icon: "📝" },
     { id: "class-management", label: "Quản lý lớp học", icon: "🏫" },
@@ -29,7 +22,56 @@ export default function LMSAdminLayout({ children, activePage = "leads", onNavig
     { id: "registration", label: "Hẹn đăng ký", icon: "📋" },
     { id: "payment", label: "Thanh toán", icon: "💳" },
     { id: "feedback", label: "Phản hồi học viên", icon: "💬" },
-  ];
+  ],
+  // Sale/Kinh doanh (chuc_vu_id = 2)
+  2: [
+    { id: "leads", label: "Leads", icon: "👤" },
+    { id: "test-appointment", label: "Hẹn test", icon: "📝" },
+    { id: "registration", label: "Hẹn đăng ký", icon: "📋" },
+  ],
+  // Giáo viên (chuc_vu_id = 3)
+  3: [
+    { id: "class-management", label: "Lớp học", icon: "🏫" },
+    { id: "diem-danh", label: "Điểm danh", icon: "📋" },
+    { id: "bai-tap", label: "Bài tập", icon: "📚" },
+    { id: "bang-diem", label: "Bảng điểm", icon: "📊" },
+  ],
+  // Kế toán (chuc_vu_id = 4)
+  4: [
+    { id: "ke-toan", label: "Tổng quan kế toán", icon: "💰" },
+    { id: "cong-no", label: "Công nợ", icon: "📋" },
+    { id: "phieu-thu-chi", label: "Phiếu thu/chi", icon: "📄" },
+    { id: "payment", label: "Thanh toán", icon: "💳" },
+  ],
+};
+
+// Lấy tên role hiển thị
+const getRoleLabel = (chuc_vu_id) => {
+  const labels = {
+    1: "Quản trị viên",
+    2: "Kinh doanh",
+    3: "Giáo viên",
+    4: "Kế toán",
+    5: "Học viên",
+  };
+  return labels[chuc_vu_id] || "Nhân viên";
+};
+
+export default function LMSAdminLayout({ children, activePage = "leads", onNavigate, onLogout, role = 1, userName = "Admin NTA" }) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifications] = useState([
+    { id: 1, title: "Học viên mới đăng ký", time: "5 phút trước", unread: true },
+    { id: 2, title: "Lớp IELTS 5.5 sắp khai giảng", time: "1 giờ trước", unread: true },
+    { id: 3, title: "Có 3 học viên xin bảo lưu", time: "2 giờ trước", unread: false },
+  ]);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  // Lấy menu items theo role, mặc định lấy của admin nếu không có cấu hình
+  const menuItems = MENU_CONFIGS[role] || MENU_CONFIGS[1];
+
+  // Set default active page based on role
+  const defaultActivePage = menuItems[0]?.id || "leads";
 
   const handleLogout = () => {
     if (window.confirm("Bạn có chắc muốn đăng xuất?")) {
@@ -44,15 +86,23 @@ export default function LMSAdminLayout({ children, activePage = "leads", onNavig
     const titles = {
       "leads": "Leads",
       "test-appointment": "Hẹn test đầu vào",
+      "class-management": role === 3 ? "Lớp học của tôi" : "Quản lý lớp học",
+      "student-management": "Quản lý học viên",
+      "diem-danh": "Điểm danh",
+      "bai-tap": "Bài tập",
+      "bang-diem": "Bảng điểm",
+      "ke-toan": "Tổng quan kế toán",
+      "cong-no": "Công nợ",
+      "phieu-thu-chi": "Phiếu thu/chi",
       "students": "Danh sách học viên",
       "students-in-class": "Học viên trong lớp",
       "paused-students": "Học viên bảo lưu",
       "transferred-students": "Học viên chuyển lớp",
       "registration": "Hẹn đăng ký",
-      "payment": "Quản lý thanh toán",
+      "payment": role === 4 ? "Thanh toán" : "Quản lý thanh toán",
       "feedback": "Phản hồi học viên",
     };
-    return titles[activePage] || "Dashboard";
+    return titles[activePage] || `Dashboard - ${getRoleLabel(role)}`;
   };
 
   return (
@@ -142,7 +192,7 @@ export default function LMSAdminLayout({ children, activePage = "leads", onNavig
                 onClick={() => onNavigate && onNavigate(item.id)}
                 onMouseEnter={(e) => {
                   if (!isActive) {
-                    e.currentTarget.style.background = "rgba(207, 46, 46, 0.2)";
+                    e.currentTarget.style.background = "rgba(229, 57, 53, 0.5)";
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -196,8 +246,15 @@ export default function LMSAdminLayout({ children, activePage = "leads", onNavig
               background: "rgba(255,255,255,0.1)",
               color: "white",
               justifyContent: sidebarOpen ? "flex-start" : "center",
+              transition: "all 0.2s",
             }}
             onClick={() => onNavigate && onNavigate("main-admin")}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(229, 57, 53, 0.5)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+            }}
           >
             <span style={{ fontSize: 18 }}>🏠</span>
           {sidebarOpen && <span style={{ fontSize: 14 }}>Quay lại Admin</span>}
@@ -392,7 +449,10 @@ export default function LMSAdminLayout({ children, activePage = "leads", onNavig
                 </div>
                 <div style={{ textAlign: "left" }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: "600", color: "black" }}>
-                    Admin NTA
+                    {userName || "Admin NTA"}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 11, color: "#666" }}>
+                    {getRoleLabel(role)}
                   </p>
                 </div>
               </div>

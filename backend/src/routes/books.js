@@ -22,7 +22,7 @@ router.post("/orders", orderController.createOrder);
 router.put("/orders/:id/status", orderController.updateOrderStatus);
 
 // GET /api/books/orders/:id - Get order by ID (ĐỂ SAU status)
-router.get("/orders/:id", orderController.getOrderById);
+router.get("/orders/:id", authOptional, orderController.getOrderById);
 
 // ==================== BOOKS ====================
 

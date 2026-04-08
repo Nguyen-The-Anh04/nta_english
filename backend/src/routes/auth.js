@@ -27,4 +27,7 @@ router.post("/logout", auth, authController.logout);
 // POST /api/auth/refresh-token
 router.post("/refresh-token", authController.refreshToken);
 
+// GET /api/auth/permissions - Get permissions by role (optional - for frontend)
+router.get("/permissions", authController.getPermissions);
+
 module.exports = router;

@@ -180,12 +180,10 @@ export const updateOrderStatus = async (orderId, status) => {
 };
 
 export const fetchOrderById = async (id) => {
-  const token = localStorage.getItem('token');
-  const response = await fetch(`${API_BASE_URL}/books/orders/${id}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
+  const token = localStorage.getItem('token') || localStorage.getItem('adminToken');
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const response = await fetch(`${API_BASE_URL}/books/orders/${id}`, { headers });
   const result = await response.json();
   return result.data || null;
 };

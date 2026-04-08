@@ -1,310 +1,214 @@
-import { useState } from "react";
+import { useState, useEffect } from 'react';
+
+const API = 'http://localhost:5000/api';
+const fmt = n => (n||0).toLocaleString('vi-VN')+'đ';
+const fmtDate = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+const authHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' });
+
+const ROLE_COLORS = {
+  admin: '#e11d48', nhanvien_kd: '#3b82f6', giaovien: '#8b5cf6',
+  ketoan: '#f59e0b', hocvien: '#10b981', ctv: '#06b6d4'
+};
+
+const badge = (text, color) => (
+  <span style={{ background: color+'22', color, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{text}</span>
+);
+
+const STATUS_CFG = {
+  hoat_dong: { color: '#10b981', text: 'Hoạt động' },
+  bi_khoa: { color: '#e11d48', text: 'Bị khóa' },
+  cho_duyet: { color: '#f59e0b', text: 'Chờ duyệt' },
+};
+
+const CARD = ({ label, value, color }) => (
+  <div style={{ background: '#fff', borderRadius: 12, padding: '18px 22px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', flex: 1 }}>
+    <div style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>{label}</div>
+    <div style={{ fontSize: 26, fontWeight: 800, color }}>{value}</div>
+  </div>
+);
 
 export default function UserManagement() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterRole, setFilterRole] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [form, setForm] = useState({ email: '', mat_khau: '', ho_ten: '', sdt: '', chuc_vu_id: '' });
+  const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 });
 
-  // Mock data
-  const users = [
-    { id: 33311, name: "Nguyễn Văn A", email: "a@example.com", phone: "0912345678", refCode: "REFABC123", joinDate: "2024-03-23", status: "active", f1: 5, f2: 3, f3: 1, totalRevenue: 1200000 },
-    { id: 33466, name: "Trần Thị B", email: "b@example.com", phone: "0923456789", refCode: "REFDEF456", joinDate: "2024-03-24", status: "active", f1: 3, f2: 2, f3: 0, totalRevenue: 980000 },
-    { id: 33467, name: "Lê Văn C", email: "c@example.com", phone: "0934567890", refCode: "REFGHI789", joinDate: "2024-03-25", status: "active", f1: 4, f2: 1, f3: 2, totalRevenue: 850000 },
-    { id: 33468, name: "Phạm Thị D", email: "d@example.com", phone: "0945678901", refCode: "REFJKL012", joinDate: "2024-03-26", status: "inactive", f1: 2, f2: 0, f3: 0, totalRevenue: 320000 },
-    { id: 33469, name: "Ngô Văn E", email: "e@example.com", phone: "0956789012", refCode: "REFMNO345", joinDate: "2024-03-27", status: "active", f1: 6, f2: 4, f3: 2, totalRevenue: 1500000 },
-    { id: 33470, name: "Vũ Thị F", email: "f@example.com", phone: "0967890123", refCode: "REFPQR678", joinDate: "2024-03-28", status: "pending", f1: 0, f2: 0, f3: 0, totalRevenue: 0 },
-  ];
+  useEffect(() => { loadRoles(); }, []);
+  useEffect(() => { loadUsers(); }, [pagination.page, search, filterRole, filterStatus]);
 
-  const formatCurrency = (amount) => {
-    return (amount || 0).toLocaleString("vi-VN") + " đ";
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const q = new URLSearchParams({ page: pagination.page, limit: 20, search, chuc_vu_id: filterRole, trang_thai: filterStatus });
+      const r = await fetch(`${API}/users?${q}`, { headers: authHeader() });
+      const d = await r.json();
+      setUsers(d.data?.users || d.data || []);
+      if (d.data?.pagination) setPagination(p => ({ ...p, ...d.data.pagination }));
+    } catch { setUsers([]); } finally { setLoading(false); }
   };
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.refCode.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || user.status === filterStatus;
-    return matchesSearch && matchesStatus;
+  const loadRoles = async () => {
+    try {
+      const r = await fetch(`${API}/users/roles`, { headers: authHeader() });
+      const d = await r.json();
+      setRoles(d.data || []);
+    } catch { setRoles([]); }
+  };
+
+  const openAdd = () => { setEditingUser(null); setForm({ email: '', mat_khau: '', ho_ten: '', sdt: '', chuc_vu_id: '' }); setShowModal(true); };
+  const openEdit = (u) => { setEditingUser(u); setForm({ email: u.email, ho_ten: u.ho_ten, sdt: u.sdt||'', chuc_vu_id: u.chuc_vu_id||'' }); setShowModal(true); };
+
+  const handleSave = async () => {
+    try {
+      if (editingUser) {
+        await fetch(`${API}/users/${editingUser.id}`, { method: 'PUT', headers: authHeader(), body: JSON.stringify({ ho_ten: form.ho_ten, sdt: form.sdt, chuc_vu_id: form.chuc_vu_id }) });
+      } else {
+        await fetch(`${API}/users`, { method: 'POST', headers: authHeader(), body: JSON.stringify(form) });
+      }
+      setShowModal(false); loadUsers();
+    } catch (e) { alert('Lỗi: ' + e.message); }
+  };
+
+  const handleToggle = async (u) => {
+    const newStatus = u.trang_thai === 'hoat_dong' ? 'bi_khoa' : 'hoat_dong';
+    await fetch(`${API}/users/${u.id}`, { method: 'PUT', headers: authHeader(), body: JSON.stringify({ trang_thai: newStatus }) });
+    loadUsers();
+  };
+
+  const stats = {
+    total: users.length,
+    active: users.filter(u => u.trang_thai === 'hoat_dong').length,
+    locked: users.filter(u => u.trang_thai === 'bi_khoa').length,
+    pending: users.filter(u => u.trang_thai === 'cho_duyet').length,
+  };
+
+  const filtered = users.filter(u => {
+    const s = search.toLowerCase();
+    return (!s || u.ho_ten?.toLowerCase().includes(s) || u.email?.toLowerCase().includes(s))
+      && (!filterRole || String(u.chuc_vu_id) === filterRole)
+      && (!filterStatus || u.trang_thai === filterStatus);
   });
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      active: { bg: "#e8f5e9", color: "#4caf50", text: "Hoạt động" },
-      inactive: { bg: "#ffebee", color: "#f44336", text: "Khóa" },
-      pending: { bg: "#fff3e0", color: "#ff9800", text: "Chờ duyệt" },
-    };
-    const config = statusConfig[status] || statusConfig.pending;
-    return (
-      <span
-        style={{
-          background: config.bg,
-          color: config.color,
-          padding: "5px 12px",
-          borderRadius: 20,
-          fontSize: 12,
-          fontWeight: "600",
-        }}
-      >
-        {config.text}
-      </span>
-    );
-  };
-
-  const handleSelectUser = (userId) => {
-    setSelectedUsers((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedUsers.length === filteredUsers.length) {
-      setSelectedUsers([]);
-    } else {
-      setSelectedUsers(filteredUsers.map((u) => u.id));
-    }
-  };
+  const inp = { padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14, outline: 'none', fontFamily: 'system-ui' };
+  const btn = (bg, color='#fff') => ({ padding: '9px 18px', background: bg, color, border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontSize: 13, fontFamily: 'system-ui' });
 
   return (
-    <div>
-      {/* Actions Bar */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 25 }}>
-        <div style={{ display: "flex", gap: 15 }}>
-          {/* Search */}
-          <div style={{ position: "relative" }}>
-            <input
-              type="text"
-              placeholder="Tìm kiếm CTV..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                padding: "12px 15px 12px 45px",
-                borderRadius: 10,
-                border: "1px solid #e0e0e0",
-                width: 300,
-                fontSize: 14,
-                outline: "none",
-              }}
-            />
-            <span style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)", color: "#999" }}>
-              🔍
-            </span>
-          </div>
-
-          {/* Filter */}
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            style={{
-              padding: "12px 15px",
-              borderRadius: 10,
-              border: "1px solid #e0e0e0",
-              fontSize: 14,
-              outline: "none",
-              cursor: "pointer",
-            }}
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Khóa</option>
-            <option value="pending">Chờ duyệt</option>
-          </select>
-        </div>
-
-        <div style={{ display: "flex", gap: 10 }}>
-          {selectedUsers.length > 0 && (
-            <>
-              <button
-                style={{
-                  padding: "12px 20px",
-                  background: "#ff9800",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 10,
-                  fontWeight: "600",
-                  cursor: "pointer",
-                }}
-              >
-                Khóa ({selectedUsers.length})
-              </button>
-              <button
-                style={{
-                  padding: "12px 20px",
-                  background: "#4caf50",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 10,
-                  fontWeight: "600",
-                  cursor: "pointer",
-                }}
-              >
-                Kích hoạt ({selectedUsers.length})
-              </button>
-            </>
-          )}
-          <button
-            style={{
-              padding: "12px 25px",
-              background: "linear-gradient(135deg, #e53935 0%, #c62828 100%)",
-              color: "white",
-              border: "none",
-              borderRadius: 10,
-              fontWeight: "600",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            + Thêm CTV
-          </button>
-        </div>
+    <div style={{ fontFamily: 'system-ui', padding: 24 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>👥 Quản lý người dùng</h2>
+        <div style={{ flex: 1 }} />
+        <input placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inp, width: 200 }} />
+        <select value={filterRole} onChange={e => setFilterRole(e.target.value)} style={inp}>
+          <option value="">Tất cả vai trò</option>
+          {roles.map(r => <option key={r.id} value={r.id}>{r.ten_chuc_vu}</option>)}
+        </select>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={inp}>
+          <option value="">Tất cả trạng thái</option>
+          <option value="hoat_dong">Hoạt động</option>
+          <option value="bi_khoa">Bị khóa</option>
+          <option value="cho_duyet">Chờ duyệt</option>
+        </select>
+        <button onClick={openAdd} style={btn('#e11d48')}>+ Thêm người dùng</button>
       </div>
 
-      {/* Stats Summary */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 15, marginBottom: 25 }}>
-        {[
-          { label: "Tổng CTV", value: users.length, color: "#2196f3" },
-          { label: "Đang hoạt động", value: users.filter((u) => u.status === "active").length, color: "#4caf50" },
-          { label: "Chờ duyệt", value: users.filter((u) => u.status === "pending").length, color: "#ff9800" },
-          { label: "Bị khóa", value: users.filter((u) => u.status === "inactive").length, color: "#f44336" },
-        ].map((stat, index) => (
-          <div
-            key={index}
-            style={{
-              background: "white",
-              borderRadius: 12,
-              padding: 20,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
-            }}
-          >
-            <p style={{ margin: 0, fontSize: 13, color: "#666" }}>{stat.label}</p>
-            <p style={{ margin: 0, fontSize: 24, fontWeight: "800", color: stat.color }}>{stat.value}</p>
-          </div>
-        ))}
+      {/* Stats */}
+      <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
+        <CARD label="Tổng người dùng" value={stats.total} color="#3b82f6" />
+        <CARD label="Hoạt động" value={stats.active} color="#10b981" />
+        <CARD label="Bị khóa" value={stats.locked} color="#e11d48" />
+        <CARD label="Chờ duyệt" value={stats.pending} color="#f59e0b" />
       </div>
 
-      {/* Users Table */}
-      <div style={{ background: "white", borderRadius: 16, padding: 20, boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ borderBottom: "2px solid #f0f0f0" }}>
-              <th style={{ padding: "12px 8px", textAlign: "left" }}>
-                <input
-                  type="checkbox"
-                  checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
-                  onChange={handleSelectAll}
-                  style={{ cursor: "pointer" }}
-                />
-              </th>
-              <th style={{ padding: "12px 8px", textAlign: "left", color: "#666", fontSize: 13 }}>CTV</th>
-              <th style={{ padding: "12px 8px", textAlign: "left", color: "#666", fontSize: 13 }}>Mã giới thiệu</th>
-              <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>F1</th>
-              <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>F2</th>
-              <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>F3</th>
-              <th style={{ padding: "12px 8px", textAlign: "right", color: "#666", fontSize: 13 }}>Doanh thu</th>
-              <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Trạng thái</th>
-              <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredUsers.map((user) => (
-              <tr key={user.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                <td style={{ padding: "12px 8px" }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedUsers.includes(user.id)}
-                    onChange={() => handleSelectUser(user.id)}
-                    style={{ cursor: "pointer" }}
-                  />
-                </td>
-                <td style={{ padding: "12px 8px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        background: "linear-gradient(135deg, #e53935 0%, #c62828 100%)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "white",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {user.name.charAt(0)}
-                    </div>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 14, fontWeight: "600", color: "#333" }}>{user.name}</p>
-                      <p style={{ margin: 0, fontSize: 12, color: "#888" }}>{user.email}</p>
-                    </div>
-                  </div>
-                </td>
-                <td style={{ padding: "12px 8px" }}>
-                  <span
-                    style={{
-                      background: "#f5f5f5",
-                      padding: "5px 10px",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontFamily: "monospace",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {user.refCode}
-                  </span>
-                </td>
-                <td style={{ padding: "12px 8px", textAlign: "center", fontWeight: "600", color: "#4caf50" }}>{user.f1}</td>
-                <td style={{ padding: "12px 8px", textAlign: "center", fontWeight: "600", color: "#2196f3" }}>{user.f2}</td>
-                <td style={{ padding: "12px 8px", textAlign: "center", fontWeight: "600", color: "#9c27b0" }}>{user.f3}</td>
-                <td style={{ padding: "12px 8px", textAlign: "right", fontWeight: "700", color: "#e53935" }}>
-                  {formatCurrency(user.totalRevenue)}
-                </td>
-                <td style={{ padding: "12px 8px", textAlign: "center" }}>{getStatusBadge(user.status)}</td>
-                <td style={{ padding: "12px 8px", textAlign: "center" }}>
-                  <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                    <button
-                      style={{
-                        padding: "6px 12px",
-                        background: "#e3f2fd",
-                        border: "none",
-                        borderRadius: 6,
-                        color: "#1976d2",
-                        fontSize: 12,
-                        fontWeight: "600",
-                        cursor: "pointer",
-                      }}
-                    >
-                      ✏️ Sửa
-                    </button>
-                    <button
-                      style={{
-                        padding: "6px 12px",
-                        background: "#f5f5f5",
-                        border: "none",
-                        borderRadius: 6,
-                        color: "#666",
-                        fontSize: 12,
-                        fontWeight: "600",
-                        cursor: "pointer",
-                      }}
-                    >
-                      👁️ Xem
-                    </button>
-                  </div>
-                </td>
+      {/* Table */}
+      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+        {loading ? <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div> : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f9fafb' }}>
+                {['STT','Họ tên / Email','SĐT','Vai trò','Trạng thái','Ngày tạo','Thao tác'].map(h => (
+                  <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontSize: 13, color: '#6b7280', fontWeight: 600 }}>{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {filteredUsers.length === 0 && (
-          <div style={{ textAlign: "center", padding: 40 }}>
-            <span style={{ fontSize: 48, display: "block", marginBottom: 15 }}>🔍</span>
-            <p style={{ color: "#666" }}>Không tìm thấy CTV nào</p>
-          </div>
+            </thead>
+            <tbody>
+              {filtered.map((u, i) => (
+                <tr key={u.id} style={{ borderTop: '1px solid #f3f4f6' }}
+                  onMouseEnter={e => e.currentTarget.style.background='#fef2f2'}
+                  onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                  <td style={{ padding: '11px 14px', color: '#9ca3af', fontSize: 13 }}>{i+1}</td>
+                  <td style={{ padding: '11px 14px' }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{u.ho_ten}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{u.email}</div>
+                  </td>
+                  <td style={{ padding: '11px 14px', fontSize: 13 }}>{u.sdt || '—'}</td>
+                  <td style={{ padding: '11px 14px' }}>{badge(u.ten_chuc_vu || u.chuc_vu || '—', ROLE_COLORS[u.chuc_vu] || '#6b7280')}</td>
+                  <td style={{ padding: '11px 14px' }}>{badge((STATUS_CFG[u.trang_thai]||{text:'—'}).text, (STATUS_CFG[u.trang_thai]||{color:'#6b7280'}).color)}</td>
+                  <td style={{ padding: '11px 14px', fontSize: 13, color: '#6b7280' }}>{fmtDate(u.created_at)}</td>
+                  <td style={{ padding: '11px 14px' }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => openEdit(u)} style={{ ...btn('#3b82f6'), padding: '5px 10px', fontSize: 12 }}>✏️</button>
+                      <button onClick={() => handleToggle(u)} style={{ ...btn(u.trang_thai==='hoat_dong'?'#f59e0b':'#10b981'), padding: '5px 10px', fontSize: 12 }}>
+                        {u.trang_thai==='hoat_dong'?'🔒':'🔓'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>Không có dữ liệu</td></tr>}
+            </tbody>
+          </table>
         )}
       </div>
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+          {Array.from({ length: pagination.totalPages }, (_, i) => i+1).map(p => (
+            <button key={p} onClick={() => setPagination(prev => ({ ...prev, page: p }))}
+              style={{ ...btn(p===pagination.page?'#e11d48':'#f3f4f6', p===pagination.page?'#fff':'#374151'), padding: '6px 14px' }}>{p}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Modal */}
+      {showModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440, boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ margin: '0 0 20px', fontSize: 18 }}>{editingUser ? '✏️ Sửa người dùng' : '➕ Thêm người dùng'}</h3>
+            {[
+              { label: 'Email', key: 'email', type: 'email', disabled: !!editingUser },
+              ...(!editingUser ? [{ label: 'Mật khẩu', key: 'mat_khau', type: 'password' }] : []),
+              { label: 'Họ tên', key: 'ho_ten' },
+              { label: 'Số điện thoại', key: 'sdt' },
+            ].map(f => (
+              <div key={f.key} style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 13, color: '#374151', display: 'block', marginBottom: 5 }}>{f.label}</label>
+                <input type={f.type||'text'} value={form[f.key]||''} disabled={f.disabled}
+                  onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                  style={{ ...inp, width: '100%', boxSizing: 'border-box', background: f.disabled?'#f9fafb':'#fff' }} />
+              </div>
+            ))}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ fontSize: 13, color: '#374151', display: 'block', marginBottom: 5 }}>Vai trò</label>
+              <select value={form.chuc_vu_id} onChange={e => setForm(p => ({ ...p, chuc_vu_id: e.target.value }))} style={{ ...inp, width: '100%' }}>
+                <option value="">-- Chọn vai trò --</option>
+                {roles.map(r => <option key={r.id} value={r.id}>{r.ten_chuc_vu}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowModal(false)} style={btn('#f3f4f6','#374151')}>Hủy</button>
+              <button onClick={handleSave} style={btn('#e11d48')}>Lưu</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

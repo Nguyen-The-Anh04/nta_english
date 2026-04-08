@@ -1,5 +1,6 @@
 const { LoaiSach, Sach, DonHang, ChiTietDonHang, CTV, HoaHong, RutTienCTV, NguoiDung, CommissionProducts } = require("../models");
-const { Op } = require("sequelize");
+const { Op, fn, col } = require("sequelize");
+const sequelize = require("../config/db");
 
 // ==================== BOOKS ====================
 
@@ -166,7 +167,7 @@ const getOrderStats = async (req, res) => {
     const stats = await DonHang.findAll({
       attributes: [
         'trang_thai',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+        [fn('COUNT', col('id')), 'count']
       ],
       group: ['trang_thai']
     });
@@ -618,7 +619,7 @@ const getAllCTVsWithDownline = async (req, res) => {
       offset,
     });
 
-    // For each CTV, get their downline tree
+    // For each CTV, get their downline tree and calculate commission
     const ctvList = [];
     for (const ctv of ctvs) {
       // Get F1 (direct downlines)
@@ -641,8 +642,16 @@ const getAllCTVsWithDownline = async (req, res) => {
         include: [{ model: NguoiDung, as: "nguoiDung", attributes: ["ho_ten", "email"] }],
       }) : [];
 
+      // Calculate total commission from HoaHong table (đã tính % hoa hồng)
+      const hoaHongResult = await HoaHong.findAll({
+        where: { ctv_id: ctv.id, trang_thai: "da_tra" },
+        attributes: [[fn('SUM', col('tien_hoa_hong')), 'total']],
+      });
+      const tong_hoa_hong = parseFloat(hoaHongResult[0]?.dataValues?.total || 0);
+
       ctvList.push({
         ...ctv.toJSON(),
+        trang_thai: ctv.trang_thai || "hoat_dong",
         downline: {
           f1: f1.map(f => ({ id: f.id, ho_ten: f.nguoiDung?.ho_ten, email: f.nguoiDung?.email })),
           f2: f2.map(f => ({ id: f.id, ho_ten: f.nguoiDung?.ho_ten, email: f.nguoiDung?.email })),
@@ -651,6 +660,7 @@ const getAllCTVsWithDownline = async (req, res) => {
         tong_f1: f1.length,
         tong_f2: f2.length,
         tong_f3: f3.length,
+        tong_hoa_hong: tong_hoa_hong,
       });
     }
 
@@ -667,6 +677,54 @@ const getAllCTVsWithDownline = async (req, res) => {
     });
   } catch (error) {
     console.error("Get all CTVs error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// PUT /api/affiliate/admin/ctvs/:id/status - Admin: Cập nhật trạng thái CTV
+const updateCTVStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { trang_thai } = req.body;
+
+    const ctv = await CTV.findByPk(id);
+    if (!ctv) {
+      return res.status(404).json({ success: false, message: "CTV không tồn tại" });
+    }
+
+    await ctv.update({ trang_thai });
+
+    res.json({ success: true, message: "Cập nhật trạng thái thành công", data: ctv });
+  } catch (error) {
+    console.error("Update CTV status error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// DELETE /api/affiliate/admin/ctvs/:id - Admin: Xóa CTV
+const deleteCTV = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const ctv = await CTV.findByPk(id);
+    if (!ctv) {
+      return res.status(404).json({ success: false, message: "CTV không tồn tại" });
+    }
+
+    // Kiểm tra nếu CTV có downline thì không cho xóa
+    const downlineCount = await CTV.count({ where: { ctv_cha_id: id } });
+    if (downlineCount > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Không thể xóa CTV có downline. Vui lòng chuyển downline sang CTV khác trước." 
+      });
+    }
+
+    await ctv.destroy();
+
+    res.json({ success: true, message: "Xóa CTV thành công" });
+  } catch (error) {
+    console.error("Delete CTV error:", error);
     res.status(500).json({ success: false, message: "Lỗi server" });
   }
 };
@@ -955,6 +1013,7 @@ const registerAsCTV = async (req, res) => {
       ma_gioi_thieu: ma_ctv,
       tong_downline: 0,
       tong_hoa_hong: 0,
+      trang_thai: "hoat_dong",
     });
 
     // Update parent downline count
@@ -1037,6 +1096,7 @@ const registerAffiliate = async (req, res) => {
       ma_gioi_thieu: ma_ctv,
       tong_downline: 0,
       tong_hoa_hong: 0,
+      trang_thai: "hoat_dong",
     });
 
     // Update parent downline count
@@ -1342,4 +1402,174 @@ module.exports = {
   backfillCommissions,
   fixCapDo,
   getAllCTVsWithDownline,
+  updateCTVStatus,
+  deleteCTV,
+};
+
+// ==================== ADMIN: COMMISSION MANAGEMENT ====================
+
+// GET /api/affiliate/admin/commissions
+const getAdminCommissions = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, trang_thai, ctv_id } = req.query;
+    const where = {};
+    if (trang_thai && trang_thai !== "all") where.trang_thai = trang_thai;
+    if (ctv_id) where.ctv_id = ctv_id;
+
+    const { count, rows } = await HoaHong.findAndCountAll({
+      where,
+      include: [
+        { model: CTV, as: "ctv", include: [{ model: NguoiDung, as: "nguoiDung", attributes: ["id", "ho_ten", "email"] }] },
+        { model: DonHang, as: "donHang", attributes: ["id", "ma_don_hang", "tong_tien"] },
+      ],
+      order: [["created_at", "DESC"]],
+      limit: parseInt(limit),
+      offset: (page - 1) * limit,
+    });
+
+    res.json({ success: true, data: { commissions: rows, pagination: { total: count, page: parseInt(page), totalPages: Math.ceil(count / limit) } } });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+// PUT /api/affiliate/admin/commissions/:id/status
+const updateAdminCommissionStatus = async (req, res) => {
+  try {
+    const hh = await HoaHong.findByPk(req.params.id);
+    if (!hh) return res.status(404).json({ success: false, message: "Không tìm thấy" });
+    await hh.update({ trang_thai: req.body.trang_thai });
+    res.json({ success: true, message: "Cập nhật thành công" });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+// ==================== ADMIN: COMMISSION PRODUCTS ====================
+
+// GET /api/affiliate/admin/commission-products
+const getCommissionProducts = async (req, res) => {
+  try {
+    const items = await CommissionProducts.findAll({
+      include: [{ model: Sach, as: "sanPham", attributes: ["id", "ten_sach", "gia_ban"] }],
+      order: [["id", "DESC"]],
+    });
+    res.json({ success: true, data: items });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+// POST /api/affiliate/admin/commission-products
+const createCommissionProduct = async (req, res) => {
+  try {
+    const item = await CommissionProducts.create(req.body);
+    res.status(201).json({ success: true, data: item });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+// PUT /api/affiliate/admin/commission-products/:id
+const updateCommissionProduct = async (req, res) => {
+  try {
+    const item = await CommissionProducts.findByPk(req.params.id);
+    if (!item) return res.status(404).json({ success: false, message: "Không tìm thấy" });
+    await item.update(req.body);
+    res.json({ success: true, message: "Cập nhật thành công" });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+// DELETE /api/affiliate/admin/commission-products/:id
+const deleteCommissionProduct = async (req, res) => {
+  try {
+    const item = await CommissionProducts.findByPk(req.params.id);
+    if (!item) return res.status(404).json({ success: false, message: "Không tìm thấy" });
+    await item.destroy();
+    res.json({ success: true, message: "Đã xóa" });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+// ==================== ADMIN: STATISTICS ====================
+
+// GET /api/affiliate/admin/statistics
+const getAdminStatistics = async (req, res) => {
+  try {
+    const { nam = new Date().getFullYear() } = req.query;
+    const { ChiTietDonHang } = require("../models");
+
+    // Doanh thu theo tháng (từ đơn da_giao)
+    const doanhThuThang = [];
+    for (let m = 1; m <= 12; m++) {
+      const start = `${nam}-${String(m).padStart(2,"0")}-01 00:00:00`;
+      const end = `${nam}-${String(m).padStart(2,"0")}-${new Date(nam, m, 0).getDate()} 23:59:59`;
+      const tongTien = await DonHang.sum("tong_tien", {
+        where: { trang_thai: "da_giao", created_at: { [Op.between]: [start, end] } },
+      }) || 0;
+      const soLuong = await DonHang.count({
+        where: { trang_thai: "da_giao", created_at: { [Op.between]: [start, end] } },
+      }) || 0;
+      doanhThuThang.push({ thang: m, doanh_thu: tongTien, so_don: soLuong });
+    }
+
+    // Top sản phẩm bán chạy
+    const topSanPham = await ChiTietDonHang.findAll({
+      attributes: [
+        "sach_id",
+        [sequelize.fn("SUM", sequelize.col("so_luong")), "da_ban"],
+        [sequelize.fn("SUM", sequelize.col("thanh_tien")), "doanh_thu"],
+      ],
+      include: [{ model: Sach, as: "sach", attributes: ["ten_sach", "gia_ban"] }],
+      group: ["sach_id", "sach.id", "sach.ten_sach", "sach.gia_ban"],
+      order: [[sequelize.fn("SUM", sequelize.col("so_luong")), "DESC"]],
+      limit: 10,
+    });
+
+    // Top CTV
+    const topCTV = await CTV.findAll({
+      include: [{ model: NguoiDung, as: "nguoiDung", attributes: ["ho_ten", "email"] }],
+      order: [["tong_hoa_hong", "DESC"]],
+      limit: 10,
+    });
+
+    // Tổng quan
+    const tongDonHang = await DonHang.count();
+    const tongDoanhThu = await DonHang.sum("tong_tien", { where: { trang_thai: "da_giao" } }) || 0;
+    const tongCTV = await CTV.count();
+    const tongHoaHong = await HoaHong.sum("tien_hoa_hong", { where: { trang_thai: "da_tra" } }) || 0;
+
+    res.json({
+      success: true,
+      data: {
+        tong_quan: { tong_don_hang: tongDonHang, tong_doanh_thu: tongDoanhThu, tong_ctv: tongCTV, tong_hoa_hong_da_tra: tongHoaHong },
+        doanh_thu_thang: doanhThuThang,
+        top_san_pham: topSanPham.map(sp => ({
+          ten_sach: sp.sach?.ten_sach,
+          gia_ban: sp.sach?.gia_ban,
+          da_ban: parseInt(sp.dataValues.da_ban) || 0,
+          doanh_thu: parseFloat(sp.dataValues.doanh_thu) || 0,
+        })),
+        top_ctv: topCTV.map(c => ({
+          ho_ten: c.nguoiDung?.ho_ten,
+          email: c.nguoiDung?.email,
+          tong_hoa_hong: c.tong_hoa_hong,
+          downline: c.tong_downline || 0,
+        })),
+      },
+    });
+  } catch (e) {
+    console.error("Statistics error:", e);
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+module.exports = {
+  ...module.exports,
+  getAdminCommissions, updateAdminCommissionStatus,
+  getCommissionProducts, createCommissionProduct, updateCommissionProduct, deleteCommissionProduct,
+  getAdminStatistics,
 };

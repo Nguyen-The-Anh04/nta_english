@@ -154,6 +154,13 @@ function AppContent() {
     setIsLoggedIn(true);
     localStorage.setItem("adminLoggedIn", "true");
     localStorage.setItem("adminUser", JSON.stringify(user));
+    // Redirect theo role
+    const cvu = user.chuc_vu_id;
+    if (cvu === 5) {
+      navigate("/hoc-vien");
+    } else {
+      navigate("/admin");
+    }
   };
 
   const handleLogout = () => {
@@ -206,11 +213,13 @@ function AppContent() {
     return null;
   }
 
-  // Redirect /admin to admin page (check login first)
+  // Redirect /admin to admin page
   if (path === "/admin") {
+    // Nếu chưa đăng nhập, hiển thị trang đăng nhập
     if (!isLoggedIn) {
       return <AdminLogin onLogin={handleLogin} />;
     }
+    // Đã đăng nhập rồi thì hiển thị Admin
     return <Admin onLogout={handleLogout} />;
   }
 

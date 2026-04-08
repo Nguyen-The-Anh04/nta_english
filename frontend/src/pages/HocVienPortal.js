@@ -49,6 +49,26 @@ function LoginForm({ onLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true); setErr('');
+    
+    // Demo accounts for student portal
+    const demoStudents = {
+      "hocvien@nta.com": { id: 1, ho_ten: "Nguyễn Văn Học Viên", email: "hocvien@nta.com", chuc_vu_id: 5 },
+      "phuhuynh@nta.com": { id: 2, ho_ten: "Phụ huynh học viên", email: "phuhuynh@nta.com", chuc_vu_id: 5 },
+    };
+    
+    // Check demo accounts first (password: admin123)
+    if (demoStudents[email] && password === "admin123") {
+      const user = demoStudents[email];
+      localStorage.setItem('hv_token', 'demo_token_' + Date.now());
+      localStorage.setItem('hv_user', JSON.stringify(user));
+      localStorage.setItem('chuc_vu_id', '5');
+      localStorage.setItem('user_name', user.ho_ten);
+      onLogin(user, 'demo_token');
+      setLoading(false);
+      return;
+    }
+    
+    // Otherwise, try API login
     try {
       const res = await login(email, password);
       if (res.token) {
@@ -85,6 +105,12 @@ function LoginForm({ onLogin }) {
           width: '100%', padding: '10px', background: '#1e3a5f', color: '#fff',
           border: 'none', borderRadius: 6, fontSize: 15, cursor: 'pointer', fontWeight: 600,
         }}>{loading ? 'Đang đăng nhập...' : 'Đăng nhập'}</button>
+        
+        {/* Demo accounts info */}
+        <div style={{ marginTop: 16, padding: 12, background: '#f5f6fa', borderRadius: 6, fontSize: 11, color: '#666', textAlign: 'center' }}>
+          <strong>📌 Demo:</strong> hocvien@nta.com hoặc phuhuynh@nta.com<br/>
+          <strong>Mật khẩu:</strong> admin123
+        </div>
       </form>
     </div>
   );

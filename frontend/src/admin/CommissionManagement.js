@@ -1,288 +1,158 @@
-import { useState, useEffect } from "react";
-import { fetchCommissions, updateCommissionStatus } from "../api";
+import { useState, useEffect } from 'react';
+
+const API = 'http://localhost:5000/api';
+const fmt = n => (n||0).toLocaleString('vi-VN')+'đ';
+const fmtDate = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+const authHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' });
+
+const STATUS_CFG = {
+  cho_xac_nhan: { color: '#f59e0b', text: 'Chờ xác nhận' },
+  da_tra: { color: '#10b981', text: 'Đã trả' },
+  da_huy: { color: '#e11d48', text: 'Đã hủy' },
+};
+
+const LEVEL_CFG = { 1: { color: '#e11d48', text: 'F1' }, 2: { color: '#3b82f6', text: 'F2' }, 3: { color: '#8b5cf6', text: 'F3' } };
+
+const badge = (text, color) => (
+  <span style={{ background: color+'22', color, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{text}</span>
+);
 
 export default function CommissionManagement() {
   const [commissions, setCommissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all"); // all, pending, approved, rejected
-  const [currentPage, setCurrentPage] = useState(1);
+  const [filter, setFilter] = useState('all');
+  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    loadCommissions();
-  }, [currentPage, filter]);
+  useEffect(() => { load(); }, [filter, page]);
 
-  const loadCommissions = async () => {
+  const load = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      const result = await fetchCommissions({
-        page: currentPage,
-        limit: 20,
-        trang_thai: filter === "all" ? undefined : filter,
-      }, token);
-
-      if (result.success) {
-        setCommissions(result.data.commissions);
-        setTotalPages(result.data.pagination.totalPages);
-      }
-    } catch (error) {
-      console.error("Error loading commissions:", error);
-    } finally {
-      setLoading(false);
-    }
+      const q = new URLSearchParams({ page, limit: 20, ...(filter !== 'all' ? { trang_thai: filter } : {}) });
+      const r = await fetch(`${API}/affiliate/admin/commissions?${q}`, { headers: authHeader() });
+      const d = await r.json();
+      setCommissions(d.data?.commissions || d.commissions || []);
+      setTotalPages(d.data?.pagination?.totalPages || d.pagination?.totalPages || 1);
+    } catch { setCommissions([]); } finally { setLoading(false); }
   };
 
-  const handleStatusChange = async (commissionId, newStatus) => {
-    try {
-      const token = localStorage.getItem("token");
-      const result = await updateCommissionStatus(commissionId, newStatus, token);
-
-      if (result.success) {
-        loadCommissions();
-        alert("Cập nhật trạng thái thành công!");
-      } else {
-        alert(result.message || "Cập nhật thất bại");
-      }
-    } catch (error) {
-      console.error("Error updating commission status:", error);
-      alert("Có lỗi xảy ra");
-    }
+  const updateStatus = async (id, trang_thai) => {
+    await fetch(`${API}/affiliate/admin/commissions/${id}/status`, {
+      method: 'PUT', headers: authHeader(), body: JSON.stringify({ trang_thai })
+    });
+    load();
   };
 
-  const formatCurrency = (amount) => {
-    return (amount || 0).toLocaleString("vi-VN") + " đ";
+  const counts = {
+    all: commissions.length,
+    cho_xac_nhan: commissions.filter(c => c.trang_thai === 'cho_xac_nhan').length,
+    da_tra: commissions.filter(c => c.trang_thai === 'da_tra').length,
+    da_huy: commissions.filter(c => c.trang_thai === 'da_huy').length,
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "cho_xac_nhan":
-        return { bg: "#fff3e0", color: "#e65100", text: "⏳ Chờ xác nhận" };
-      case "da_tra":
-        return { bg: "#e8f5e9", color: "#4caf50", text: "✅ Đã thanh toán" };
-      case "da_huy":
-        return { bg: "#ffebee", color: "#f44336", text: "❌ Đã hủy" };
-      default:
-        return { bg: "#f5f5f5", color: "#666", text: status };
-    }
+  const stats = {
+    cho: commissions.filter(c => c.trang_thai==='cho_xac_nhan').reduce((s,c) => s+(+c.tien_hoa_hong||0), 0),
+    da_tra: commissions.filter(c => c.trang_thai==='da_tra').reduce((s,c) => s+(+c.tien_hoa_hong||0), 0),
+    da_huy: commissions.filter(c => c.trang_thai==='da_huy').reduce((s,c) => s+(+c.tien_hoa_hong||0), 0),
   };
+
+  const TABS = [
+    { key: 'all', label: 'Tất cả' },
+    { key: 'cho_xac_nhan', label: 'Chờ xác nhận' },
+    { key: 'da_tra', label: 'Đã trả' },
+    { key: 'da_huy', label: 'Đã hủy' },
+  ];
+
+  const btn = (bg, color='#fff') => ({ padding: '6px 12px', background: bg, color, border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer', fontSize: 12, fontFamily: 'system-ui' });
 
   return (
-    <div style={{ padding: 30 }}>
-      <h1 style={{ fontSize: 28, fontWeight: "800", marginBottom: 30 }}>
-        💰 Quản lý hoa hồng
-      </h1>
+    <div style={{ fontFamily: 'system-ui', padding: 24 }}>
+      <h2 style={{ margin: '0 0 20px', fontSize: 22, fontWeight: 800 }}>💰 Quản lý hoa hồng</h2>
 
-      {/* Filter */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-        <button
-          onClick={() => setFilter("all")}
-          style={{
-            padding: "10px 20px",
-            background: filter === "all" ? "#e53935" : "#f5f5f5",
-            color: filter === "all" ? "white" : "#333",
-            border: "none",
-            borderRadius: 8,
-            fontWeight: "600",
-            cursor: "pointer",
-          }}
-        >
-          Tất cả
-        </button>
-        <button
-          onClick={() => setFilter("cho_xac_nhan")}
-          style={{
-            padding: "10px 20px",
-            background: filter === "cho_xac_nhan" ? "#e53935" : "#f5f5f5",
-            color: filter === "cho_xac_nhan" ? "white" : "#333",
-            border: "none",
-            borderRadius: 8,
-            fontWeight: "600",
-            cursor: "pointer",
-          }}
-        >
-          ⏳ Chờ xác nhận
-        </button>
-        <button
-          onClick={() => setFilter("da_tra")}
-          style={{
-            padding: "10px 20px",
-            background: filter === "da_tra" ? "#e53935" : "#f5f5f5",
-            color: filter === "da_tra" ? "white" : "#333",
-            border: "none",
-            borderRadius: 8,
-            fontWeight: "600",
-            cursor: "pointer",
-          }}
-        >
-          ✅ Đã thanh toán
-        </button>
-        <button
-          onClick={() => setFilter("da_huy")}
-          style={{
-            padding: "10px 20px",
-            background: filter === "da_huy" ? "#e53935" : "#f5f5f5",
-            color: filter === "da_huy" ? "white" : "#333",
-            border: "none",
-            borderRadius: 8,
-            fontWeight: "600",
-            cursor: "pointer",
-          }}
-        >
-          ❌ Đã hủy
-        </button>
+      {/* Filter tabs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '2px solid #f3f4f6', paddingBottom: 12 }}>
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => { setFilter(t.key); setPage(1); }} style={{
+            padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
+            background: filter===t.key ? '#e11d48' : '#f3f4f6', color: filter===t.key ? '#fff' : '#374151', fontFamily: 'system-ui'
+          }}>
+            {t.label}
+            <span style={{ marginLeft: 6, background: filter===t.key?'rgba(255,255,255,0.3)':'#e5e7eb', padding: '1px 7px', borderRadius: 12, fontSize: 11 }}>
+              {counts[t.key]}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
+        {[
+          { label: 'Chờ xác nhận', value: fmt(stats.cho), color: '#f59e0b' },
+          { label: 'Đã trả', value: fmt(stats.da_tra), color: '#10b981' },
+          { label: 'Đã hủy', value: fmt(stats.da_huy), color: '#e11d48' },
+        ].map(s => (
+          <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', flex: 1 }}>
+            <div style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
+          </div>
+        ))}
       </div>
 
       {/* Table */}
-      <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#f5f5f5" }}>
-              <th style={{ padding: 15, textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>ID</th>
-              <th style={{ padding: 15, textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>CTV</th>
-              <th style={{ padding: 15, textAlign: "left", borderBottom: "2px solid #e0e0e0" }}>Đơn hàng</th>
-              <th style={{ padding: 15, textAlign: "center", borderBottom: "2px solid #e0e0e0" }}>Cấp</th>
-              <th style={{ padding: 15, textAlign: "right", borderBottom: "2px solid #e0e0e0" }}>Tỷ lệ</th>
-              <th style={{ padding: 15, textAlign: "right", borderBottom: "2px solid #e0e0e0" }}>Hoa hồng</th>
-              <th style={{ padding: 15, textAlign: "center", borderBottom: "2px solid #e0e0e0" }}>Trạng thái</th>
-              <th style={{ padding: 15, textAlign: "center", borderBottom: "2px solid #e0e0e0" }}>Ngày</th>
-              <th style={{ padding: 15, textAlign: "center", borderBottom: "2px solid #e0e0e0" }}>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={9} style={{ padding: 40, textAlign: "center" }}>
-                  Đang tải...
-                </td>
+      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+        {loading ? <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div> : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f9fafb' }}>
+                {['STT','CTV','Đơn hàng','Cấp độ','Tỉ lệ%','Hoa hồng','Trạng thái','Ngày tạo','Thao tác'].map(h => (
+                  <th key={h} style={{ padding: '11px 13px', textAlign: 'left', fontSize: 13, color: '#6b7280', fontWeight: 600 }}>{h}</th>
+                ))}
               </tr>
-            ) : commissions.length === 0 ? (
-              <tr>
-                <td colSpan={9} style={{ padding: 40, textAlign: "center" }}>
-                  Không có dữ liệu
-                </td>
-              </tr>
-            ) : (
-              commissions.map((commission) => {
-                const statusInfo = getStatusColor(commission.trang_thai);
-                return (
-                  <tr key={commission.id} style={{ borderBottom: "1px solid #eee" }}>
-                    <td style={{ padding: 15 }}>#{commission.id}</td>
-                    <td style={{ padding: 15, fontWeight: "600" }}>
-                      {commission.ctv?.nguoiDung?.ho_ten || "N/A"}
-                    </td>
-                    <td style={{ padding: 15, color: "#666" }}>
-                      {commission.donHang?.ma_don_hang || "N/A"}
-                    </td>
-                    <td style={{ padding: 15, textAlign: "center" }}>
-                      <span style={{
-                        background: commission.cap_do === 1 ? "#e8f5e9" : commission.cap_do === 2 ? "#e3f2fd" : "#f3e5f5",
-                        padding: "4px 12px",
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: "600",
-                      }}>
-                        F{commission.cap_do}
-                      </span>
-                    </td>
-                    <td style={{ padding: 15, textAlign: "right" }}>
-                      {commission.ty_le_pham_ram}%
-                    </td>
-                    <td style={{ padding: 15, textAlign: "right", fontWeight: "600", color: "#4caf50" }}>
-                      {formatCurrency(commission.tien_hoa_hong)}
-                    </td>
-                    <td style={{ padding: 15, textAlign: "center" }}>
-                      <span style={{
-                        background: statusInfo.bg,
-                        color: statusInfo.color,
-                        padding: "4px 12px",
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: "600",
-                      }}>
-                        {statusInfo.text}
-                      </span>
-                    </td>
-                    <td style={{ padding: 15, textAlign: "center", color: "#666" }}>
-                      {new Date(commission.created_at).toLocaleDateString("vi-VN")}
-                    </td>
-                    <td style={{ padding: 15, textAlign: "center" }}>
-                      {commission.trang_thai === "cho_xac_nhan" && (
-                        <>
-                          <button
-                            onClick={() => handleStatusChange(commission.id, "da_tra")}
-                            style={{
-                              padding: "6px 12px",
-                              background: "#4caf50",
-                              color: "white",
-                              border: "none",
-                              borderRadius: 6,
-                              fontSize: 12,
-                              cursor: "pointer",
-                              marginRight: 5,
-                            }}
-                          >
-                            ✅ Duyệt
-                          </button>
-                          <button
-                            onClick={() => handleStatusChange(commission.id, "da_huy")}
-                            style={{
-                              padding: "6px 12px",
-                              background: "#f44336",
-                              color: "white",
-                              border: "none",
-                              borderRadius: 6,
-                              fontSize: 12,
-                              cursor: "pointer",
-                            }}
-                          >
-                            ❌ Từ chối
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {commissions.map((c, i) => (
+                <tr key={c.id} style={{ borderTop: '1px solid #f3f4f6' }}
+                  onMouseEnter={e => e.currentTarget.style.background='#fef2f2'}
+                  onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                  <td style={{ padding: '11px 13px', color: '#9ca3af', fontSize: 13 }}>{(page-1)*20+i+1}</td>
+                  <td style={{ padding: '11px 13px' }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{c.ctv?.ho_ten || c.ho_ten}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{c.ctv?.email || c.email}</div>
+                  </td>
+                  <td style={{ padding: '11px 13px', fontSize: 13, fontWeight: 600 }}>#{c.ma_don_hang || c.don_hang_id}</td>
+                  <td style={{ padding: '11px 13px' }}>{badge((LEVEL_CFG[c.cap_do]||{text:'—'}).text, (LEVEL_CFG[c.cap_do]||{color:'#6b7280'}).color)}</td>
+                  <td style={{ padding: '11px 13px', fontSize: 13 }}>{c.ti_le_phan_tram || c.ti_le}%</td>
+                  <td style={{ padding: '11px 13px', fontWeight: 700, color: '#10b981' }}>{fmt(c.tien_hoa_hong)}</td>
+                  <td style={{ padding: '11px 13px' }}>{badge((STATUS_CFG[c.trang_thai]||{text:c.trang_thai}).text, (STATUS_CFG[c.trang_thai]||{color:'#6b7280'}).color)}</td>
+                  <td style={{ padding: '11px 13px', fontSize: 13, color: '#6b7280' }}>{fmtDate(c.created_at)}</td>
+                  <td style={{ padding: '11px 13px' }}>
+                    {c.trang_thai === 'cho_xac_nhan' && (
+                      <div style={{ display: 'flex', gap: 5 }}>
+                        <button onClick={() => updateStatus(c.id, 'da_tra')} style={btn('#10b981')}>✅ Duyệt</button>
+                        <button onClick={() => updateStatus(c.id, 'da_huy')} style={btn('#e11d48')}>❌ Hủy</button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {commissions.length === 0 && <tr><td colSpan={9} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>Không có dữ liệu</td></tr>}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Pagination */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 20 }}>
-        <button
-          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
-          style={{
-            padding: "8px 16px",
-            background: currentPage === 1 ? "#ccc" : "#e53935",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            cursor: currentPage === 1 ? "not-allowed" : "pointer",
-          }}
-        >
-          ← Trước
-        </button>
-        <span style={{ padding: "8px 16px", fontWeight: "600" }}>
-          Trang {currentPage} / {totalPages}
-        </span>
-        <button
-          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage === totalPages}
-          style={{
-            padding: "8px 16px",
-            background: currentPage === totalPages ? "#ccc" : "#e53935",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-          }}
-        >
-          Sau →
-        </button>
-      </div>
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+          {Array.from({ length: totalPages }, (_, i) => i+1).map(p => (
+            <button key={p} onClick={() => setPage(p)} style={{
+              padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600,
+              background: p===page ? '#e11d48' : '#f3f4f6', color: p===page ? '#fff' : '#374151'
+            }}>{p}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

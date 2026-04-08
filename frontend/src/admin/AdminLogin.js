@@ -16,14 +16,32 @@ export default function AdminLogin({ onLogin }) {
       return;
     }
     setLoading(true);
+    
+    // Simulate API delay
     setTimeout(() => {
-      if (email === "admin@nta.com" && password === "admin123") {
-        onLogin && onLogin({ name: "Admin NTA", email, role: "admin" });
+      const demoUsers = {
+        "admin@nta.com":    { name: "Admin NTA",            email, role: "admin",       chuc_vu_id: 1 },
+        "sale@nta.com":     { name: "Nguyễn Văn Sale",      email, role: "sale",        chuc_vu_id: 2 },
+        "giaovien@nta.com": { name: "Trần Thị Giáo Viên",   email, role: "teacher",     chuc_vu_id: 3 },
+        "ketoan@nta.com":   { name: "Lê Văn Kế Toán",       email, role: "accountant",  chuc_vu_id: 4 },
+        "hocvien@nta.com":  { name: "Nguyễn Văn Học Viên",  email, role: "student",     chuc_vu_id: 5 },
+      };
+
+      const user = demoUsers[email.toLowerCase()];
+
+      if (user && password === "admin123") {
+        localStorage.setItem("adminLoggedIn", "true");
+        localStorage.setItem("chuc_vu_id", user.chuc_vu_id);
+        localStorage.setItem("user_name", user.name);
+        localStorage.setItem("user_email", user.email);
+        localStorage.setItem("adminUser", JSON.stringify(user));
+        setLoading(false);
+        onLogin && onLogin(user);
       } else {
         setError("Email hoặc mật khẩu không đúng!");
         setLoading(false);
       }
-    }, 1000);
+    }, 800);
   };
 
   return (
@@ -105,10 +123,20 @@ export default function AdminLogin({ onLogin }) {
         </form>
 
         {/* Demo Info */}
-        <div style={{ marginTop: 20, padding: 14, background: "#f5f5f5", borderRadius: 8, textAlign: "center" }}>
-          <p style={{ margin: 0, fontSize: 12, color: "#666" }}>
-            Demo: <strong>admin@nta.com</strong> / <strong>admin123</strong>
-          </p>
+        <div style={{ marginTop: 20, padding: 14, background: "#f5f5f5", borderRadius: 8 }}>
+          <p style={{ margin: "0 0 6px", fontSize: 12, color: "#666", fontWeight: 600 }}>Tài khoản demo (mật khẩu: admin123)</p>
+          {[
+            ["admin@nta.com", "Admin — toàn quyền"],
+            ["sale@nta.com", "Sale — quản lý leads"],
+            ["giaovien@nta.com", "Giáo viên — lớp học, bài tập"],
+            ["ketoan@nta.com", "Kế toán — học phí, công nợ"],
+            ["hocvien@nta.com", "Học viên → StudentPortal"],
+          ].map(([e, label]) => (
+            <div key={e} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 2 }}>
+              <span style={{ color: "#e11d48", cursor: "pointer" }} onClick={() => setEmail(e)}>{e}</span>
+              <span>{label}</span>
+            </div>
+          ))}
         </div>
 
         {/* Back to home */}

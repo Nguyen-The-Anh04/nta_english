@@ -6,9 +6,11 @@ import OrderManagement from "./OrderManagement";
 import WithdrawalManagement from "./WithdrawalManagement";
 import ProductManagement from "./ProductManagement";
 import Statistics from "./Statistics";
+import CTVManagement from "./CTVManagement";
 
 // LMS Components
 import LMSAdminLayout from "./lms/LMSAdminLayout";
+import StudentPortal from "./lms/StudentPortal";
 import Leads from "./lms/Leads";
 import TestAppointments from "./lms/TestAppointments";
 import StudentList from "./lms/StudentList";
@@ -28,18 +30,47 @@ import CongNo from "./lms/CongNo";
 import PhieuThuChi from "./lms/PhieuThuChi";
 
 export default function Admin({ onLogout }) {
-  const [activePage, setActivePage] = useState("dashboard");
+  // Lấy role từ localStorage (được lưu khi login thành công)
+  // Mặc định là 1 (admin) nếu không có
+  const userRole = parseInt(localStorage.getItem("chuc_vu_id") || "1");
+  const userName = localStorage.getItem("user_name") || "Admin NTA";
+  
+  // Set initial page based on role
+  // Role 1: Admin -> dashboard (full access)
+  // Role 2,3,4: Staff -> go to LMS directly
+  // Role 5: Student -> StudentPortal (handled separately)
+  const getInitialPage = () => {
+    if (userRole === 5) return "student-portal"; // StudentPortal
+    if (userRole >= 2 && userRole <= 4) return "lms"; // LMS for staff
+    return "dashboard"; // Default to dashboard for admin
+  };
+  
+  const [activePage, setActivePage] = useState(getInitialPage());
   
   // Logout handler - pass to layout
   const handleLogout = () => {
     if (window.confirm("Bạn có chắc muốn đăng xuất?")) {
+      // Clear localStorage
+      localStorage.removeItem("adminLoggedIn");
+      localStorage.removeItem("chuc_vu_id");
+      localStorage.removeItem("user_name");
+      localStorage.removeItem("user_email");
+      localStorage.removeItem("adminUser");
       if (onLogout) {
         onLogout();
       }
-      window.navigateTo && window.navigateTo("home");
+      window.navigateTo && window.navigateTo("admin");
     }
   };
-  const [lmsActivePage, setLmsActivePage] = useState("leads");
+  
+  // Set initial LMS page based on role
+  const getInitialLmsPage = () => {
+    if (userRole === 3) return "class-management"; // Teacher
+    if (userRole === 4) return "ke-toan"; // Accountant
+    return "leads"; // Default for Sale and Admin
+  };
+  
+  const [lmsActivePage, setLmsActivePage] = useState(getInitialLmsPage());
   const [pendingLeads, setPendingLeads] = useState([]); // Leads chờ book lịch test
 
   // Function to add lead to pending list for test appointment
@@ -102,6 +133,8 @@ export default function Admin({ onLogout }) {
 
   const renderPage = () => {
     switch (activePage) {
+      case "student-portal":
+        return <StudentPortal onLogout={handleLogout} />;
       case "dashboard":
         return <AdminDashboard onNavigate={setActivePage} />;
       case "users":
@@ -112,6 +145,8 @@ export default function Admin({ onLogout }) {
         return <WithdrawalManagement />;
       case "products":
         return <ProductManagement />;
+      case "ctv":
+        return <CTVManagement />;
       case "statistics":
       case "stats-revenue":
       case "stats-products":
@@ -119,7 +154,13 @@ export default function Admin({ onLogout }) {
         return <Statistics />;
       case "lms":
         return (
-          <LMSAdminLayout activePage={lmsActivePage} onNavigate={handleLmsNavigate} onLogout={handleLogout}>
+          <LMSAdminLayout 
+            activePage={lmsActivePage} 
+            onNavigate={handleLmsNavigate} 
+            onLogout={handleLogout}
+            role={userRole}
+            userName={userName}
+          >
             {renderLmsPage()}
           </LMSAdminLayout>
         );
@@ -145,9 +186,19 @@ export default function Admin({ onLogout }) {
   };
 
   // Use a simpler layout for LMS pages
-  if (activePage === "lms") {
+  // Role 2/3/4: luôn dùng LMSAdminLayout
+  if (activePage === "lms" || (userRole >= 2 && userRole <= 4)) {
+    if (userRole === 5) {
+      return <StudentPortal onLogout={handleLogout} />;
+    }
     return (
-      <LMSAdminLayout activePage={lmsActivePage} onNavigate={handleLmsNavigate} onLogout={handleLogout}>
+      <LMSAdminLayout
+        activePage={lmsActivePage}
+        onNavigate={handleLmsNavigate}
+        onLogout={handleLogout}
+        role={userRole}
+        userName={userName}
+      >
         {renderLmsPage()}
       </LMSAdminLayout>
     );

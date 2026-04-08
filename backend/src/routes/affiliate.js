@@ -86,6 +86,19 @@ router.post("/admin/backfill-commissions", auth, orderController.backfillCommiss
 // Admin: Fix cap_do cho toàn bộ CTV
 router.post("/admin/fix-cap-do", auth, orderController.fixCapDo);
 
+// Admin: Commission management
+router.get("/admin/commissions", auth, orderController.getAdminCommissions);
+router.put("/admin/commissions/:id/status", auth, orderController.updateAdminCommissionStatus);
+
+// Admin: Commission products
+router.get("/admin/commission-products", auth, orderController.getCommissionProducts);
+router.post("/admin/commission-products", auth, orderController.createCommissionProduct);
+router.put("/admin/commission-products/:id", auth, orderController.updateCommissionProduct);
+router.delete("/admin/commission-products/:id", auth, orderController.deleteCommissionProduct);
+
+// Admin: Statistics
+router.get("/admin/statistics", auth, orderController.getAdminStatistics);
+
 // POST /api/affiliate/register - Register as CTV (requires auth)
 router.post("/register", auth, orderController.registerAsCTV);
 
@@ -129,6 +142,12 @@ router.get("/products", auth, isCTV, orderController.getAffiliateProducts);
 
 // Admin: Lấy tất cả CTV với thông tin downline đầy đủ
 router.get("/admin/ctvs", auth, orderController.getAllCTVsWithDownline);
+
+// Admin: Cập nhật trạng thái CTV
+router.put("/admin/ctvs/:id/status", auth, orderController.updateCTVStatus);
+
+// Admin: Xóa CTV
+router.delete("/admin/ctvs/:id", auth, orderController.deleteCTV);
 
 // DEBUG: Tạo tài khoản admin
 router.post("/debug/create-admin", async (req, res) => {
@@ -206,6 +225,7 @@ router.post("/debug/create-ctv", async (req, res) => {
       ma_gioi_thieu: ma_ctv,
       tong_downline: 0,
       tong_hoa_hong: 0,
+      trang_thai: "hoat_dong",
     });
     
     res.json({ success: true, message: "Tạo CTV thành công", ctvId: ctv.id, ma_gioi_thieu: ma_ctv });

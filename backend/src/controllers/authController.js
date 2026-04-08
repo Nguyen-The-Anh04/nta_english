@@ -386,6 +386,76 @@ const loginCTV = async (req, res) => {
   }
 };
 
+// GET /api/auth/permissions - Lấy permissions theo chuc_vu_id
+const getPermissions = async (req, res) => {
+  try {
+    const chuc_vu_id = req.user?.chuc_vu_id || parseInt(req.query.chuc_vu_id) || 1;
+    
+    // Danh sách permissions theo từng role
+    const permissions = {
+      1: {
+        role: "admin",
+        roleName: "Quản trị viên",
+        menus: ["leads", "test-appointment", "class-management", "student-management", "diem-danh", "bai-tap", "bang-diem", "ke-toan", "cong-no", "phieu-thu-chi", "students", "students-in-class", "paused-students", "transferred-students", "registration", "payment", "feedback"],
+        canAccessLms: true,
+        canAccessAdmin: true,
+        canAccessCtv: true,
+      },
+      2: {
+        role: "sale",
+        roleName: "Kinh doanh",
+        menus: ["leads", "test-appointment", "registration"],
+        canAccessLms: true,
+        canAccessAdmin: false,
+        canAccessCtv: false,
+      },
+      3: {
+        role: "teacher",
+        roleName: "Giáo viên",
+        menus: ["class-management", "diem-danh", "bai-tap", "bang-diem"],
+        canAccessLms: true,
+        canAccessAdmin: false,
+        canAccessCtv: false,
+      },
+      4: {
+        role: "accountant",
+        roleName: "Kế toán",
+        menus: ["ke-toan", "cong-no", "phieu-thu-chi", "payment"],
+        canAccessLms: true,
+        canAccessAdmin: false,
+        canAccessCtv: false,
+      },
+      5: {
+        role: "student",
+        roleName: "Học viên",
+        menus: ["home", "schedule", "scores", "homework", "payment"],
+        canAccessLms: false,
+        canAccessStudentPortal: true,
+        canAccessAdmin: false,
+        canAccessCtv: false,
+      },
+      6: {
+        role: "ctv",
+        roleName: "Cộng tác viên",
+        menus: [],
+        canAccessLms: false,
+        canAccessAdmin: false,
+        canAccessCtv: true,
+      },
+    };
+    
+    const userPermissions = permissions[chuc_vu_id] || permissions[1];
+    
+    res.json({
+      success: true,
+      data: userPermissions,
+    });
+  } catch (error) {
+    console.error("Get permissions error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -395,4 +465,5 @@ module.exports = {
   changePassword,
   logout,
   refreshToken,
+  getPermissions,
 };
