@@ -1178,7 +1178,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
               cursor: "pointer",
             }}
           >
-            ✅ Xác nhận rút tiền
+            ✅ Cập nhật ngay
           </button>
         </Modal>
       )}

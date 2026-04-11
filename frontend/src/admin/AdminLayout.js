@@ -13,6 +13,7 @@ export default function AdminLayout({ children, activePage = "dashboard", onNavi
   const allMenuItems = [
     { id: "dashboard",  label: "Dashboard",          icon: "📊", roles: [1] },
     { id: "lms",        label: "Quản lý học viên",   icon: "🎓", roles: [1, 2, 3, 4] },
+    { id: "customers",  label: "Quản lý khách hàng", icon: "👤", roles: [1] },
     { id: "ctv",        label: "Quản lý CTV",        icon: "👥", roles: [1] },
     { id: "orders",     label: "Quản lý đơn hàng",   icon: "📦", roles: [1] },
     { id: "commissions",label: "Quản lý hoa hồng",   icon: "💰", roles: [1] },

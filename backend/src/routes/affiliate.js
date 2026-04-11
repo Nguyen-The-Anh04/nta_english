@@ -149,6 +149,12 @@ router.put("/admin/ctvs/:id/status", auth, orderController.updateCTVStatus);
 // Admin: Xóa CTV
 router.delete("/admin/ctvs/:id", auth, orderController.deleteCTV);
 
+// Admin: Tạo mới CTV
+router.post("/admin/ctvs", auth, orderController.createCTV);
+
+// Admin: Cập nhật CTV
+router.put("/admin/ctvs/:id", auth, orderController.updateCTV);
+
 // DEBUG: Tạo tài khoản admin
 router.post("/debug/create-admin", async (req, res) => {
   try {

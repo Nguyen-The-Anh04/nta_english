@@ -229,6 +229,29 @@ const isAdminOrEmployee = (req, res, next) => {
   next();
 };
 
+// Middleware cho CTV hoặc Admin
+const isCTVOrAdmin = async (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Vui lòng đăng nhập",
+    });
+  }
+  // Admin cho phép
+  if (req.user.chuc_vu_id === 1) return next();
+  // Cho phép nếu chuc_vu_id = 6 HOẶC có bản ghi trong bảng ctv
+  if (req.user.chuc_vu_id === 6) return next();
+  try {
+    const { CTV } = require("../models");
+    const ctv = await CTV.findOne({ where: { nguoi_dung_id: req.user.id } });
+    if (ctv) return next();
+  } catch (e) {}
+  return res.status(403).json({
+    success: false,
+    message: "Chỉ CTV hoặc admin mới có quyền truy cập",
+  });
+};
+
 module.exports = {
   auth,
   authOptional,
@@ -239,4 +262,5 @@ module.exports = {
   isCTV,
   isAdminOrTeacher,
   isAdminOrEmployee,
+  isCTVOrAdmin,
 };

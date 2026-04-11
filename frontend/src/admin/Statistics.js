@@ -59,7 +59,6 @@ export default function Statistics() {
 
       {/* Stat cards */}
       <div style={{ display: 'flex', gap: 14, marginBottom: 24 }}>
-        <CARD icon="🛒" label="Tổng đơn hàng" value={(tq.tong_don||0).toLocaleString()} color="#3b82f6" />
         <CARD icon="💰" label="Tổng doanh thu" value={fmt(tq.tong_doanh_thu)} color="#10b981" />
         <CARD icon="👥" label="Tổng CTV" value={(tq.tong_ctv||0).toLocaleString()} color="#8b5cf6" />
         <CARD icon="💸" label="Hoa hồng đã trả" value={fmt(tq.tong_hoa_hong_da_tra)} color="#e11d48" />

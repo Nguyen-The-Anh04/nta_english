@@ -1,6 +1,8 @@
 const { LoaiSach, Sach, DonHang, ChiTietDonHang, CTV, HoaHong, RutTienCTV, NguoiDung, CommissionProducts } = require("../models");
 const { Op, fn, col } = require("sequelize");
 const sequelize = require("../config/db");
+const path = require("path");
+const fs = require("fs");
 
 // ==================== BOOKS ====================
 
@@ -78,7 +80,16 @@ const getBookById = async (req, res) => {
 // POST /api/books - Create book (Admin)
 const createBook = async (req, res) => {
   try {
+    console.log("=== CREATE BOOK DEBUG ===");
+    console.log("Create book request body:", req.body);
+    console.log("hinh_anh value received:", req.body.hinh_anh);
+    console.log("=========================");
     const { loai_sach_id, ma_sach, ten_sach, tac_gia, nha_xuat_ban, gia_nhap, gia_ban, so_luong_ton, hinh_anh, mo_ta, trang_thai } = req.body;
+
+    // Validate required fields
+    if (!ten_sach || !ma_sach || !gia_ban) {
+      return res.status(400).json({ success: false, message: "Thiếu thông tin bắt buộc" });
+    }
 
     const book = await Sach.create({
       loai_sach_id,
@@ -101,7 +112,21 @@ const createBook = async (req, res) => {
     });
   } catch (error) {
     console.error("Create book error:", error);
-    res.status(500).json({ success: false, message: "Lỗi server" });
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    
+    // Handle unique constraint error (ma_sach already exists)
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ success: false, message: "Mã sách đã tồn tại! Vui lòng dùng mã khác." });
+    }
+    
+    // Handle validation error
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({ success: false, message: "Lỗi validation: " + error.message });
+    }
+    
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -115,6 +140,19 @@ const updateBook = async (req, res) => {
 
     const { ten_sach, tac_gia, nha_xuat_ban, gia_nhap, gia_ban, so_luong_ton, hinh_anh, mo_ta, trang_thai } = req.body;
 
+    // Check if image is being updated and delete old image file
+    let newHinhAnh = hinh_anh || book.hinh_anh;
+    if (hinh_anh && hinh_anh !== book.hinh_anh) {
+      // New image provided - delete old image file if exists
+      if (book.hinh_anh) {
+        const oldImagePath = path.join(__dirname, '../../uploads', book.hinh_anh.split('/').pop());
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+          console.log('Deleted old image:', oldImagePath);
+        }
+      }
+    }
+
     await book.update({
       ten_sach: ten_sach || book.ten_sach,
       tac_gia: tac_gia || book.tac_gia,
@@ -122,7 +160,7 @@ const updateBook = async (req, res) => {
       gia_nhap: gia_nhap || book.gia_nhap,
       gia_ban: gia_ban || book.gia_ban,
       so_luong_ton: so_luong_ton || book.so_luong_ton,
-      hinh_anh: hinh_anh || book.hinh_anh,
+      hinh_anh: newHinhAnh,
       mo_ta: mo_ta || book.mo_ta,
       trang_thai: trang_thai || book.trang_thai,
     });
@@ -149,6 +187,15 @@ const deleteBook = async (req, res) => {
         success: false, 
         message: "Không thể xóa sách này vì đã có đơn hàng" 
       });
+    }
+
+    // Delete image file if exists
+    if (book.hinh_anh) {
+      const imagePath = path.join(__dirname, '../../uploads', book.hinh_anh.split('/').pop());
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+        console.log('Deleted image:', imagePath);
+      }
     }
 
     await book.destroy();
@@ -428,9 +475,8 @@ const updateOrderStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Trạng thái không hợp lệ" });
     }
 
-    const order = await DonHang.findByPk(req.params.id, {
-      include: [{ model: CTV, as: "ctv" }]
-    });
+    // Find order without include first to avoid association errors
+    const order = await DonHang.findByPk(req.params.id);
     if (!order) {
       return res.status(404).json({ success: false, message: "Đơn hàng không tồn tại" });
     }
@@ -440,31 +486,52 @@ const updateOrderStatus = async (req, res) => {
       const items = await ChiTietDonHang.findAll({ where: { don_hang_id: order.id } });
       for (let item of items) {
         const book = await Sach.findByPk(item.sach_id);
-        await book.update({ so_luong_ton: book.so_luong_ton + item.so_luong });
+        if (book) {
+          await book.update({ so_luong_ton: book.so_luong_ton + item.so_luong });
+        }
       }
     }
 
     // AUTO TẠO HOA HỒNG khi đơn chuyển sang "đã thanh toán"
     if (trang_thai === "da_tt" && order.trang_thai !== "da_tt") {
-      // Phải tìm CTV qua bảng ctv (ctv_id trên đơn hàng là nguoi_dung_id của CTV)
-      const ctv = await CTV.findOne({ where: { nguoi_dung_id: order.ctv_id } });
-      if (ctv) {
-        // Kiểm tra đã có hoa hồng cho đơn này chưa (tránh tạo trùng)
-        const existing = await HoaHong.findOne({ where: { ctv_id: ctv.id, don_hang_id: order.id } });
-        if (!existing) {
-          const commissionAmount = parseFloat(order.tong_tien) * 0.10;
-          if (commissionAmount > 0) {
-            await HoaHong.create({
-              ctv_id: ctv.id,
-              don_hang_id: order.id,
-              tien_hoa_hong: commissionAmount,
-              cap_do: 1,
-              ty_le_pham_ram: 10,
-              trang_thai: "da_tra",
+      try {
+        // Phải tìm CTV qua bảng ctv (ctv_id trên đơn hàng là nguoi_dung_id của CTV)
+        if (order.ctv_id) {
+          // Tìm CTV bằng nguoi_dung_id
+          const ctv = await CTV.findOne({ where: { nguoi_dung_id: order.ctv_id } });
+          if (ctv) {
+            // Tìm tất cả hoa hồng cho đơn này và cập nhật status thành "da_tra"
+            const existingCommissions = await HoaHong.findAll({ 
+              where: { don_hang_id: order.id } 
             });
-            console.log(`Tạo hoa hồng ${commissionAmount} cho CTV id=${ctv.id} từ đơn ${order.id}`);
+            
+            for (const commission of existingCommissions) {
+              if (commission.trang_thai === "cho_xac_nhan") {
+                await commission.update({ trang_thai: "da_tra" });
+                console.log(`Cập nhật hoa hồng id=${commission.id} từ cho_xac_nhan -> da_tra`);
+              }
+            }
+            
+            // Nếu chưa có hoa hồng nào, tạo mới
+            if (existingCommissions.length === 0) {
+              const commissionAmount = parseFloat(order.tong_tien) * 0.10;
+              if (commissionAmount > 0) {
+                await HoaHong.create({
+                  ctv_id: ctv.id,
+                  don_hang_id: order.id,
+                  tien_hoa_hong: commissionAmount,
+                  cap_do: 1,
+                  ty_le_pham_ram: 10,
+                  trang_thai: "da_tra",
+                });
+                console.log(`Tạo hoa hồng ${commissionAmount} cho CTV id=${ctv.id} từ đơn ${order.id}`);
+              }
+            }
           }
         }
+      } catch (commissionError) {
+        // Log lỗi nhưng không làm hỏng việc cập nhật trạng thái đơn hàng
+        console.error("Lỗi xử lý hoa hồng:", commissionError);
       }
     }
 
@@ -473,6 +540,191 @@ const updateOrderStatus = async (req, res) => {
     res.json({ success: true, message: "Cập nhật trạng thái thành công" });
   } catch (error) {
     console.error("Update order status error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server: " + error.message });
+  }
+};
+
+// DELETE /api/orders/:id - Delete order (Admin)
+const deleteOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const order = await DonHang.findByPk(id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Đơn hàng không tồn tại" });
+    }
+    
+    // Xóa chi tiết đơn hàng trước
+    await ChiTietDonHang.destroy({ where: { don_hang_id: id } });
+    
+    // Xóa đơn hàng
+    await order.destroy();
+    
+    res.json({ success: true, message: "Xóa đơn hàng thành công" });
+  } catch (error) {
+    console.error("Delete order error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// PUT /api/orders/:id - Update order (Admin)
+const updateOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { ma_don_hang, tong_tien, giam_gia, phuong_thuc_tt, trang_thai } = req.body;
+    
+    const order = await DonHang.findByPk(id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Đơn hàng không tồn tại" });
+    }
+    
+    await order.update({
+      ma_don_hang: ma_don_hang || order.ma_don_hang,
+      tong_tien: tong_tien !== undefined ? tong_tien : order.tong_tien,
+      giam_gia: giam_gia !== undefined ? giam_gia : order.giam_gia,
+      phuong_thuc_tt: phuong_thuc_tt || order.phuong_thuc_tt,
+      trang_thai: trang_thai || order.trang_thai,
+    });
+    
+    res.json({ success: true, message: "Cập nhật đơn hàng thành công", data: order });
+  } catch (error) {
+    console.error("Update order error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// ==================== KHÁCH HÀNG ====================
+
+// GET /api/khach-hang - Get all customers
+const getAllKhachHang = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search = "" } = req.query;
+    const offset = (page - 1) * limit;
+    const where = {};
+    
+    if (search) {
+      where[Op.or] = [
+        { ho_ten: { [Op.like]: `%${search}%` } },
+        { email: { [Op.like]: `%${search}%` } },
+        { sdt: { [Op.like]: `%${search}%` } },
+        { ma_khach_hang: { [Op.like]: `%${search}%` } },
+      ];
+    }
+    
+    const { count, rows: khachs } = await KhachHang.findAndCountAll({
+      where,
+      order: [["id", "DESC"]],
+      limit: parseInt(limit),
+      offset,
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        khachs,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          totalPages: Math.ceil(count / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get all customers error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// GET /api/khach-hang/:id - Get customer by ID
+const getKhachHangById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const khach = await KhachHang.findByPk(id);
+    if (!khach) {
+      return res.status(404).json({ success: false, message: "Khách hàng không tồn tại" });
+    }
+    res.json({ success: true, data: khach });
+  } catch (error) {
+    console.error("Get customer by ID error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// POST /api/khach-hang - Create customer
+const createKhachHang = async (req, res) => {
+  try {
+    const { ma_khach_hang, ho_ten, email, sdt, dia_chi, cmnd_cccd, ngay_sinh, gioi_tinh, ghi_chu } = req.body;
+    
+    if (!ho_ten) {
+      return res.status(400).json({ success: false, message: "Họ tên là bắt buộc" });
+    }
+    
+    // Tạo mã khách hàng tự động nếu không có
+    const maKH = ma_khach_hang || "KH" + Date.now();
+    
+    const khach = await KhachHang.create({
+      ma_khach_hang: maKH,
+      ho_ten,
+      email,
+      sdt,
+      dia_chi,
+      cmnd_cccd,
+      ngay_sinh,
+      gioi_tinh,
+      ghi_chu,
+      trang_thai: 'hoat_dong',
+    });
+    
+    res.json({ success: true, message: "Tạo khách hàng thành công", data: khach });
+  } catch (error) {
+    console.error("Create customer error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// PUT /api/khach-hang/:id - Update customer
+const updateKhachHang = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { ma_khach_hang, ho_ten, email, sdt, dia_chi, cmnd_cccd, ngay_sinh, gioi_tinh, ghi_chu, trang_thai } = req.body;
+    
+    const khach = await KhachHang.findByPk(id);
+    if (!khach) {
+      return res.status(404).json({ success: false, message: "Khách hàng không tồn tại" });
+    }
+    
+    await khach.update({
+      ma_khach_hang: ma_khach_hang || khach.ma_khach_hang,
+      ho_ten: ho_ten || khach.ho_ten,
+      email,
+      sdt,
+      dia_chi,
+      cmnd_cccd,
+      ngay_sinh,
+      gioi_tinh,
+      ghi_chu,
+      trang_thai,
+    });
+    
+    res.json({ success: true, message: "Cập nhật khách hàng thành công", data: khach });
+  } catch (error) {
+    console.error("Update customer error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// DELETE /api/khach-hang/:id - Delete customer
+const deleteKhachHang = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const khach = await KhachHang.findByPk(id);
+    if (!khach) {
+      return res.status(404).json({ success: false, message: "Khách hàng không tồn tại" });
+    }
+    
+    await khach.destroy();
+    res.json({ success: true, message: "Xóa khách hàng thành công" });
+  } catch (error) {
+    console.error("Delete customer error:", error);
     res.status(500).json({ success: false, message: "Lỗi server" });
   }
 };
@@ -729,6 +981,102 @@ const deleteCTV = async (req, res) => {
   }
 };
 
+// POST /api/affiliate/admin/ctvs - Admin: Tạo mới CTV
+const createCTV = async (req, res) => {
+  try {
+    const { nguoi_dung_id, ctv_cha_id, cap_do, ma_gioi_thieu } = req.body;
+
+    if (!nguoi_dung_id || !ma_gioi_thieu) {
+      return res.status(400).json({ success: false, message: "Thiếu thông tin bắt buộc" });
+    }
+
+    // Kiểm tra user đã tồn tại
+    const nguoiDung = await NguoiDung.findByPk(nguoi_dung_id);
+    if (!nguoiDung) {
+      return res.status(404).json({ success: false, message: "Người dùng không tồn tại" });
+    }
+
+    // Kiểm tra user đã là CTV chưa
+    const existingCTV = await CTV.findOne({ where: { nguoi_dung_id } });
+    if (existingCTV) {
+      return res.status(400).json({ success: false, message: "User này đã là CTV" });
+    }
+
+    // Kiểm tra mã giới thiệu đã tồn tại chưa
+    const existingMa = await CTV.findOne({ where: { ma_gioi_thieu } });
+    if (existingMa) {
+      return res.status(400).json({ success: false, message: "Mã giới thiệu đã tồn tại" });
+    }
+
+    // Kiểm tra CTV cha nếu có
+    if (ctv_cha_id) {
+      const ctvCha = await CTV.findByPk(ctv_cha_id);
+      if (!ctvCha) {
+        return res.status(404).json({ success: false, message: "CTV cha không tồn tại" });
+      }
+    }
+
+    const newCTV = await CTV.create({
+      nguoi_dung_id,
+      ctv_cha_id: ctv_cha_id || null,
+      cap_do: cap_do || 1,
+      ma_gioi_thieu,
+      trang_thai: 'hoat_dong',
+    });
+
+    res.json({ success: true, message: "Tạo CTV thành công", data: newCTV });
+  } catch (error) {
+    console.error("Create CTV error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// PUT /api/affiliate/admin/ctvs/:id - Admin: Cập nhật CTV
+const updateCTV = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { ctv_cha_id, cap_do, ma_gioi_thieu } = req.body;
+
+    const ctv = await CTV.findByPk(id);
+    if (!ctv) {
+      return res.status(404).json({ success: false, message: "CTV không tồn tại" });
+    }
+
+    // Kiểm tra mã giới thiệu trùng (nếu thay đổi)
+    if (ma_gioi_thieu && ma_gioi_thieu !== ctv.ma_gioi_thieu) {
+      const existingMa = await CTV.findOne({ where: { ma_gioi_thieu } });
+      if (existingMa) {
+        return res.status(400).json({ success: false, message: "Mã giới thiệu đã tồn tại" });
+      }
+    }
+
+    // Kiểm tra CTV cha nếu có
+    if (ctv_cha_id !== undefined) {
+      if (ctv_cha_id) {
+        const ctvCha = await CTV.findByPk(ctv_cha_id);
+        if (!ctvCha) {
+          return res.status(404).json({ success: false, message: "CTV cha không tồn tại" });
+        }
+        // Không cho phép đặt chính mình làm cha
+        if (parseInt(ctv_cha_id) === parseInt(id)) {
+          return res.status(400).json({ success: false, message: "Không thể tự đặt mình làm CTV cha" });
+        }
+      }
+    }
+
+    await ctv.update({
+      ctv_cha_id: ctv_cha_id || null,
+      cap_do,
+      ma_gioi_thieu,
+    });
+
+    res.json({ success: true, message: "Cập nhật CTV thành công", data: ctv });
+  } catch (error) {
+    console.error("Update CTV error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
 // GET /api/affiliate/commissions - Get commissions
 const getCommissions = async (req, res) => {
   try {
@@ -796,6 +1144,7 @@ const requestWithdraw = async (req, res) => {
       phuong_thuc: phuong_thuc || "bank",
       noi_dung_tt,
       trang_thai: "cho_duyet",
+      ngay_yeu_cau: new Date(),
     });
 
     res.status(201).json({
@@ -835,21 +1184,27 @@ const { mockMoMoDisbursement, generateWithdrawalQR, generateTransferInfo } = req
 // GET /api/affiliate/admin/withdrawals - Get all withdrawals (Admin)
 const getAllWithdrawals = async (req, res) => {
   try {
+    console.log("=== GET ALL WITHDRAWALS DEBUG ===");
+    // Try without include first to isolate the issue
     const withdrawals = await RutTienCTV.findAll({
       order: [["ngay_yeu_cau", "DESC"]],
       include: [
-        {
-          model: CTV,
-          as: "ctv",
-          include: [{ model: NguoiDung, as: "nguoiDung" }],
-        },
-      ],
+        { model: CTV, as: "ctv", include: [{ model: NguoiDung, as: "nguoiDung" }] }
+      ]
     });
 
-    res.json({ success: true, data: withdrawals });
+    // Map results to include phi_rut default
+    const data = withdrawals.map(w => ({
+      ...w.toJSON(),
+      ho_ten: w.ctv?.nguoiDung?.ho_ten || null,
+      email: w.ctv?.nguoiDung?.email || null,
+      phi_rut: 1000, // Default phí rút tiền
+    }));
+
+    res.json({ success: true, data });
   } catch (error) {
-    console.error("Get all withdrawals error:", error);
-    res.status(500).json({ success: false, message: "Lỗi server" });
+    console.error("Get all withdrawals error:", error.message, error.stack);
+    res.status(500).json({ success: false, message: "Lỗi server: " + error.message });
   }
 };
 
@@ -1384,6 +1739,13 @@ module.exports = {
   getOrderById,
   createOrder,
   updateOrderStatus,
+  deleteOrder,
+  updateOrder,
+  getAllKhachHang,
+  getKhachHangById,
+  createKhachHang,
+  updateKhachHang,
+  deleteKhachHang,
   getCTVProfile,
   getAffiliateStats,
   getDownline,
@@ -1404,6 +1766,8 @@ module.exports = {
   getAllCTVsWithDownline,
   updateCTVStatus,
   deleteCTV,
+  createCTV,
+  updateCTV,
 };
 
 // ==================== ADMIN: COMMISSION MANAGEMENT ====================
@@ -1411,10 +1775,11 @@ module.exports = {
 // GET /api/affiliate/admin/commissions
 const getAdminCommissions = async (req, res) => {
   try {
-    const { page = 1, limit = 20, trang_thai, ctv_id } = req.query;
+    const { page = 1, limit = 20, trang_thai, ctv_id, cap_do } = req.query;
     const where = {};
     if (trang_thai && trang_thai !== "all") where.trang_thai = trang_thai;
     if (ctv_id) where.ctv_id = ctv_id;
+    if (cap_do) where.cap_do = parseInt(cap_do);
 
     const { count, rows } = await HoaHong.findAndCountAll({
       where,
@@ -1499,19 +1864,29 @@ const deleteCommissionProduct = async (req, res) => {
 // GET /api/affiliate/admin/statistics
 const getAdminStatistics = async (req, res) => {
   try {
+    console.log("=== GET ADMIN STATISTICS ===");
     const { nam = new Date().getFullYear() } = req.query;
+    console.log("Year requested:", nam);
     const { ChiTietDonHang } = require("../models");
 
-    // Doanh thu theo tháng (từ đơn da_giao)
+    // Doanh thu theo tháng (từ đơn da_tt)
     const doanhThuThang = [];
     for (let m = 1; m <= 12; m++) {
-      const start = `${nam}-${String(m).padStart(2,"0")}-01 00:00:00`;
-      const end = `${nam}-${String(m).padStart(2,"0")}-${new Date(nam, m, 0).getDate()} 23:59:59`;
+      const start = `${nam}-${String(m).padStart(2,"0")}-01`;
+      const lastDay = new Date(nam, m, 0).getDate();
+      const end = `${nam}-${String(m).padStart(2,"0")}-${lastDay}`;
+      // Use sequelize.where with col to reference the correct column name
       const tongTien = await DonHang.sum("tong_tien", {
-        where: { trang_thai: "da_giao", created_at: { [Op.between]: [start, end] } },
+        where: { 
+          trang_thai: "da_tt",
+          [Op.and]: sequelize.where(sequelize.col("created_at"), { [Op.between]: [start + " 00:00:00", end + " 23:59:59"] })
+        }
       }) || 0;
       const soLuong = await DonHang.count({
-        where: { trang_thai: "da_giao", created_at: { [Op.between]: [start, end] } },
+        where: { 
+          trang_thai: "da_tt",
+          [Op.and]: sequelize.where(sequelize.col("created_at"), { [Op.between]: [start + " 00:00:00", end + " 23:59:59"] })
+        }
       }) || 0;
       doanhThuThang.push({ thang: m, doanh_thu: tongTien, so_don: soLuong });
     }
@@ -1537,15 +1912,14 @@ const getAdminStatistics = async (req, res) => {
     });
 
     // Tổng quan
-    const tongDonHang = await DonHang.count();
-    const tongDoanhThu = await DonHang.sum("tong_tien", { where: { trang_thai: "da_giao" } }) || 0;
+    const tongDoanhThu = await DonHang.sum("tong_tien", { where: { trang_thai: "da_tt" } }) || 0;
     const tongCTV = await CTV.count();
     const tongHoaHong = await HoaHong.sum("tien_hoa_hong", { where: { trang_thai: "da_tra" } }) || 0;
 
     res.json({
       success: true,
       data: {
-        tong_quan: { tong_don_hang: tongDonHang, tong_doanh_thu: tongDoanhThu, tong_ctv: tongCTV, tong_hoa_hong_da_tra: tongHoaHong },
+        tong_quan: { tong_doanh_thu: tongDoanhThu, tong_ctv: tongCTV, tong_hoa_hong_da_tra: tongHoaHong },
         doanh_thu_thang: doanhThuThang,
         top_san_pham: topSanPham.map(sp => ({
           ten_sach: sp.sach?.ten_sach,

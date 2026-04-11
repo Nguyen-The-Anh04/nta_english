@@ -88,6 +88,57 @@ const Sach = sequelize.define(
   }
 );
 
+// ===== KHÁCH HÀNG (Hóa đơn bán hàng) =====
+const KhachHang = sequelize.define(
+  "KhachHang",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    ma_khach_hang: {
+      type: DataTypes.STRING(20),
+      unique: true,
+    },
+    ho_ten: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+    },
+    email: {
+      type: DataTypes.STRING(255),
+    },
+    sdt: {
+      type: DataTypes.STRING(20),
+    },
+    dia_chi: {
+      type: DataTypes.TEXT,
+    },
+    cmnd_cccd: {
+      type: DataTypes.STRING(20),
+    },
+    ngay_sinh: {
+      type: DataTypes.DATEONLY,
+    },
+    gioi_tinh: {
+      type: DataTypes.ENUM('Nam','Nữ','Khác'),
+    },
+    ghi_chu: {
+      type: DataTypes.TEXT,
+    },
+    trang_thai: {
+      type: DataTypes.ENUM('hoat_dong','bi_khoa'),
+      defaultValue: 'hoat_dong',
+    },
+  },
+  {
+    tableName: "khach_hang",
+    timestamps: true,
+    createdAt: "created_at",
+    updatedAt: "updated_at",
+  }
+);
+
 const DonHang = sequelize.define(
   "DonHang",
   {
@@ -227,6 +278,10 @@ const CTV = sequelize.define(
       type: DataTypes.DECIMAL(10, 2),
       defaultValue: 0,
     },
+    trang_thai: {
+      type: DataTypes.STRING(20),
+      defaultValue: 'hoat_dong',
+    },
   },
   {
     tableName: "ctv",
@@ -284,31 +339,19 @@ const HoaHong = sequelize.define(
 const RutTienCTV = sequelize.define(
   "RutTienCTV",
   {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true,
-    },
-    ctv_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    so_tien: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
-    },
-    so_tk_ngan_hang: {
-      type: DataTypes.STRING(50),
-      allowNull: true,
-    },
-    noi_dung_tt: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-    },
-    trang_thai: {
-      type: DataTypes.ENUM("cho_duyet", "da_duyet", "da_tu_choi"),
-      defaultValue: "cho_duyet",
-    },
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    ctv_id: { type: DataTypes.INTEGER, allowNull: false },
+    so_tien: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    so_tk_ngan_hang: { type: DataTypes.STRING(50), allowNull: true },
+    ten_ngan_hang: { type: DataTypes.STRING(100), allowNull: true },
+    ten_chu_tk: { type: DataTypes.STRING(255), allowNull: true },
+    noi_dung_tt: { type: DataTypes.STRING(255), allowNull: true },
+    phuong_thuc: { type: DataTypes.STRING(20), defaultValue: "bank" },
+    trang_thai: { type: DataTypes.ENUM("cho_duyet", "da_duyet", "da_tu_choi"), defaultValue: "cho_duyet" },
+    ngay_duyet: { type: DataTypes.DATE, allowNull: true },
+    ghi_chu: { type: DataTypes.TEXT, allowNull: true },
+    ma_giao_dich: { type: DataTypes.STRING(100), allowNull: true },
+    nguoi_duyet_id: { type: DataTypes.INTEGER, allowNull: true },
   },
   {
     tableName: "rut_tien_ctv",
@@ -398,4 +441,5 @@ module.exports = {
   HoaHong,
   RutTienCTV,
   CommissionProducts,
+  KhachHang,
 };

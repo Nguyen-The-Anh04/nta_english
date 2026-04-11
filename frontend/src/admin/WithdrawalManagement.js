@@ -131,8 +131,9 @@ export default function WithdrawalManagement() {
                   onMouseLeave={e => e.currentTarget.style.background='#fff'}>
                   <td style={{ padding: '11px 12px', color: '#9ca3af', fontSize: 13 }}>{i+1}</td>
                   <td style={{ padding: '11px 12px' }}>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{w.ho_ten}</div>
-                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{w.email}</div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{w.ctv?.nguoiDung?.ho_ten || w.ho_ten || 'N/A'}</div>
+                    <div style={{ fontSize: 11, color: '#9ca3af' }}>CTV ID: {w.ctv_id}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{w.ctv?.nguoiDung?.email || w.email}</div>
                   </td>
                   <td style={{ padding: '11px 12px', fontSize: 13 }}>
                     <div>{w.ten_ngan_hang || w.ngan_hang}</div>
@@ -142,10 +143,10 @@ export default function WithdrawalManagement() {
                     {badge(w.phuong_thuc==='momo'?'MoMo':'Bank', w.phuong_thuc==='momo'?'#e11d48':'#3b82f6')}
                   </td>
                   <td style={{ padding: '11px 12px', fontWeight: 700 }}>{fmt(w.so_tien)}</td>
-                  <td style={{ padding: '11px 12px', color: '#e11d48', fontSize: 13 }}>{fmt(w.phi_rut||0)}</td>
+                  <td style={{ padding: '11px 12px', color: '#e11d48', fontSize: 13 }}>{fmt(w.phi_rut || 0)}</td>
                   <td style={{ padding: '11px 12px', fontWeight: 700, color: '#10b981' }}>{fmt((+w.so_tien||0)-(+w.phi_rut||0))}</td>
                   <td style={{ padding: '11px 12px' }}>{badge((STATUS_CFG[w.trang_thai]||{text:w.trang_thai}).text, (STATUS_CFG[w.trang_thai]||{color:'#6b7280'}).color)}</td>
-                  <td style={{ padding: '11px 12px', fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDate(w.created_at)}</td>
+                  <td style={{ padding: '11px 12px', fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDate(w.ngay_yeu_cau)}</td>
                   <td style={{ padding: '11px 12px' }}>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap' }}>
                       {w.trang_thai === 'cho_duyet' && <>

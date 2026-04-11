@@ -11,7 +11,11 @@ const STATUS_CFG = {
   da_huy: { color: '#e11d48', text: 'Đã hủy' },
 };
 
-const LEVEL_CFG = { 1: { color: '#e11d48', text: 'F1' }, 2: { color: '#3b82f6', text: 'F2' }, 3: { color: '#8b5cf6', text: 'F3' } };
+const LEVEL_CFG = { 
+  1: { color: '#e11d48', text: 'F1 (Trực tiếp)' }, 
+  2: { color: '#3b82f6', text: 'F2 (Gián tiếp)' }, 
+  3: { color: '#8b5cf6', text: 'F3 (Gián tiếp cấp 2)' } 
+};
 
 const badge = (text, color) => (
   <span style={{ background: color+'22', color, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{text}</span>
@@ -21,15 +25,20 @@ export default function CommissionManagement() {
   const [commissions, setCommissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [levelFilter, setLevelFilter] = useState('all'); // F1/F2/F3 filter
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => { load(); }, [filter, page]);
+  useEffect(() => { load(); }, [filter, levelFilter, page]);
 
   const load = async () => {
     setLoading(true);
     try {
-      const q = new URLSearchParams({ page, limit: 20, ...(filter !== 'all' ? { trang_thai: filter } : {}) });
+      const q = new URLSearchParams({ 
+        page, limit: 20, 
+        ...(filter !== 'all' ? { trang_thai: filter } : {}),
+        ...(levelFilter !== 'all' ? { cap_do: levelFilter } : {})
+      });
       const r = await fetch(`${API}/affiliate/admin/commissions?${q}`, { headers: authHeader() });
       const d = await r.json();
       setCommissions(d.data?.commissions || d.commissions || []);
@@ -64,14 +73,28 @@ export default function CommissionManagement() {
     { key: 'da_huy', label: 'Đã hủy' },
   ];
 
+  const LEVEL_TABS = [
+    { key: 'all', label: 'Tất cả cấp' },
+    { key: '1', label: 'F1' },
+    { key: '2', label: 'F2' },
+    { key: '3', label: 'F3' },
+  ];
+
   const btn = (bg, color='#fff') => ({ padding: '6px 12px', background: bg, color, border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer', fontSize: 12, fontFamily: 'system-ui' });
+
+  // Stats by level
+  const levelStats = {
+    f1: commissions.filter(c => c.cap_do == 1).reduce((s,c) => s+(+c.tien_hoa_hong||0), 0),
+    f2: commissions.filter(c => c.cap_do == 2).reduce((s,c) => s+(+c.tien_hoa_hong||0), 0),
+    f3: commissions.filter(c => c.cap_do == 3).reduce((s,c) => s+(+c.tien_hoa_hong||0), 0),
+  };
 
   return (
     <div style={{ fontFamily: 'system-ui', padding: 24 }}>
-      <h2 style={{ margin: '0 0 20px', fontSize: 22, fontWeight: 800 }}>💰 Quản lý hoa hồng</h2>
+      <h2 style={{ margin: '0 0 20px', fontSize: 22, fontWeight: 800 }}>💰 Quản lý hoa hồng Affiliate</h2>
 
-      {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '2px solid #f3f4f6', paddingBottom: 12 }}>
+      {/* Filter tabs by status */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 15, borderBottom: '2px solid #f3f4f6', paddingBottom: 12 }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => { setFilter(t.key); setPage(1); }} style={{
             padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
@@ -85,12 +108,38 @@ export default function CommissionManagement() {
         ))}
       </div>
 
-      {/* Stats */}
+      {/* Filter tabs by level F1/F2/F3 */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {LEVEL_TABS.map(t => (
+          <button key={t.key} onClick={() => { setLevelFilter(t.key); setPage(1); }} style={{
+            padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
+            background: levelFilter===t.key ? '#3b82f6' : '#f3f4f6', color: levelFilter===t.key ? '#fff' : '#374151', fontFamily: 'system-ui'
+          }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Stats by status */}
       <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
         {[
           { label: 'Chờ xác nhận', value: fmt(stats.cho), color: '#f59e0b' },
           { label: 'Đã trả', value: fmt(stats.da_tra), color: '#10b981' },
           { label: 'Đã hủy', value: fmt(stats.da_huy), color: '#e11d48' },
+        ].map(s => (
+          <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', flex: 1 }}>
+            <div style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Stats by level F1/F2/F3 */}
+      <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
+        {[
+          { label: 'F1 (Trực tiếp)', value: fmt(levelStats.f1), color: '#e11d48' },
+          { label: 'F2 (Gián tiếp)', value: fmt(levelStats.f2), color: '#3b82f6' },
+          { label: 'F3 (Cấp 2)', value: fmt(levelStats.f3), color: '#8b5cf6' },
         ].map(s => (
           <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', flex: 1 }}>
             <div style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>{s.label}</div>

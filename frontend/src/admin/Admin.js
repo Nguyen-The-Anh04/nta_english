@@ -7,6 +7,8 @@ import WithdrawalManagement from "./WithdrawalManagement";
 import ProductManagement from "./ProductManagement";
 import Statistics from "./Statistics";
 import CTVManagement from "./CTVManagement";
+import CustomerManagement from "./CustomerManagement";
+import CommissionManagement from "./CommissionManagement";
 
 // LMS Components
 import LMSAdminLayout from "./lms/LMSAdminLayout";
@@ -147,6 +149,8 @@ export default function Admin({ onLogout }) {
         return <ProductManagement />;
       case "ctv":
         return <CTVManagement />;
+      case "customers":
+        return <CustomerManagement />;
       case "statistics":
       case "stats-revenue":
       case "stats-products":
@@ -165,13 +169,7 @@ export default function Admin({ onLogout }) {
           </LMSAdminLayout>
         );
       case "commissions":
-        return (
-          <div style={{ textAlign: "center", padding: 60 }}>
-            <span style={{ fontSize: 64, display: "block", marginBottom: 20 }}>💰</span>
-            <h2 style={{ color: "#333", marginBottom: 10 }}>Quản lý hoa hồng</h2>
-            <p style={{ color: "#666" }}>Tính năng đang được phát triển...</p>
-          </div>
-        );
+        return <CommissionManagement />;
       case "settings":
         return (
           <div style={{ textAlign: "center", padding: 60 }}>

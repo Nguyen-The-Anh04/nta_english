@@ -82,6 +82,23 @@ export const deleteBook = async (id) => {
   return result;
 };
 
+// Upload book image
+export const uploadBookImage = async (file) => {
+  const token = localStorage.getItem('token');
+  const formData = new FormData();
+  formData.append('hinh_anh', file);
+  
+  const response = await fetch(`${API_BASE_URL}/books/upload`, {
+    method: "POST",
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+  const result = await response.json();
+  return result;
+};
+
 // Courses API
 export const fetchCourses = async () => {
   const response = await fetch(`${API_BASE_URL}/courses`);

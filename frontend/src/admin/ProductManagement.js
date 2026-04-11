@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { fetchBooks, fetchCategories, createBook, updateBook, deleteBook } from "../api";
+import { fetchBooks, fetchCategories, createBook, updateBook, deleteBook, uploadBookImage } from "../api";
 
 export default function ProductManagement() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -152,6 +152,24 @@ export default function ProductManagement() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    try {
+      const result = await uploadBookImage(file);
+      if (result.success && result.data?.url) {
+        setFormData(prev => ({ ...prev, hinh_anh: result.data.url }));
+        alert("Tải ảnh thành công!");
+      } else {
+        alert(result.message || "Tải ảnh thất bại!");
+      }
+    } catch (error) {
+      console.error("Lỗi tải ảnh:", error);
+      alert("Có lỗi xảy ra khi tải ảnh!");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -161,15 +179,20 @@ export default function ProductManagement() {
     }
 
     try {
+      let result;
       if (editingProduct) {
-        await updateBook(editingProduct.id, formData);
-        alert("Cập nhật sách thành công!");
+        result = await updateBook(editingProduct.id, formData);
       } else {
-        await createBook(formData);
-        alert("Thêm sách thành công!");
+        result = await createBook(formData);
       }
-      handleCloseModal();
-      loadData();
+      
+      if (result.success || result.data) {
+        alert(editingProduct ? "Cập nhật sách thành công!" : "Thêm sách thành công!");
+        handleCloseModal();
+        loadData(); // Reload to get fresh data from server
+      } else {
+        alert(result.message || "Lưu thất bại!");
+      }
     } catch (error) {
       console.error("Lỗi lưu sách:", error);
       alert("Có lỗi xảy ra khi lưu sách!");
@@ -182,9 +205,13 @@ export default function ProductManagement() {
     }
 
     try {
-      await deleteBook(productId);
-      alert("Xóa sách thành công!");
-      loadData();
+      const result = await deleteBook(productId);
+      if (result.success) {
+        alert("Xóa sách thành công!");
+        loadData(); // Reload to get fresh data from server
+      } else {
+        alert(result.message || "Xóa thất bại!");
+      }
     } catch (error) {
       console.error("Lỗi xóa sách:", error);
       alert("Có lỗi xảy ra khi xóa sách!");
@@ -323,7 +350,7 @@ export default function ProductManagement() {
                     >
                       {product.image && product.image.includes('.') ? (
                         <img 
-                          src={`http://localhost:5000/uploads/${product.image}`} 
+                          src={`http://localhost:5000${product.image}`} 
                           alt={product.name}
                           style={{
                             maxWidth: '100%',
@@ -331,8 +358,9 @@ export default function ProductManagement() {
                             objectFit: 'contain',
                           }}
                           onError={(e) => {
+                            console.log('Image load error for:', e.target.src);
                             e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'block';
+                            e.target.nextSibling && (e.target.nextSibling.style.display = 'block');
                           }}
                         />
                       ) : null}
@@ -646,22 +674,25 @@ export default function ProductManagement() {
 
                 <div style={{ gridColumn: "span 2" }}>
                   <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
-                    Hình ảnh (URL hoặc emoji)
+                    Hình ảnh
                   </label>
+                  <p style={{ fontSize: 11, color: '#999', marginTop: -2, marginBottom: 8 }}>Chọn file ảnh (jpg, png, gif, webp) - Max 5MB</p>
                   <input
-                    name="hinh_anh"
-                    value={formData.hinh_anh}
-                    onChange={handleInputChange}
-                    placeholder="📚 hoặc /assets/books/ielts/ielts1.jpeg"
+                    type="file"
+                    accept="image/*,.jfif"
+                    onChange={handleImageChange}
                     style={{
-                      width: "100%",
                       padding: "10px 12px",
                       borderRadius: 8,
                       border: "1px solid #e0e0e0",
                       fontSize: 14,
                       boxSizing: "border-box",
+                      maxWidth: 250
                     }}
                   />
+                  {formData.hinh_anh && (
+                    <span style={{ fontSize: 12, color: '#666', marginLeft: 10 }}>{formData.hinh_anh}</span>
+                  )}
                 </div>
 
                 <div style={{ gridColumn: "span 2" }}>
