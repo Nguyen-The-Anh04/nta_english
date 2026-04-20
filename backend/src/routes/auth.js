@@ -9,6 +9,9 @@ router.post("/register", authController.register);
 // POST /api/auth/login
 router.post("/login", authController.login);
 
+// POST /api/auth/login-demo - Demo login for testing (no password required)
+router.post("/login-demo", authController.loginDemo);
+
 // POST /api/auth/login-ctv - Login for CTV
 router.post("/login-ctv", authController.loginCTV);
 

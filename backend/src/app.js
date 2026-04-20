@@ -1,22 +1,55 @@
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const path = require("path"); // 👈 thêm dòng này
+const path = require("path");
+const multer = require("multer");
 const routes = require("./routes");
 
 const app = express();
 
 // Middleware
-app.use(cors({
-  origin: "http://localhost:3000",
+// Restore restricted CORS for security - allow only localhost in dev, configurable in production
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? (process.env.ALLOWED_ORIGINS || 'https://your-domain.com')
+    : 'http://localhost:3000',
   credentials: true
-}));
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// 👇 thêm đoạn này (QUAN TRỌNG)
+// Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
+// ==================== UPLOAD IMAGE ====================
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, "../uploads")),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, Date.now() + ext);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp|jfif/i;
+    cb(null, allowed.test(path.extname(file.originalname)));
+  },
+});
+
+app.post("/api/books/upload", upload.single("hinh_anh"), (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: "Không có file" });
+  res.json({
+    success: true,
+    data: {
+      url: `/uploads/${req.file.filename}`,
+      filename: req.file.filename,
+    },
+  });
+});
 
 // Health check
 app.get("/", (req, res) => {

@@ -9,6 +9,8 @@ const reviewRoutes = require("./reviews");
 const khuyenMaiRoutes = require("./khuyenMai");
 const paymentRoutes = require("./payment");
 const lmsRoutes = require("./lms");
+const testRoutes = require("./test");
+const customerRoutes = require("./customers");
 
 module.exports = (app) => {
   app.use("/api/auth", authRoutes);
@@ -21,4 +23,7 @@ module.exports = (app) => {
   app.use("/api/khuyen-mai", khuyenMaiRoutes);
   app.use("/api/payment", paymentRoutes);
   app.use("/api/lms", lmsRoutes);
+  app.use("/api/test", testRoutes);
+  app.use("/api/exam", require("./exam"));
+  app.use("/api/customers", customerRoutes);
 };

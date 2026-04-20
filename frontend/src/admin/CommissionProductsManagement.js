@@ -83,9 +83,9 @@ export default function CommissionProductsManagement() {
         {loading ? <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div> : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#f9fafb' }}>
+              <tr style={{ background: '#ef4444' }}>
                 {['STT','Sản phẩm','F1%','F2%','F3%','Trạng thái','Thao tác'].map(h => (
-                  <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 13, color: '#6b7280', fontWeight: 600 }}>{h}</th>
+                  <th key={h} style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: '#ffffff', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{h}</th>
                 ))}
               </tr>
             </thead>

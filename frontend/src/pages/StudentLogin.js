@@ -42,9 +42,9 @@ export default function StudentLogin({ onLogin }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", padding: 20 }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", padding: 20 }}>
       {/* Login Card */}
-      <div style={{ background: "white", borderRadius: 16, padding: 40, width: "100%", maxWidth: 420, boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
+      <div style={{ background: "white", borderRadius: 16, padding: 40, width: "100%", maxWidth: 420, boxShadow: "0 4px 24px rgba(0,0,0,0.15)", border: "2px solid #e53935" }}>
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <img
@@ -52,17 +52,17 @@ export default function StudentLogin({ onLogin }) {
             alt="Logo"
             style={{ width: 70, height: 70, borderRadius: 16, objectFit: "cover", margin: "0 auto 16px" }}
           />
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: "bold", color: "#333" }}>
-            NTA <span style={{ color: "#e11d48" }}>Center</span>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: "bold", color: "black" }}>
+            NTA <span style={{ color: "#e53935" }}>Center</span>
           </h1>
-          <p style={{ margin: "12px 0 0", fontSize: 14, color: "#666" }}>Portal Học viên - Đăng nhập để tiếp tục</p>
+          <p style={{ margin: "12px 0 0", fontSize: 14, color: "#333" }}>Portal Học viên - Đăng nhập để tiếp tục</p>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div style={{ background: "#fee2e2", borderRadius: 8, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ background: "#ffebee", borderRadius: 8, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 18 }}>⚠️</span>
-            <span style={{ fontSize: 13, color: "#dc2626", fontWeight: "500" }}>{error}</span>
+            <span style={{ fontSize: 13, color: "#c62828", fontWeight: "500" }}>{error}</span>
           </div>
         )}
 
@@ -74,7 +74,7 @@ export default function StudentLogin({ onLogin }) {
               Email học viên
             </label>
             <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "#999" }}>📧</span>
+              <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "#666" }}>📧</span>
               <input
                 type="email"
                 value={email}
@@ -84,11 +84,11 @@ export default function StudentLogin({ onLogin }) {
                   width: "100%",
                   padding: "14px 14px 14px 44px",
                   borderRadius: 10,
-                  border: "1px solid #e5e5e5",
+                  border: "2px solid #333",
                   fontSize: 14,
                   outline: "none",
                   boxSizing: "border-box",
-                  transition: "border-color 0.2s",
+                  color: "#000",
                 }}
               />
             </div>
@@ -100,7 +100,7 @@ export default function StudentLogin({ onLogin }) {
               Mật khẩu
             </label>
             <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "#999" }}>🔒</span>
+              <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "#666" }}>🔒</span>
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
@@ -110,11 +110,11 @@ export default function StudentLogin({ onLogin }) {
                   width: "100%",
                   padding: "14px 44px 14px 44px",
                   borderRadius: 10,
-                  border: "1px solid #e5e5e5",
+                  border: "2px solid #333",
                   fontSize: 14,
                   outline: "none",
                   boxSizing: "border-box",
-                  transition: "border-color 0.2s",
+                  color: "#000",
                 }}
               />
               <button
@@ -129,6 +129,7 @@ export default function StudentLogin({ onLogin }) {
                   border: "none",
                   cursor: "pointer",
                   fontSize: 18,
+                  color: "#666",
                 }}
               >
                 {showPassword ? "👁️" : "👁️‍🗨️"}
@@ -143,14 +144,13 @@ export default function StudentLogin({ onLogin }) {
             style={{
               width: "100%",
               padding: "16px",
-              background: loading ? "#ccc" : "#e11d48",
+              background: loading ? "#ccc" : "#e53935",
               color: "white",
               border: "none",
               borderRadius: 10,
               fontSize: 16,
               fontWeight: "600",
               cursor: loading ? "not-allowed" : "pointer",
-              transition: "background 0.2s",
             }}
           >
             {loading ? "Đang đăng nhập..." : "Đăng nhập"}
@@ -158,11 +158,11 @@ export default function StudentLogin({ onLogin }) {
         </form>
 
         {/* Demo Accounts Info */}
-        <div style={{ marginTop: 24, padding: 16, background: "#f5f5f5", borderRadius: 10 }}>
-          <p style={{ margin: 0, fontSize: 12, color: "#666", textAlign: "center", fontWeight: "600" }}>
+        <div style={{ marginTop: 24, padding: 16, background: "#fafafa", borderRadius: 10, border: "1px solid #ddd" }}>
+          <p style={{ margin: 0, fontSize: 12, color: "#333", textAlign: "center", fontWeight: "600" }}>
             📌 Tài khoản demo (mật khẩu: admin123)
           </p>
-          <p style={{ margin: "8px 0 0", fontSize: 11, color: "#888", textAlign: "center" }}>
+          <p style={{ margin: "8px 0 0", fontSize: 11, color: "#555", textAlign: "center" }}>
             hocvien@nta.com | phuhuynh@nta.com
           </p>
         </div>
@@ -174,7 +174,7 @@ export default function StudentLogin({ onLogin }) {
             style={{
               background: "none",
               border: "none",
-              color: "#666",
+              color: "#333",
               fontSize: 13,
               cursor: "pointer",
               textDecoration: "underline",

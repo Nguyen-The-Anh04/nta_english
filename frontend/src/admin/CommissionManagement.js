@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 const API = 'http://localhost:5000/api';
-const fmt = n => (n||0).toLocaleString('vi-VN')+'đ';
+const fmt = n => Number(n||0).toLocaleString('vi-VN') + ' đ';
 const fmtDate = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const authHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' });
 
@@ -127,9 +127,9 @@ export default function CommissionManagement() {
           { label: 'Đã trả', value: fmt(stats.da_tra), color: '#10b981' },
           { label: 'Đã hủy', value: fmt(stats.da_huy), color: '#e11d48' },
         ].map(s => (
-          <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', flex: 1 }}>
-            <div style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>{s.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
+          <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', flex: 1, borderLeft: `4px solid ${s.color}` }}>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: s.color, letterSpacing: '-0.5px' }}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -141,9 +141,9 @@ export default function CommissionManagement() {
           { label: 'F2 (Gián tiếp)', value: fmt(levelStats.f2), color: '#3b82f6' },
           { label: 'F3 (Cấp 2)', value: fmt(levelStats.f3), color: '#8b5cf6' },
         ].map(s => (
-          <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', flex: 1 }}>
-            <div style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>{s.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
+          <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', flex: 1, borderLeft: `4px solid ${s.color}` }}>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: s.color, letterSpacing: '-0.5px' }}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -153,9 +153,9 @@ export default function CommissionManagement() {
         {loading ? <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div> : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#f9fafb' }}>
+              <tr style={{ background: '#ef4444' }}>
                 {['STT','CTV','Đơn hàng','Cấp độ','Tỉ lệ%','Hoa hồng','Trạng thái','Ngày tạo','Thao tác'].map(h => (
-                  <th key={h} style={{ padding: '11px 13px', textAlign: 'left', fontSize: 13, color: '#6b7280', fontWeight: 600 }}>{h}</th>
+                  <th key={h} style={{ padding: '11px 13px', textAlign: 'center', fontSize: 13, color: '#ffffff', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -166,13 +166,17 @@ export default function CommissionManagement() {
                   onMouseLeave={e => e.currentTarget.style.background='#fff'}>
                   <td style={{ padding: '11px 13px', color: '#9ca3af', fontSize: 13 }}>{(page-1)*20+i+1}</td>
                   <td style={{ padding: '11px 13px' }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{c.ctv?.ho_ten || c.ho_ten}</div>
-                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{c.ctv?.email || c.email}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{c.ctv?.nguoiDung?.ho_ten || c.ctv?.ho_ten || '—'}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{c.ctv?.nguoiDung?.email || c.ctv?.email || ''}</div>
                   </td>
-                  <td style={{ padding: '11px 13px', fontSize: 13, fontWeight: 600 }}>#{c.ma_don_hang || c.don_hang_id}</td>
+                  <td style={{ padding: '11px 13px', fontSize: 13, fontWeight: 600, color: '#e11d48' }}>
+                    {c.donHang?.ma_don_hang || c.ma_don_hang || `#${c.don_hang_id}`}
+                  </td>
                   <td style={{ padding: '11px 13px' }}>{badge((LEVEL_CFG[c.cap_do]||{text:'—'}).text, (LEVEL_CFG[c.cap_do]||{color:'#6b7280'}).color)}</td>
-                  <td style={{ padding: '11px 13px', fontSize: 13 }}>{c.ti_le_phan_tram || c.ti_le}%</td>
-                  <td style={{ padding: '11px 13px', fontWeight: 700, color: '#10b981' }}>{fmt(c.tien_hoa_hong)}</td>
+                  <td style={{ padding: '11px 13px', fontSize: 13 }}>{c.ty_le_pham_ram || c.ti_le_phan_tram || c.ti_le || 0}%</td>
+                  <td style={{ padding: '11px 13px', fontWeight: 800, color: '#10b981', fontSize: 14, whiteSpace: 'nowrap', background: '#f0fdf4', borderRadius: 6 }}>
+                    {fmt(c.tien_hoa_hong)}
+                  </td>
                   <td style={{ padding: '11px 13px' }}>{badge((STATUS_CFG[c.trang_thai]||{text:c.trang_thai}).text, (STATUS_CFG[c.trang_thai]||{color:'#6b7280'}).color)}</td>
                   <td style={{ padding: '11px 13px', fontSize: 13, color: '#6b7280' }}>{fmtDate(c.created_at)}</td>
                   <td style={{ padding: '11px 13px' }}>

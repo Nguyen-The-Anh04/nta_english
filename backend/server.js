@@ -21,7 +21,9 @@ sequelize
   .then(() => {
     console.log("✅ Kết nối MySQL thành công");
     
-    // Sync models (optional - only for development)
+    console.log("✅ Kết nối MySQL thành công");
+    
+    // Đã bật sync trước đó nhưng gây lỗi FK
     // sequelize.sync({ alter: true }).then(() => {
     //   console.log("✅ Đồng bộ models thành công");
     // });

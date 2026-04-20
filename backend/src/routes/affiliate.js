@@ -53,20 +53,20 @@ router.get("/by-ref/:refCode", orderController.getCTVByRefCode);
 // GET /api/affiliate/profile - Get CTV profile
 router.get("/profile", auth, orderController.getCTVProfile);
 
-// GET /api/affiliate/stats - Dashboard stats
-router.get("/stats", auth, isCTV, orderController.getAffiliateStats);
+// GET /api/affiliate/stats - Dashboard stats (chỉ cần auth, controller tự check CTV)
+router.get("/stats", auth, orderController.getAffiliateStats);
 
 // GET /api/affiliate/downline - Get F1/F2/F3 tree
-router.get("/downline", auth, isCTV, orderController.getDownline);
+router.get("/downline", auth, orderController.getDownline);
 
 // GET /api/affiliate/commissions - Get commissions
-router.get("/commissions", auth, isCTV, orderController.getCommissions);
+router.get("/commissions", auth, orderController.getCommissions);
 
 // POST /api/affiliate/withdraw - Request withdrawal
-router.post("/withdraw", auth, isCTV, orderController.requestWithdraw);
+router.post("/withdraw", auth, orderController.requestWithdraw);
 
 // GET /api/affiliate/withdrawals - Get withdrawal history
-router.get("/withdrawals", auth, isCTV, orderController.getWithdrawals);
+router.get("/withdrawals", auth, orderController.getWithdrawals);
 
 // Admin: Duyệt/từ chối rút tiền
 router.post("/admin/withdrawals/:id/approve", auth, orderController.approveWithdrawal);
@@ -143,17 +143,17 @@ router.get("/products", auth, isCTV, orderController.getAffiliateProducts);
 // Admin: Lấy tất cả CTV với thông tin downline đầy đủ
 router.get("/admin/ctvs", auth, orderController.getAllCTVsWithDownline);
 
+// Admin: Tạo CTV mới
+router.post("/admin/ctvs", auth, orderController.createCTV);
+
+// Admin: Cập nhật CTV
+router.put("/admin/ctvs/:id", auth, orderController.updateCTV);
+
 // Admin: Cập nhật trạng thái CTV
 router.put("/admin/ctvs/:id/status", auth, orderController.updateCTVStatus);
 
 // Admin: Xóa CTV
 router.delete("/admin/ctvs/:id", auth, orderController.deleteCTV);
-
-// Admin: Tạo mới CTV
-router.post("/admin/ctvs", auth, orderController.createCTV);
-
-// Admin: Cập nhật CTV
-router.put("/admin/ctvs/:id", auth, orderController.updateCTV);
 
 // DEBUG: Tạo tài khoản admin
 router.post("/debug/create-admin", async (req, res) => {

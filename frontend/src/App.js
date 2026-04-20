@@ -12,6 +12,11 @@ import OrderDetail from "./components/OrderDetail";
 import Admin from "./admin/Admin";
 import AdminLogin from "./admin/AdminLogin";
 import HocVienPortal from "./pages/HocVienPortal";
+import HocVienTestPortal from "./pages/HocVienTestPortal";
+import GiaoVienPortal from "./pages/GiaoVienPortal";
+import SalePortal from "./pages/SalePortal";
+import TraCuuDonHang from "./pages/TraCuuDonHang";
+import DonHangKhach from "./pages/DonHangKhach";
 import Footer from "./components/Footer";
 
 // ProductDetail Wrapper - Fetch data from API
@@ -140,33 +145,94 @@ function AppContent() {
   const location = useLocation();
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Check if user is already logged in
+  // Check login status for each portal - check localStorage on init
+  const [adminLoggedIn, setAdminLoggedIn] = useState(() => {
+    const adminAuth = localStorage.getItem("adminLoggedIn");
+    if (adminAuth === "true") {
+      const adminUser = localStorage.getItem("adminUser");
+      try {
+        const user = JSON.parse(adminUser);
+        return user.chuc_vu_id && user.chuc_vu_id >= 1 && user.chuc_vu_id <= 5;
+      } catch (e) { return false; }
+    }
+    return false;
+  });
+  const [gvLoggedIn, setGvLoggedIn] = useState(false);
+  const [hvLoggedIn, setHvLoggedIn] = useState(false);
+  const [saleLoggedIn, setSaleLoggedIn] = useState(false);
+
   useEffect(() => {
-    const adminLoggedIn = localStorage.getItem("adminLoggedIn");
-    if (adminLoggedIn === "true") {
-      setIsLoggedIn(true);
+    // Check admin login from localStorage on page load
+    const adminAuth = localStorage.getItem("adminLoggedIn");
+    const adminUser = localStorage.getItem("adminUser");
+    if (adminAuth === "true" && adminUser) {
+      try {
+        const user = JSON.parse(adminUser);
+        // Allow all logged-in users (role 1-5)
+        if (user.chuc_vu_id && user.chuc_vu_id >= 1 && user.chuc_vu_id <= 5) {
+          setAdminLoggedIn(true);
+        }
+      } catch (e) {
+        console.error("Parse adminUser error:", e);
+      }
+    }
+
+    // Check giao Vien login
+    const gvToken = localStorage.getItem("gv_token");
+    const gvUser = localStorage.getItem("gv_user");
+    if (gvToken && gvUser) {
+      setGvLoggedIn(true);
+    }
+
+    // Check hoc Vien login
+    const hvToken = localStorage.getItem("hv_token");
+    const hvUser = localStorage.getItem("hv_user");
+    if (hvToken && hvUser) {
+      setHvLoggedIn(true);
+    }
+
+    // Check sale login
+    const saleToken = localStorage.getItem("sale_token");
+    const saleUser = localStorage.getItem("sale_user");
+    if (saleToken && saleUser) {
+      setSaleLoggedIn(true);
     }
   }, []);
 
-  const handleLogin = (user) => {
-    setIsLoggedIn(true);
+  const handleAdminLogin = (user) => {
+    setAdminLoggedIn(true);
     localStorage.setItem("adminLoggedIn", "true");
     localStorage.setItem("adminUser", JSON.stringify(user));
-    // Redirect theo role
-    const cvu = user.chuc_vu_id;
-    if (cvu === 5) {
-      navigate("/hoc-vien");
-    } else {
-      navigate("/admin");
-    }
+    navigate("/admin");
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
+  const handleAdminLogout = () => {
+    setAdminLoggedIn(false);
     localStorage.removeItem("adminLoggedIn");
     localStorage.removeItem("adminUser");
+    // Stay on /admin, will show login form
+  };
+
+  const handleGvLogout = () => {
+    setGvLoggedIn(false);
+    localStorage.removeItem("gv_token");
+    localStorage.removeItem("gv_user");
+    // Stay on /giaovien, will show login form
+  };
+
+  const handleHvLogout = () => {
+    setHvLoggedIn(false);
+    localStorage.removeItem("hv_token");
+    localStorage.removeItem("hv_user");
+    // Stay on /hocvien, will show login form
+  };
+
+  const handleSaleLogout = () => {
+    setSaleLoggedIn(false);
+    localStorage.removeItem("sale_token");
+    localStorage.removeItem("sale_user");
+    // Stay on /sale, will show login form
   };
 
   // Expose navigate function globally - LUÔN dùng đường dẫn tuyệt đối
@@ -213,18 +279,65 @@ function AppContent() {
     return null;
   }
 
-  // Redirect /admin to admin page
-  if (path === "/admin") {
+// ===== ROUTING CONFIGURATION =====
+// /admin - Quản lý hệ thống (Admin)
+// /giaovien - Cổng giáo viên (Teacher Portal)
+// /hocvien hoặc /hoc-vien - Cổng học viên (Student Portal)
+// /sale - Cổng sale (Sales Portal)
+
+if (path === "/admin") {
     // Nếu chưa đăng nhập, hiển thị trang đăng nhập
-    if (!isLoggedIn) {
-      return <AdminLogin onLogin={handleLogin} />;
+    if (!adminLoggedIn) {
+      return <AdminLogin onLogin={handleAdminLogin} />;
+    }
+    // Lấy role của user đã đăng nhập
+    const loggedInUser = JSON.parse(localStorage.getItem("adminUser") || "{}");
+    // Nếu là học viên (role 5) thì chuyển sang trang hocvien
+    if (loggedInUser.chuc_vu_id === 5) {
+      navigate("/hocvien");
+      return <AdminLogin onLogin={handleAdminLogin} />;
     }
     // Đã đăng nhập rồi thì hiển thị Admin
-    return <Admin onLogout={handleLogout} />;
+    return <Admin onLogout={handleAdminLogout} />;
   }
 
-  if (path === "/hoc-vien") {
+  if (path === "/hocvien") {
+    if (!hvLoggedIn) {
+      return <HocVienPortal />; // HocVienPortal has its own login
+    }
     return <HocVienPortal />;
+  }
+
+  // Support /hoc-vien as alternative URL
+  if (path === "/hoc-vien") {
+    if (!hvLoggedIn) {
+      return <HocVienPortal />;
+    }
+    return <HocVienPortal />;
+  }
+
+  if (path === "/giaovien") {
+    if (!gvLoggedIn) {
+      return <GiaoVienPortal />; // GiaoVienPortal has its own login
+    }
+    return <GiaoVienPortal />;
+  }
+
+  if (path === "/sale") {
+    if (!saleLoggedIn) {
+      return <SalePortal />; // SalePortal has its own login
+    }
+    return <SalePortal />;
+  }
+
+  if (path === "/test-portal") {
+    // Chuyển hướng về /hocvien - học viên xem lịch test trong portal chính
+    navigate("/hocvien");
+    return null;
+  }
+
+  if (path === "/tra-cuu-don-hang") {
+    return <TraCuuDonHang />;
   }
 
   // Render based on URL
@@ -318,27 +431,23 @@ function AppContent() {
   }
 
   if (path === "/orders") {
-    return (
-      <OrderHistory
-        onBack={() => navigate("/")}
-        onViewOrder={(order) => {
-          setSelectedOrder(order);
-          navigate("/orders/detail");
-        }}
-      />
-    );
+    navigate("/don-hang");
+    return null;
   }
 
-  if (path === "/orders/detail" && selectedOrder) {
-    return (
-      <OrderDetail
-        order={selectedOrder}
-        onBack={() => navigate("/orders")}
-        onOrderCancelled={() => {
-          navigate("/orders");
-        }}
-      />
-    );
+  if (path === "/orders/detail") {
+    const initialOrder = (() => {
+      try {
+        const pending = localStorage.getItem("pendingOrderDetail");
+        if (pending) { localStorage.removeItem("pendingOrderDetail"); return JSON.parse(pending); }
+      } catch {}
+      return null;
+    })();
+    return <DonHangKhach initialOrder={initialOrder} />;
+  }
+
+  if (path === "/don-hang") {
+    return <DonHangKhach />;
   }
 
   if (path.startsWith("/product/")) {

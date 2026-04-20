@@ -16,38 +16,42 @@ export default function AdminLogin({ onLogin }) {
       return;
     }
     setLoading(true);
-    
-    // Simulate API delay
-    setTimeout(() => {
-      const demoUsers = {
-        "admin@nta.com":    { name: "Admin NTA",            email, role: "admin",       chuc_vu_id: 1 },
-        "sale@nta.com":     { name: "Nguyễn Văn Sale",      email, role: "sale",        chuc_vu_id: 2 },
-        "giaovien@nta.com": { name: "Trần Thị Giáo Viên",   email, role: "teacher",     chuc_vu_id: 3 },
-        "ketoan@nta.com":   { name: "Lê Văn Kế Toán",       email, role: "accountant",  chuc_vu_id: 4 },
-        "hocvien@nta.com":  { name: "Nguyễn Văn Học Viên",  email, role: "student",     chuc_vu_id: 5 },
-      };
 
-      const user = demoUsers[email.toLowerCase()];
+    // Gọi thẳng API backend để lấy JWT token thật
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), mat_khau: password }),
+      });
+      const data = await res.json();
 
-      if (user && password === "admin123") {
+      if (data.success && data.data?.token) {
+        const user = data.data.user;
+        // Lưu token và thông tin user
+        localStorage.setItem("token", data.data.token);
+        localStorage.setItem("admin_token", data.data.token);
         localStorage.setItem("adminLoggedIn", "true");
         localStorage.setItem("chuc_vu_id", user.chuc_vu_id);
-        localStorage.setItem("user_name", user.name);
+        localStorage.setItem("user_name", user.ho_ten || user.email);
         localStorage.setItem("user_email", user.email);
         localStorage.setItem("adminUser", JSON.stringify(user));
         setLoading(false);
-        onLogin && onLogin(user);
+        onLogin && onLogin({ ...user, name: user.ho_ten, role: "admin", chuc_vu_id: user.chuc_vu_id });
       } else {
-        setError("Email hoặc mật khẩu không đúng!");
+        setError(data.message || "Email hoặc mật khẩu không đúng!");
         setLoading(false);
       }
-    }, 800);
+    } catch (err) {
+      setError("Không thể kết nối server!");
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f5f5f5", padding: 20 }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", padding: 20 }}>
       {/* Login Card */}
-      <div style={{ background: "white", borderRadius: 12, padding: 40, width: "100%", maxWidth: 400, boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }}>
+      <div style={{ background: "white", borderRadius: 12, padding: 40, width: "100%", maxWidth: 400, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", border: "2px solid #e53935" }}>
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <img
@@ -56,15 +60,15 @@ export default function AdminLogin({ onLogin }) {
             style={{ width: 60, height: 60, borderRadius: 12, objectFit: "cover", margin: "0 auto 12px" }}
           />
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: "bold", color: "black" }}>
-            NTA <span style={{ color: "#e11d48" }}>Admin</span>
+            NTA <span style={{ color: "#e53935" }}>Admin</span>
           </h1>
-          <p style={{ margin: "8px 0 0", fontSize: 13, color: "#666" }}>Đăng nhập để quản lý hệ thống</p>
+          <p style={{ margin: "8px 0 0", fontSize: 13, color: "#333" }}>Đăng nhập để quản lý hệ thống</p>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div style={{ background: "#fee2e2", borderRadius: 8, padding: "10px 14px", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 13, color: "#ef4444", fontWeight: "500" }}>{error}</span>
+          <div style={{ background: "#ffebee", borderRadius: 8, padding: "10px 14px", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 13, color: "#c62828", fontWeight: "500" }}>{error}</span>
           </div>
         )}
 
@@ -75,10 +79,10 @@ export default function AdminLogin({ onLogin }) {
             <label style={{ display: "block", fontSize: 13, fontWeight: "600", color: "black", marginBottom: 6 }}>Email</label>
             <input
               type="email"
-              placeholder="admin@nta.com"
+              placeholder="admin@nta.vn"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "2px solid #ddd", fontSize: 14, color: "black", outline: "none", boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "2px solid #333", fontSize: 14, color: "black", outline: "none", boxSizing: "border-box" }}
             />
           </div>
 
@@ -91,7 +95,7 @@ export default function AdminLogin({ onLogin }) {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                style={{ width: "100%", padding: "12px 40px 12px 14px", borderRadius: 8, border: "2px solid #ddd", fontSize: 14, color: "black", outline: "none", boxSizing: "border-box" }}
+                style={{ width: "100%", padding: "12px 40px 12px 14px", borderRadius: 8, border: "2px solid #333", fontSize: 14, color: "black", outline: "none", boxSizing: "border-box" }}
               />
               <button
                 type="button"
@@ -106,34 +110,33 @@ export default function AdminLogin({ onLogin }) {
           {/* Remember & Forgot */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-              <input type="checkbox" style={{ width: 16, height: 16, accentColor: "#e11d48" }} />
-              <span style={{ fontSize: 13, color: "#666" }}>Ghi nhớ</span>
+              <input type="checkbox" style={{ width: 16, height: 16, accentColor: "#e53935" }} />
+              <span style={{ fontSize: 13, color: "#333" }}>Ghi nhớ</span>
             </label>
-            <a href="#" style={{ fontSize: 13, color: "#e11d48", fontWeight: "600", textDecoration: "none" }}>Quên mật khẩu?</a>
+            <a href="#" style={{ fontSize: 13, color: "#e53935", fontWeight: "600", textDecoration: "none" }}>Quên mật khẩu?</a>
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
-            style={{ width: "100%", padding: "14px", background: loading ? "#999" : "#e11d48", border: "none", borderRadius: 8, fontSize: 14, fontWeight: "700", color: "white", cursor: loading ? "not-allowed" : "pointer" }}
+            style={{ width: "100%", padding: "14px", background: loading ? "#999" : "#e53935", border: "none", borderRadius: 8, fontSize: 14, fontWeight: "700", color: "white", cursor: loading ? "not-allowed" : "pointer" }}
           >
             {loading ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
         </form>
 
         {/* Demo Info */}
-        <div style={{ marginTop: 20, padding: 14, background: "#f5f5f5", borderRadius: 8 }}>
-          <p style={{ margin: "0 0 6px", fontSize: 12, color: "#666", fontWeight: 600 }}>Tài khoản demo (mật khẩu: admin123)</p>
+        <div style={{ marginTop: 20, padding: 14, background: "#fafafa", borderRadius: 8, border: "1px solid #ddd" }}>
+          <p style={{ margin: "0 0 6px", fontSize: 12, color: "#333", fontWeight: 600 }}>Tài khoản demo (mật khẩu: admin123)</p>
           {[
-            ["admin@nta.com", "Admin — toàn quyền"],
-            ["sale@nta.com", "Sale — quản lý leads"],
-            ["giaovien@nta.com", "Giáo viên — lớp học, bài tập"],
-            ["ketoan@nta.com", "Kế toán — học phí, công nợ"],
-            ["hocvien@nta.com", "Học viên → StudentPortal"],
+            ["admin@nta.vn", "Admin — toàn quyền"],
+            ["lan@nta.vn", "Sale — quản lý leads"],
+            ["hung@nta.vn", "Giáo viên — lớp học, bài tập"],
+            ["nguyentheanh2018hy@gmail.com", "Admin — toàn quyền"],
           ].map(([e, label]) => (
             <div key={e} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 2 }}>
-              <span style={{ color: "#e11d48", cursor: "pointer" }} onClick={() => setEmail(e)}>{e}</span>
+              <span style={{ color: "#e53935", cursor: "pointer" }} onClick={() => setEmail(e)}>{e}</span>
               <span>{label}</span>
             </div>
           ))}
@@ -141,7 +144,7 @@ export default function AdminLogin({ onLogin }) {
 
         {/* Back to home */}
         <div style={{ textAlign: "center", marginTop: 20 }}>
-          <button onClick={() => window.navigateTo && window.navigateTo("home")} style={{ background: "none", border: "none", fontSize: 13, color: "#666", cursor: "pointer" }}>
+          <button onClick={() => window.navigateTo && window.navigateTo("home")} style={{ background: "none", border: "none", fontSize: 13, color: "#333", cursor: "pointer" }}>
             ← Quay lại trang chủ
           </button>
         </div>

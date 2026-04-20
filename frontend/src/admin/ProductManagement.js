@@ -4,11 +4,14 @@ import { fetchBooks, fetchCategories, createBook, updateBook, deleteBook, upload
 export default function ProductManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [sortBy, setSortBy] = useState("sold_desc"); // default sort by sold descending
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([{ id: "all", label: "Tất cả" }]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
   const [formData, setFormData] = useState({
     loai_sach_id: "",
     ma_sach: "",
@@ -30,10 +33,14 @@ export default function ProductManagement() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [booksData, categoriesData] = await Promise.all([
+      const API_URL = localStorage.getItem("API_URL") || "http://localhost:5000";
+      const [booksData, categoriesData, salesDataResp] = await Promise.all([
         fetchBooks(),
         fetchCategories(),
+        fetch(`${API_URL}/api/books/top-products`).then(r => r.json()).catch(() => ({ success: false, data: {} }))
       ]);
+
+      const salesData = salesDataResp.success ? salesDataResp.data : {};
 
       // Map books
       const mappedProducts = booksData.map(book => ({
@@ -44,7 +51,7 @@ export default function ProductManagement() {
         price: parseFloat(book.gia_ban),
         oldPrice: parseFloat(book.gia_ban) * 1.2,
         stock: book.so_luong_ton,
-        sold: 0, // TODO: Calculate from orders
+        sold: salesData[book.id]?.da_ban || 0,
         image: book.hinh_anh || "📚",
         status: book.trang_thai === "het_hang" ? "out_of_stock" : "active",
         author: book.tac_gia || "NXB",
@@ -76,13 +83,54 @@ export default function ProductManagement() {
     return (amount || 0).toLocaleString("vi-VN") + " đ";
   };
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.ma_sach?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === "all" || product.category === filterCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredProducts = products
+    .filter((product) => {
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.ma_sach?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = filterCategory === "all" || product.category === filterCategory;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      const soldA = a.sold || 0;
+      const soldB = b.sold || 0;
+      const stockA = a.stock || 0;
+      const stockB = b.stock || 0;
+      const priceA = a.price || 0;
+      const priceB = b.price || 0;
+      switch (sortBy) {
+        case "sold_desc":
+          return soldB - soldA; // Most sold first
+        case "sold_asc":
+          return soldA - soldB; // Least sold first
+        case "name_asc":
+          return a.name.localeCompare(b.name);
+        case "name_desc":
+          return b.name.localeCompare(a.name);
+        case "price_asc":
+          return priceA - priceB;
+        case "price_desc":
+          return priceB - priceA;
+        case "stock_asc":
+          return stockA - stockB;
+        case "stock_desc":
+          return stockB - stockA;
+        default:
+          return 0;
+      }
+    });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset page when search/filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterCategory, sortBy]);
 
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -275,6 +323,30 @@ export default function ProductManagement() {
               <option key={cat.id} value={cat.id}>{cat.label}</option>
             ))}
           </select>
+
+          {/* Sort */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            style={{
+              padding: "12px 15px",
+              borderRadius: 10,
+              border: "1px solid #e0e0e0",
+              fontSize: 14,
+              outline: "none",
+              cursor: "pointer",
+              background: "#fff",
+            }}
+          >
+            <option value="sold_desc">Đã bán: Cao → Thấp</option>
+            <option value="sold_asc">Đã bán: Thấp → Cao</option>
+            <option value="name_asc">Tên: A → Z</option>
+            <option value="name_desc">Tên: Z → A</option>
+            <option value="stock_desc">Tồn kho: Cao → Thấp</option>
+            <option value="stock_asc">Tồn kho: Thấp → Cao</option>
+            <option value="price_desc">Giá: Cao → Thấp</option>
+            <option value="price_asc">Giá: Thấp → Cao</option>
+          </select>
         </div>
 
         <button
@@ -320,11 +392,12 @@ export default function ProductManagement() {
       <div style={{ background: "white", borderRadius: 16, padding: 20, boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ borderBottom: "2px solid #f0f0f0" }}>
-              <th style={{ padding: "12px 8px", textAlign: "left", color: "#666", fontSize: 13 }}>Sản phẩm</th>
-              <th style={{ padding: "12px 8px", textAlign: "left", color: "#666", fontSize: 13 }}>Danh mục</th>
-              <th style={{ padding: "12px 8px", textAlign: "right", color: "#666", fontSize: 13 }}>Giá</th>
-              <th style={{ padding: "12px 8px", textAlign: "right", color: "#666", fontSize: 13 }}>Giá cũ</th>
+            <tr style={{ background: '#ef4444' }}>
+              <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>STT</th>
+              <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>Sản phẩm</th>
+              <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>Danh mục</th>
+              <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>Giá</th>
+              <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>Giá cũ</th>
               <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Tồn kho</th>
               <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Đã bán</th>
               <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Trạng thái</th>
@@ -332,8 +405,9 @@ export default function ProductManagement() {
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.map((product) => (
+            {paginatedProducts.map((product, index) => (
               <tr key={product.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
+                <td style={{ padding: "12px 8px", textAlign: "center", fontWeight: "600", color: "#666" }}>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
                 <td style={{ padding: "12px 8px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div
@@ -350,7 +424,9 @@ export default function ProductManagement() {
                     >
                       {product.image && product.image.includes('.') ? (
                         <img 
-                          src={`http://localhost:5000${product.image}`} 
+                          src={product.image.startsWith('/uploads/') 
+                            ? `http://localhost:5000${product.image}`
+                            : `http://localhost:5000/uploads/${product.image}`} 
                           alt={product.name}
                           style={{
                             maxWidth: '100%',
@@ -450,6 +526,62 @@ export default function ProductManagement() {
             ))}
           </tbody>
         </table>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 20, paddingBottom: 10 }}>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 6,
+                border: '1px solid #e0e0e0',
+                background: currentPage === 1 ? '#f5f5f5' : '#fff',
+                color: currentPage === 1 ? '#ccc' : '#333',
+                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              ‹ Trước
+            </button>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: currentPage === page ? '#ef4444' : '#f5f5f5',
+                  color: currentPage === page ? '#fff' : '#333',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  minWidth: 40,
+                }}
+              >
+                {page}
+              </button>
+            ))}
+            
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 6,
+                border: '1px solid #e0e0e0',
+                background: currentPage === totalPages ? '#f5f5f5' : '#fff',
+                color: currentPage === totalPages ? '#ccc' : '#333',
+                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              Sau ›
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Modal for Add/Edit */}

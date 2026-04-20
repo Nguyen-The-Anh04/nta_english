@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import logo from "../../assets/logo/Logo.jpeg";
 
 // Mock data - sẽ được thay thế bằng API thực tế
@@ -31,6 +31,7 @@ const studentData = {
 const menuItems = [
   { id: "home", label: "Trang chủ", icon: "🏠" },
   { id: "schedule", label: "Lịch học", icon: "📅" },
+  { id: "test", label: "Lịch test", icon: "📋" },
   { id: "scores", label: "Điểm số", icon: "📊" },
   { id: "homework", label: "Bài tập", icon: "📝" },
   { id: "payment", label: "Học phí", icon: "💰" },
@@ -58,6 +59,8 @@ export default function StudentPortal({ onLogout }) {
         return <HomePage />;
       case "schedule":
         return <SchedulePage />;
+      case "test":
+        return <TestPage />;
       case "scores":
         return <ScoresPage />;
       case "homework":
@@ -221,6 +224,193 @@ function SchedulePage() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Test Page - Lịch test cho học viên
+function TestPage() {
+  const [lichTests, setLichTests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTest, setSelectedTest] = useState(null);
+  const [showTestModal, setShowTestModal] = useState(false);
+
+  useEffect(() => {
+    loadLichTest();
+  }, []);
+
+  const loadLichTest = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/test/my-lich-test", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setLichTests(Array.isArray(data.data) ? data.data : []);
+      }
+    } catch (e) {
+      console.error("Lỗi load lịch test:", e);
+    }
+    setLoading(false);
+  };
+
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return "—";
+    const d = new Date(dateStr);
+    return d.toLocaleString("vi-VN");
+  };
+
+  const getStatusBadge = (status) => {
+    const cfg = {
+      "cho_test": { bg: "#fef3c7", color: "#92400e", label: "Chờ test" },
+      "dang_test": { bg: "#dbeafe", color: "#1d4ed8", label: "Đang test" },
+      "hoan_thanh": { bg: "#d1fae5", color: "#065f46", label: "Hoàn thành" },
+      "huy": { bg: "#fee2e2", color: "#991b1b", label: "Đã hủy" },
+    };
+    const s = cfg[status] || cfg["cho_test"];
+    return <span style={{ padding: "4px 10px", borderRadius: 12, fontSize: 12, background: s.bg, color: s.color }}>{s.label}</span>;
+  };
+
+  const handleStartTest = (lich) => {
+    setSelectedTest(lich);
+    setShowTestModal(true);
+  };
+
+  return (
+    <div>
+      <h2 style={{ color: "#333", marginBottom: 24 }}>Lịch test</h2>
+
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 40, color: "#666" }}>Đang tải...</div>
+      ) : lichTests.length === 0 ? (
+        <div style={{ background: "white", borderRadius: 12, padding: 40, textAlign: "center" }}>
+          <p style={{ color: "#666" }}>Chưa có lịch test nào</p>
+        </div>
+      ) : (
+        <div style={{ background: "white", borderRadius: 12, padding: 20 }}>
+          {lichTests.map((lich) => (
+            <div key={lich.id} style={{ 
+              padding: 20, 
+              border: "1px solid #e5e5e5", 
+              borderRadius: 10, 
+              marginBottom: 16,
+              background: lich.trang_thai === "hoan_thanh" ? "#f0fdf4" : "#fff",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div>
+                  <h4 style={{ margin: "0 0 6px", color: "#333", fontSize: 16 }}>{lich.deThi?.ten_de || "Đề thi"}</h4>
+                  <p style={{ margin: 0, fontSize: 13, color: "#666" }}>
+                    <strong>Ngày:</strong> {formatDateTime(lich.thoi_gian)} | <strong>Địa điểm:</strong> {lich.dia_diem || "—"}
+                  </p>
+                  <p style={{ margin: "4px 0 0", fontSize: 13, color: "#666" }}>
+                    <strong>Giáo viên:</strong> {lich.giaoVien?.ho_ten || "—"}
+                  </p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {getStatusBadge(lich.trang_thai)}
+                  {lich.trang_thai !== "hoan_thanh" && lich.trang_thai !== "huy" && (
+                    <button 
+                      onClick={() => handleStartTest(lich)}
+                      style={{
+                        padding: "8px 16px",
+                        background: "#dc2626",
+                        color: "white",
+                        border: "none",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        fontSize: 13,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Làm bài
+                    </button>
+                  )}
+                </div>
+              </div>
+              {lich.ketQuas && lich.ketQuas.length > 0 && (
+                <div style={{ marginTop: 12, padding: 12, background: "#f9fafb", borderRadius: 8 }}>
+                  <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: "600", color: "#374151" }}>Kết quả:</p>
+                  {lich.ketQuas.map((kq, idx) => (
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, color: "#666" }}>Ngày: {kq.ngay_lam ? new Date(kq.ngay_lam).toLocaleDateString("vi-VN") : "—"}</span>
+                      <span style={{ fontSize: 12, fontWeight: "600", color: kq.diem_tong >= 5 ? "#059669" : "#dc2626" }}>
+                        Điểm: {kq.diem_tong ?? "—"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal làm bài test */}
+      {showTestModal && selectedTest && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "white", borderRadius: 12, padding: 24, width: 600, maxHeight: "90vh", overflowY: "auto" }}>
+            <h3 style={{ margin: "0 0 16px", color: "#111827" }}>Làm bài test: {selectedTest.deThi?.ten_de}</h3>
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ margin: "0 0 8px", fontSize: 13, color: "#666" }}>
+                <strong>Ngày giờ:</strong> {formatDateTime(selectedTest.thoi_gian)}
+              </p>
+              <p style={{ margin: 0, fontSize: 13, color: "#666" }}>
+                <strong>Giáo viên:</strong> {selectedTest.giaoVien?.ho_ten || "—"}
+              </p>
+            </div>
+            {selectedTest.deThi?.file_pdf ? (
+              <div style={{ marginTop: 16 }}>
+                <p style={{ margin: "0 0 12px", fontSize: 13, color: "#374151" }}>
+                  Bạn sẽ làm bài test với file đề thi. Sau khi hoàn thành, nhập điểm số:
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 4 }}>Điểm Nghe</label>
+                    <input type="number" placeholder="0-10" style={{ width: "100%", padding: "8px", border: "1px solid #d1d5db", borderRadius: 6 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 4 }}>Điểm Đọc</label>
+                    <input type="number" placeholder="0-10" style={{ width: "100%", padding: "8px", border: "1px solid #d1d5db", borderRadius: 6 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 4 }}>Điểm Nói</label>
+                    <input type="number" placeholder="0-10" style={{ width: "100%", padding: "8px", border: "1px solid #d1d5db", borderRadius: 6 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 4 }}>Điểm Viết</label>
+                    <input type="number" placeholder="0-10" style={{ width: "100%", padding: "8px", border: "1px solid #d1d5db", borderRadius: 6 }} />
+                  </div>
+                </div>
+                <a 
+                  href={`http://localhost:5000/uploads/${selectedTest.deThi.file_pdf}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ display: "inline-block", marginTop: 16, color: "#2563eb", textDecoration: "underline" }}
+                >
+                  Xem file đề thi PDF
+                </a>
+              </div>
+            ) : (
+              <p style={{ color: "#666" }}>Chưa có file đề thi</p>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
+              <button 
+                onClick={() => setShowTestModal(false)}
+                style={{ padding: "10px 20px", border: "1px solid #d1d5db", borderRadius: 6, background: "white", cursor: "pointer" }}
+              >
+                Đóng
+              </button>
+              <button 
+                style={{ padding: "10px 20px", background: "#dc2626", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}
+              >
+                Nộp bài
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

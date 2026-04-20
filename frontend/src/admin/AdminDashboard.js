@@ -1,466 +1,253 @@
 import { useState, useEffect } from "react";
-import { fetchOrderStats, fetchOrders, fetchAllWithdrawals, fetchCTVs } from "../api";
+import { fetchOrders, fetchAllWithdrawals, fetchCTVs } from "../api";
+
+const API = "http://localhost:5000/api";
+const token = () => localStorage.getItem("token");
+const authH = () => ({ Authorization: `Bearer ${token()}`, "Content-Type": "application/json" });
+
+const fmt = (n) => Number(n || 0).toLocaleString("vi-VN") + " đ";
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+
+const STATUS_CFG = {
+  cho_tt:    { bg: "#fff3e0", color: "#f59e0b", text: "Chờ TT" },
+  da_tt:     { bg: "#dbeafe", color: "#3b82f6", text: "Đã TT" },
+  dang_giao: { bg: "#ede9fe", color: "#8b5cf6", text: "Đang giao" },
+  da_giao:   { bg: "#d1fae5", color: "#10b981", text: "Đã giao" },
+  da_huy:    { bg: "#fee2e2", color: "#ef4444", text: "Đã hủy" },
+  completed: { bg: "#d1fae5", color: "#10b981", text: "Hoàn thành" },
+  pending:   { bg: "#fff3e0", color: "#f59e0b", text: "Chờ xử lý" },
+  cancelled: { bg: "#fee2e2", color: "#ef4444", text: "Đã hủy" },
+};
+
+const Badge = ({ status }) => {
+  const cfg = STATUS_CFG[status] || STATUS_CFG.pending;
+  return (
+    <span style={{ background: cfg.bg, color: cfg.color, padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
+      {cfg.text}
+    </span>
+  );
+};
+
+const imgSrc = (hinh_anh) => {
+  if (!hinh_anh) return null;
+  if (hinh_anh.startsWith("http")) return hinh_anh;
+  if (hinh_anh.startsWith("/uploads/")) return `http://localhost:5000${hinh_anh}`;
+  return `http://localhost:5000/uploads/${hinh_anh}`;
+};
 
 export default function AdminDashboard({ onNavigate }) {
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState([
-    { label: "Tổng CTV", value: "0", icon: "👥", color: "#4caf50", change: "0%" },
-    { label: "Tổng đơn hàng", value: "0", icon: "📦", color: "#2196f3", change: "0%" },
-    { label: "Doanh thu tháng", value: "0 đ", hint: "", icon: "💰", color: "#e53935", change: "0%" },
-    { label: "Chờ duyệt rút tiền", value: "0", icon: "⏳", color: "#ff9800", change: "0%" },
-  ]);
+  const [statsData, setStatsData] = useState({ totalCTV: 0, totalOrders: 0, revenue: 0, pendingWithdraw: 0 });
   const [recentOrders, setRecentOrders] = useState([]);
   const [recentWithdrawals, setRecentWithdrawals] = useState([]);
   const [topCTVs, setTopCTVs] = useState([]);
 
-  // Fetch data from API
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const load = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        const token = localStorage.getItem('token');
-        const isApiAvailable = fetchOrders && typeof fetchOrders === 'function';
-        
-        // If API not available, use mock data
-        if (!isApiAvailable || !token) {
-          // Use demo/mock data for testing
-          setStats([
-            { label: "Tổng CTV", value: "1,234", icon: "👥", color: "#4caf50", change: "+12%" },
-            { label: "Tổng đơn hàng", value: "5,678", icon: "📦", color: "#2196f3", change: "+8%" },
-            { label: "Doanh thu tháng", value: "2.500.000 đ", hint: "~ 2.5 triệu", icon: "💰", color: "#e53935", change: "+15%" },
-            { label: "Chờ duyệt rút tiền", value: "23", icon: "⏳", color: "#ff9800", change: "-5%" },
-          ]);
-          setRecentOrders([
-            { id: "#46242", user: "Nguyễn Văn A", product: "Cambridge IELTS 18", price: 189000, commission: 18900, status: "completed", date: "2024-04-20" },
-            { id: "#46243", user: "Trần Thị B", product: "IELTS Speaking Booster", price: 199000, commission: 19900, status: "completed", date: "2024-04-20" },
-            { id: "#46244", user: "Lê Văn C", product: "Target TOEIC 900", price: 175000, commission: 8750, status: "pending", date: "2024-04-19" },
-            { id: "#46245", user: "Phạm Thị D", product: "English Grammar in Use", price: 165000, commission: 16500, status: "completed", date: "2024-04-19" },
-            { id: "#46246", user: "Ngô Văn E", product: "Vocabulary for IELTS", price: 135000, commission: 6750, status: "cancelled", date: "2024-04-18" },
-          ]);
-          setRecentWithdrawals([
-            { id: "#WT001", user: "Nguyễn Văn A", amount: 500000, fee: 1000, status: "pending", date: "2024-04-20", bank: "MB BANK" },
-            { id: "#WT002", user: "Trần Thị B", amount: 300000, fee: 1000, status: "completed", date: "2024-04-19", bank: "Vietcombank" },
-            { id: "#WT003", user: "Lê Văn C", amount: 200000, fee: 1000, status: "completed", date: "2024-04-18", bank: "Techcombank" },
-          ]);
-          setTopCTVs([
-            { rank: 1, name: "Nguyễn Văn A", revenue: 1200000, orders: 45, avatar: "👨" },
-            { rank: 2, name: "Trần Thị B", revenue: 980000, orders: 38, avatar: "👩" },
-            { rank: 3, name: "Lê Văn C", revenue: 850000, orders: 32, avatar: "👨" },
-            { rank: 4, name: "Phạm Thị D", revenue: 720000, orders: 28, avatar: "👩" },
-            { rank: 5, name: "Ngô Văn E", revenue: 650000, orders: 25, avatar: "👨" },
-          ]);
-          // Add hint for demo revenue
-          setStats(prev => prev.map(stat => 
-            stat.label === "Doanh thu tháng" 
-              ? { ...stat, hint: "~ 2.5 triệu" }
-              : stat
-          ));
-          setLoading(false);
-          return;
-        }
-
-        // Fetch all data in parallel
-        let ordersData = [];
-        let withdrawalsData = [];
-        let ctvData = [];
-        let totalRevenue = 0;
-        let pendingWithdrawals = 0;
-        
-        try {
-          const [orderStats, ordersResult, withdrawalsResult, ctvResult] = await Promise.all([
-            fetchOrderStats ? fetchOrderStats() : Promise.resolve({}),
-            fetchOrders ? fetchOrders() : Promise.resolve([]),
-            fetchAllWithdrawals ? fetchAllWithdrawals() : Promise.resolve([]),
-            fetchCTVs ? fetchCTVs({}, token) : Promise.resolve([]),
-          ]);
-          
-          ordersData = ordersResult || [];
-          withdrawalsData = withdrawalsResult || [];
-          ctvData = ctvResult || [];
-
-          // Debug: log API responses to see data structure
-          console.log("=== Dashboard API Debug ===");
-          console.log("ordersResult:", ordersResult);
-          console.log("withdrawalsResult:", withdrawalsResult);
-          console.log("ctvResult raw:", ctvResult);
-          console.log("ctvResult type:", typeof ctvResult);
-          console.log("ctvResult is array:", Array.isArray(ctvResult));
-          console.log("ctvResult keys:", ctvResult ? Object.keys(ctvResult) : 'null');
-          
-          // Check if there's an error in the response
-          if (ctvResult && ctvResult.success === false) {
-            console.error("CTV API Error:", ctvResult.message);
-          }
-
-          // Debug: log the first order to see data structure
-          if (ordersData.length > 0) {
-            console.log("First order data:", JSON.stringify(ordersData[0]));
-          }
-
-          // Calculate total revenue from orders - ensure we convert to numbers
-          totalRevenue = ordersData.reduce((sum, order) => {
-            const orderValue = parseFloat(order.tong_tien) || 0;
-            if (order.trang_thai === 'da_tt' || order.trang_thai === 'da_giao') {
-              return sum + orderValue;
-            }
-            return sum;
-          }, 0);
-          
-          console.log("Total revenue calculated:", totalRevenue);
-
-          // Count pending withdrawals - handle different API response formats
-          let withdrawalsArray = [];
-          if (Array.isArray(withdrawalsData)) {
-            withdrawalsArray = withdrawalsData;
-          } else if (withdrawalsData?.data && Array.isArray(withdrawalsData.data)) {
-            withdrawalsArray = withdrawalsData.data;
-          }
-          pendingWithdrawals = withdrawalsArray.filter(w => w.trang_thai === 'pending' || w.trang_thai === 'cho_duyet').length;
-        } catch (apiError) {
-          console.warn("API call failed, using empty data:", apiError);
-        }
-
-        // Update stats - handle array response
-        let ctvArray = [];
-        if (Array.isArray(ctvData)) {
-          ctvArray = ctvData;
-        } else if (ctvData?.data && Array.isArray(ctvData.data)) {
-          ctvArray = ctvData.data;
-        } else if (ctvData?.data?.ctvs && Array.isArray(ctvData.data.ctvs)) {
-          // API trả về { success: true, data: { ctvs: [...] } }
-          ctvArray = ctvData.data.ctvs;
-        } else if (ctvData?.ctvs && Array.isArray(ctvData.ctvs)) {
-          ctvArray = ctvData.ctvs;
-        }
-        
-        console.log("Processed ctvArray:", ctvArray);
-        console.log("ctvArray length:", ctvArray.length);
-        
-        // Get total CTV count from pagination data if available
-        let totalCTVCount = ctvArray.length;
-        if (ctvData?.data?.pagination?.total) {
-          totalCTVCount = ctvData.data.pagination.total;
-        }
-        
-        setStats([
-          { label: "Tổng CTV", value: totalCTVCount?.toLocaleString() || "0", icon: "👥", color: "#4caf50", change: "+12%" },
-          { label: "Tổng đơn hàng", value: ordersData?.length?.toLocaleString() || "0", icon: "📦", color: "#2196f3", change: "+8%" },
-          { label: "Doanh thu tháng", value: totalRevenue > 0 ? totalRevenue.toLocaleString("vi-VN") + " đ" : "0 đ", hint: totalRevenue > 1000000 ? "~ " + (totalRevenue / 1000000).toFixed(1) + " triệu" : totalRevenue > 0 ? "~ " + (totalRevenue / 1000).toFixed(0) + " nghìn" : "", icon: "💰", color: "#e53935", change: "+15%" },
-          { label: "Chờ duyệt rút tiền", value: pendingWithdrawals.toString(), icon: "⏳", color: "#ff9800", change: "-5%" },
+        const [ordersRes, withdrawRes, ctvRes] = await Promise.all([
+          fetch(`${API}/books/orders?limit=100`, { headers: authH() }).then(r => r.json()),
+          fetch(`${API}/affiliate/admin/withdrawals`, { headers: authH() }).then(r => r.json()),
+          fetch(`${API}/affiliate/admin/ctvs?limit=100`, { headers: authH() }).then(r => r.json()),
         ]);
 
-        // Set recent orders (last 5)
-        const sortedOrders = [...(ordersData || [])].sort((a, b) => new Date(b.ngay_tao || 0) - new Date(a.ngay_tao || 0)).slice(0, 5);
-        setRecentOrders(sortedOrders.map(order => ({
-          id: order.ma_don || `#${order.id}`,
-          user: order.ten_nguoi_mua || order.ho_ten || "Khách hàng",
-          product: order.ten_san_pham || "Sản phẩm",
-          price: order.tong_tien || 0,
-          commission: order.hoa_hong || 0,
-          status: order.trang_thai === 'da_tt' ? 'completed' : order.trang_thai === 'dang_giao' ? 'pending' : order.trang_thai === 'da_huy' ? 'cancelled' : 'pending',
-          date: order.ngay_tao ? new Date(order.ngay_tao).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN'),
-        })));
+        const orders = ordersRes.data?.orders || [];
+        const withdrawals = Array.isArray(withdrawRes.data) ? withdrawRes.data : (withdrawRes.data?.withdrawals || []);
+        const ctvs = ctvRes.data?.ctvs || [];
 
-        // Set recent withdrawals (last 3) - reuse withdrawalsArray
-        let withdrawArray = [];
-        if (Array.isArray(withdrawalsData)) {
-          withdrawArray = withdrawalsData;
-        } else if (withdrawalsData?.data && Array.isArray(withdrawalsData.data)) {
-          withdrawArray = withdrawalsData.data;
-        }
-        const sortedWithdrawals = [...withdrawArray].sort((a, b) => new Date(b.ngay_tao || 0) - new Date(a.ngay_tao || 0)).slice(0, 3);
-        setRecentWithdrawals(sortedWithdrawals.map(withdraw => ({
-          id: `#WT${withdraw.id}`,
-          user: withdraw.ho_ten || "CTV",
-          amount: withdraw.so_tien || 0,
-          fee: withdraw.phi || 0,
-          status: withdraw.trang_thai === 'pending' || withdraw.trang_thai === 'cho_duyet' ? 'pending' : withdraw.trang_thai === 'da_duyet' ? 'completed' : 'cancelled',
-          date: withdraw.ngay_tao ? new Date(withdraw.ngay_tao).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN'),
-          bank: withdraw.ngan_hang || "Ngân hàng",
-        })));
+        // Stats
+        const revenue = orders.filter(o => o.trang_thai === "da_tt" || o.trang_thai === "da_giao")
+          .reduce((s, o) => s + parseFloat(o.tong_tien || 0), 0);
+        const pendingW = withdrawals.filter(w => w.trang_thai === "cho_duyet").length;
 
-        // Set top CTVs (by number of orders - F1, F2, F3 combined) - reuse ctvArray from above
-        // API trả về tong_f1, tong_f2, tong_f3
-        const sortedCTVs = [...ctvArray].sort((a, b) => {
-          const ordersA = (a.tong_f1 || a.so_f1 || 0) + (a.tong_f2 || a.so_f2 || 0) + (a.tong_f3 || a.so_f3 || 0);
-          const ordersB = (b.tong_f1 || b.so_f1 || 0) + (b.tong_f2 || b.so_f2 || 0) + (b.tong_f3 || b.so_f3 || 0);
-          return ordersB - ordersA;
-        }).slice(0, 5);
-        setTopCTVs(sortedCTVs.map((ctv, index) => ({
-          rank: index + 1,
-          name: ctv.nguoiDung?.ho_ten || ctv.ho_ten || ctv.ten_dang_nhap || "CTV",
-          revenue: ctv.doanh_thu || 0,
-          orders: (ctv.tong_f1 || ctv.so_f1 || 0) + (ctv.tong_f2 || ctv.so_f2 || 0) + (ctv.tong_f3 || ctv.so_f3 || 0),
-          avatar: index === 0 ? "👨" : index === 1 ? "👩" : index === 2 ? "👴" : index === 3 ? "👵" : "🧑",
-        })));
+        setStatsData({ totalCTV: ctvRes.data?.pagination?.total || ctvs.length, totalOrders: orders.length, revenue, pendingWithdraw: pendingW });
 
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setLoading(false);
+        // Recent orders — sort by created_at desc, take 5
+        const sorted = [...orders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
+        setRecentOrders(sorted);
+
+        // Recent withdrawals
+        const sortedW = [...withdrawals].sort((a, b) => new Date(b.ngay_yeu_cau || b.created_at || 0) - new Date(a.ngay_yeu_cau || a.created_at || 0)).slice(0, 4);
+        setRecentWithdrawals(sortedW);
+
+        // Top CTVs by tong_hoa_hong
+        const sortedCTV = [...ctvs].sort((a, b) => (b.tong_hoa_hong || 0) - (a.tong_hoa_hong || 0)).slice(0, 5);
+        setTopCTVs(sortedCTV);
+      } catch (e) {
+        console.error("Dashboard load error:", e);
       }
+      setLoading(false);
     };
-
-    fetchDashboardData();
+    load();
   }, []);
 
-  const formatCurrency = (amount) => {
-    return (amount || 0).toLocaleString("vi-VN") + " đ";
-  };
+  const STAT_CARDS = [
+    { label: "Tổng CTV", value: statsData.totalCTV.toLocaleString("vi-VN"), icon: "👥", color: "#10b981" },
+    { label: "Tổng đơn hàng", value: statsData.totalOrders.toLocaleString("vi-VN"), icon: "📦", color: "#3b82f6" },
+    { label: "Doanh thu (đã TT)", value: fmt(statsData.revenue), icon: "💰", color: "#e11d48", small: true },
+    { label: "Chờ duyệt rút tiền", value: statsData.pendingWithdraw.toLocaleString("vi-VN"), icon: "⏳", color: "#f59e0b" },
+  ];
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      completed: { bg: "#e8f5e9", color: "#4caf50", text: "Hoàn thành" },
-      pending: { bg: "#fff3e0", color: "#ff9800", text: "Chờ xử lý" },
-      cancelled: { bg: "#ffebee", color: "#f44336", text: "Đã hủy" },
-    };
-    const config = statusConfig[status] || statusConfig.pending;
-    return (
-      <span
-        style={{
-          background: config.bg,
-          color: config.color,
-          padding: "5px 12px",
-          borderRadius: 20,
-          fontSize: 12,
-          fontWeight: "600",
-        }}
-      >
-        {config.text}
-      </span>
-    );
-  };
+  if (loading) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300 }}>
+      <div style={{ fontSize: 14, color: "#9ca3af" }}>Đang tải dữ liệu...</div>
+    </div>
+  );
 
   return (
-    <div>
-      {loading && (
-        <div style={{ textAlign: "center", padding: 40, color: "#666" }}>
-          Đang tải dữ liệu...
-        </div>
-      )}
-      {!loading && (
-        <>
-          {/* Stats Cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20, marginBottom: 30 }}>
-        {stats.map((stat, index) => (
-          <div
-            key={index}
-            style={{
-              background: "white",
-              borderRadius: 16,
-              padding: 24,
-              boxShadow: "0 4px 15px rgba(0,0,0,0.05)",
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "scale(1.03)";
-              e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.1)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "scale(1)";
-              e.currentTarget.style.boxShadow = "0 4px 15px rgba(0,0,0,0.05)";
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 15 }}>
-              <div
-                style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 12,
-                  background: stat.color + "20",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 24,
-                }}
-              >
-                {stat.icon}
-              </div>
-              <span
-                style={{
-                  background: stat.change.includes("+") ? "#e8f5e9" : "#ffebee",
-                  color: stat.change.includes("+") ? "#4caf50" : "#f44336",
-                  padding: "4px 10px",
-                  borderRadius: 20,
-                  fontSize: 12,
-                  fontWeight: "600",
-                }}
-              >
-                {stat.change}
-              </span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Stat Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+        {STAT_CARDS.map((s, i) => (
+          <div key={i} style={{ background: "#fff", borderRadius: 14, padding: "20px 22px", boxShadow: "0 2px 10px rgba(0,0,0,0.06)", borderLeft: `4px solid ${s.color}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 600 }}>{s.label}</span>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: s.color + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{s.icon}</div>
             </div>
-            <p style={{ fontSize: 13, color: "#666", marginBottom: 5 }}>{stat.label}</p>
-            <p style={{ fontSize: 28, fontWeight: "800", color: "#1a1a2e", margin: 0 }}>{stat.value}</p>
-            {stat.hint && <p style={{ fontSize: 11, color: "#999", margin: "4px 0 0" }}>{stat.hint}</p>}
+            <div style={{ fontSize: s.small ? 20 : 28, fontWeight: 800, color: "#111827", lineHeight: 1.2 }}>{s.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Charts & Tables Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, marginBottom: 30 }}>
+      {/* Orders + Top CTV */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
         {/* Recent Orders */}
-        <div style={{ background: "white", borderRadius: 16, padding: 24, boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h3 style={{ fontSize: 18, fontWeight: "700", color: "#1a1a2e", margin: 0 }}>Đơn hàng gần đây</h3>
-            <button style={{ background: "none", border: "none", color: "#e53935", fontWeight: "600", cursor: "pointer" }}>
+        <div style={{ background: "#fff", borderRadius: 14, padding: 22, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>Đơn hàng gần đây</span>
+            <button onClick={() => onNavigate && onNavigate("orders")}
+              style={{ background: "none", border: "none", color: "#e11d48", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
               Xem tất cả →
             </button>
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ borderBottom: "2px solid #f0f0f0" }}>
-                <th style={{ padding: "12px 8px", textAlign: "left", color: "#666", fontSize: 13 }}>Mã đơn</th>
-                <th style={{ padding: "12px 8px", textAlign: "left", color: "#666", fontSize: 13 }}>Khách hàng</th>
-                <th style={{ padding: "12px 8px", textAlign: "left", color: "#666", fontSize: 13 }}>Sản phẩm</th>
-                <th style={{ padding: "12px 8px", textAlign: "right", color: "#666", fontSize: 13 }}>Giá trị</th>
-                <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Trạng thái</th>
+              <tr style={{ background: "#fef2f2" }}>
+                {["Mã đơn", "Khách hàng", "Sản phẩm", "Giá trị", "Trạng thái"].map((h, i) => (
+                  <th key={i} style={{ padding: "9px 10px", textAlign: i >= 3 ? "right" : "left", fontSize: 12, fontWeight: 700, color: "#ef4444", whiteSpace: "nowrap" }}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map((order) => (
-                <tr key={order.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                  <td style={{ padding: "12px 8px", fontWeight: "600", color: "#1a1a2e" }}>{order.id}</td>
-                  <td style={{ padding: "12px 8px", color: "#333" }}>{order.user}</td>
-                  <td style={{ padding: "12px 8px", color: "#666" }}>{order.product}</td>
-                  <td style={{ padding: "12px 8px", textAlign: "right", fontWeight: "600", color: "#e53935" }}>
-                    {formatCurrency(order.price)}
-                  </td>
-                  <td style={{ padding: "12px 8px", textAlign: "center" }}>{getStatusBadge(order.status)}</td>
-                </tr>
-              ))}
+              {recentOrders.length === 0 && (
+                <tr><td colSpan={5} style={{ padding: 20, textAlign: "center", color: "#9ca3af", fontSize: 13 }}>Chưa có đơn hàng</td></tr>
+              )}
+              {recentOrders.map((order) => {
+                const item0 = order.chiTiets?.[0];
+                const sach = item0?.sach;
+                const khach = order.nguoiMua?.ho_ten || order.dia_chi_giao?.split(" - ")?.[0] || "Khách vãng lai";
+                return (
+                  <tr key={order.id} style={{ borderBottom: "1px solid #f9fafb" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
+                    onMouseLeave={e => e.currentTarget.style.background = ""}>
+                    <td style={{ padding: "10px 10px", fontWeight: 700, color: "#111827", fontSize: 12, whiteSpace: "nowrap" }}>
+                      {order.ma_don_hang}
+                    </td>
+                    <td style={{ padding: "10px 10px", fontSize: 13, color: "#374151", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {khach}
+                    </td>
+                    <td style={{ padding: "10px 10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {sach?.hinh_anh ? (
+                          <img src={imgSrc(sach.hinh_anh)} alt={sach.ten_sach}
+                            style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover", border: "1px solid #e5e7eb", flexShrink: 0 }}
+                            onError={e => { e.target.style.display = "none"; }} />
+                        ) : (
+                          <div style={{ width: 32, height: 32, borderRadius: 6, background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>📚</div>
+                        )}
+                        <span style={{ fontSize: 12, color: "#374151", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {sach?.ten_sach || "Sản phẩm"}
+                          {(order.chiTiets?.length || 0) > 1 && <span style={{ color: "#9ca3af" }}> +{order.chiTiets.length - 1}</span>}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ padding: "10px 10px", textAlign: "right", fontWeight: 700, color: "#e11d48", fontSize: 13, whiteSpace: "nowrap" }}>
+                      {fmt(order.tong_tien)}
+                    </td>
+                    <td style={{ padding: "10px 10px", textAlign: "right" }}>
+                      <Badge status={order.trang_thai} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         {/* Top CTV */}
-        <div style={{ background: "white", borderRadius: 16, padding: 24, boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-          <h3 style={{ fontSize: 18, fontWeight: "700", color: "#1a1a2e", marginBottom: 20 }}>Top CTV tháng</h3>
-          {topCTVs.map((ctv, index) => (
-            <div
-              key={index}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "12px 0",
-                borderBottom: index < 4 ? "1px solid #f5f5f5" : "none",
-              }}
-            >
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: "50%",
-                  background: index === 0 ? "#ffd700" : index === 1 ? "#c0c0c0" : index === 2 ? "#cd7f32" : "#f5f5f5",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 12,
-                  fontWeight: "bold",
-                  color: index < 3 ? "#333" : "#666",
-                }}
-              >
-                {ctv.rank}
+        <div style={{ background: "#fff", borderRadius: 14, padding: 22, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
+          <span style={{ fontSize: 16, fontWeight: 700, color: "#111827", display: "block", marginBottom: 18 }}>Top CTV tháng</span>
+          {topCTVs.length === 0 && <div style={{ color: "#9ca3af", fontSize: 13, textAlign: "center", padding: 20 }}>Chưa có dữ liệu</div>}
+          {topCTVs.map((ctv, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: i < topCTVs.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+              <div style={{ width: 26, height: 26, borderRadius: "50%", background: i === 0 ? "#fbbf24" : i === 1 ? "#9ca3af" : i === 2 ? "#d97706" : "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: i < 3 ? "#fff" : "#6b7280", flexShrink: 0 }}>
+                {i + 1}
               </div>
-              <span style={{ fontSize: 24 }}>{ctv.avatar}</span>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: "600", color: "#333" }}>{ctv.name}</p>
-                <p style={{ margin: 0, fontSize: 12, color: "#888" }}>{ctv.orders} đơn hàng</p>
+              <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                {["👨", "👩", "👴", "👵", "🧑"][i] || "👤"}
               </div>
-              <div style={{ textAlign: "right" }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: "700", color: "#4caf50" }}>{formatCurrency(ctv.revenue)}</p>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {ctv.nguoiDung?.ho_ten || "CTV"}
+                </div>
+                <div style={{ fontSize: 11, color: "#9ca3af" }}>{(ctv.tong_f1 || 0) + (ctv.tong_f2 || 0) + (ctv.tong_f3 || 0)} downline</div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#10b981", whiteSpace: "nowrap" }}>
+                {fmt(ctv.tong_hoa_hong)}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Withdrawals & Activity */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      {/* Withdrawals + Quick Actions */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {/* Recent Withdrawals */}
-        <div style={{ background: "white", borderRadius: 16, padding: 24, boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h3 style={{ fontSize: 18, fontWeight: "700", color: "#1a1a2e", margin: 0 }}>Yêu cầu rút tiền gần đây</h3>
-            <button style={{ background: "none", border: "none", color: "#e53935", fontWeight: "600", cursor: "pointer" }}>
+        <div style={{ background: "#fff", borderRadius: 14, padding: 22, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>Yêu cầu rút tiền</span>
+            <button onClick={() => onNavigate && onNavigate("withdrawals")}
+              style={{ background: "none", border: "none", color: "#e11d48", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
               Xem tất cả →
             </button>
           </div>
-          {recentWithdrawals.map((withdraw, index) => (
-            <div
-              key={index}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "15px 0",
-                borderBottom: index < 2 ? "1px solid #f5f5f5" : "none",
-              }}
-            >
+          {recentWithdrawals.length === 0 && <div style={{ color: "#9ca3af", fontSize: 13, textAlign: "center", padding: 20 }}>Chưa có yêu cầu</div>}
+          {recentWithdrawals.map((w, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: i < recentWithdrawals.length - 1 ? "1px solid #f3f4f6" : "none" }}>
               <div>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: "600", color: "#333" }}>{withdraw.user}</p>
-                <p style={{ margin: 0, fontSize: 12, color: "#888" }}>
-                  {withdraw.bank} • {withdraw.date}
-                </p>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{w.ctv?.nguoiDung?.ho_ten || "CTV"}</div>
+                <div style={{ fontSize: 11, color: "#9ca3af" }}>{w.ten_ngan_hang || "Ngân hàng"} • {fmtDate(w.ngay_yeu_cau)}</div>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: "700", color: "#e53935" }}>
-                  -{formatCurrency(withdraw.amount)}
-                </p>
-                <p style={{ margin: 0, fontSize: 11, color: "#888" }}>Phí: {formatCurrency(withdraw.fee)}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "#e11d48" }}>{fmt(w.so_tien)}</span>
+                <Badge status={w.trang_thai === "cho_duyet" ? "pending" : w.trang_thai === "da_duyet" ? "completed" : "cancelled"} />
               </div>
-              {getStatusBadge(withdraw.status)}
             </div>
           ))}
         </div>
 
         {/* Quick Actions */}
-        <div style={{ background: "white", borderRadius: 16, padding: 24, boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-          <h3 style={{ fontSize: 18, fontWeight: "700", color: "#1a1a2e", marginBottom: 20 }}>Thao tác nhanh</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 15 }}>
+        <div style={{ background: "#fff", borderRadius: 14, padding: 22, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
+          <span style={{ fontSize: 16, fontWeight: 700, color: "#111827", display: "block", marginBottom: 18 }}>Thao tác nhanh</span>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             {[
-              { icon: "👥", label: "Thêm CTV", color: "#4caf50", action: "users" },
-              { icon: "📦", label: "Thêm đơn hàng", color: "#2196f3", action: "orders" },
-              { icon: "💸", label: "Duyệt rút tiền", color: "#ff9800", action: "withdrawals" },
-              { icon: "📚", label: "Thêm sản phẩm", color: "#9c27b0", action: "products" },
-            ].map((action, index) => (
-              <button
-                key={index}
-                style={{
-                  padding: 20,
-                  background: "white",
-                  border: "2px solid #f0f0f0",
-                  borderRadius: 12,
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "scale(1.08)";
-                  e.currentTarget.style.borderColor = action.color;
-                  e.currentTarget.style.background = action.color + "10";
-                  e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.15)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.borderColor = "#f0f0f0";
-                  e.currentTarget.style.background = "white";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-                onClick={() => onNavigate && onNavigate(action.action)}
-              >
-                <span style={{ fontSize: 28 }}>{action.icon}</span>
-                <span style={{ fontSize: 13, fontWeight: "600", color: "#333" }}>{action.label}</span>
+              { icon: "👥", label: "Quản lý CTV", color: "#10b981", action: "ctv" },
+              { icon: "📦", label: "Đơn hàng", color: "#3b82f6", action: "orders" },
+              { icon: "💸", label: "Duyệt rút tiền", color: "#f59e0b", action: "withdrawals" },
+              { icon: "📚", label: "Sản phẩm", color: "#8b5cf6", action: "products" },
+            ].map((a, i) => (
+              <button key={i} onClick={() => onNavigate && onNavigate(a.action)}
+                style={{ padding: "18px 12px", background: a.color + "0d", border: `1.5px solid ${a.color}30`, borderRadius: 12, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = a.color + "20"; e.currentTarget.style.borderColor = a.color; }}
+                onMouseLeave={e => { e.currentTarget.style.background = a.color + "0d"; e.currentTarget.style.borderColor = a.color + "30"; }}>
+                <span style={{ fontSize: 26 }}>{a.icon}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: a.color }}>{a.label}</span>
               </button>
             ))}
           </div>
         </div>
       </div>
-        </>
-      )}
     </div>
   );
 }

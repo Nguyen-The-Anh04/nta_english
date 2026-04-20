@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { hvPortalAPI } from '../api';
-import { login } from '../api';
+import { login, loginDemo } from '../api';
+import { testAPI } from '../api';
+import LamBai from './LamBai';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
@@ -50,7 +52,7 @@ function LoginForm({ onLogin }) {
     e.preventDefault();
     setLoading(true); setErr('');
     
-    // Demo accounts for student portal
+    // Demo accounts for student portal - use email to get user from backend
     const demoStudents = {
       "hocvien@nta.com": { id: 1, ho_ten: "Nguyễn Văn Học Viên", email: "hocvien@nta.com", chuc_vu_id: 5 },
       "phuhuynh@nta.com": { id: 2, ho_ten: "Phụ huynh học viên", email: "phuhuynh@nta.com", chuc_vu_id: 5 },
@@ -59,24 +61,54 @@ function LoginForm({ onLogin }) {
     // Check demo accounts first (password: admin123)
     if (demoStudents[email] && password === "admin123") {
       const user = demoStudents[email];
-      localStorage.setItem('hv_token', 'demo_token_' + Date.now());
-      localStorage.setItem('hv_user', JSON.stringify(user));
-      localStorage.setItem('chuc_vu_id', '5');
-      localStorage.setItem('user_name', user.ho_ten);
-      onLogin(user, 'demo_token');
+      // Use loginDemo API to get valid JWT token
+      try {
+        const res = await loginDemo(email, user.id);
+        if (res.success && res.data && res.data.token) {
+          localStorage.setItem('hv_token', res.data.token);
+          localStorage.setItem('hv_user', JSON.stringify(res.data.user));
+          localStorage.setItem('chuc_vu_id', res.data.user.chuc_vu_id);
+          localStorage.setItem('user_name', res.data.user.ho_ten);
+          onLogin(res.data.user, res.data.token);
+        } else {
+          // Fallback if loginDemo fails
+          localStorage.setItem('hv_token', 'demo_token_' + Date.now());
+          localStorage.setItem('hv_user', JSON.stringify(user));
+          localStorage.setItem('chuc_vu_id', '5');
+          localStorage.setItem('user_name', user.ho_ten);
+          onLogin(user, 'demo_token');
+        }
+      } catch (err) {
+        // Fallback
+        localStorage.setItem('hv_token', 'demo_token_' + Date.now());
+        localStorage.setItem('hv_user', JSON.stringify(user));
+        localStorage.setItem('chuc_vu_id', '5');
+        localStorage.setItem('user_name', user.ho_ten);
+        onLogin(user, 'demo_token');
+      }
       setLoading(false);
       return;
     }
     
-    // Otherwise, try API login
+    // Otherwise, try API login (supports both email and phone number)
     try {
-      const res = await login(email, password);
-      if (res.token) {
-        localStorage.setItem('hv_token', res.token);
-        localStorage.setItem('hv_user', JSON.stringify(res.user));
-        onLogin(res.user, res.token);
+      // If input looks like phone number, use sdt field, otherwise use email
+      const isPhone = /^\d{8,11}$/.test(email);
+      const loginData = isPhone ? { sdt: email, mat_khau: password } : { email, mat_khau: password };
+      
+      const res = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginData)
+      });
+      const data = await res.json();
+      
+      if (data.success && data.data && data.data.token) {
+        localStorage.setItem('hv_token', data.data.token);
+        localStorage.setItem('hv_user', JSON.stringify(data.data.user));
+        onLogin(data.data.user, data.data.token);
       } else {
-        setErr(res.message || 'Đăng nhập thất bại');
+        setErr(data.message || 'Đăng nhập thất bại');
       }
     } catch {
       setErr('Lỗi kết nối máy chủ');
@@ -84,30 +116,30 @@ function LoginForm({ onLogin }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: '100vh', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <form onSubmit={handleSubmit} style={{
         background: '#fff', borderRadius: 12, padding: '40px 36px',
-        boxShadow: '0 4px 24px rgba(0,0,0,.1)', width: 360,
+        boxShadow: '0 4px 24px rgba(0,0,0,.15)', width: 360, border: '2px solid #e53935',
       }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ fontSize: 40 }}>🎓</div>
-          <h2 style={{ margin: '8px 0 4px', color: '#1e3a5f' }}>Portal Học Viên</h2>
-          <p style={{ color: '#888', fontSize: 13, margin: 0 }}>Đăng nhập để tiếp tục</p>
+          <div style={{ fontSize: 40, color: '#e53935' }}>🎓</div>
+          <h2 style={{ margin: '8px 0 4px', color: '#e53935', fontWeight: 'bold' }}>Portal Học Viên</h2>
+          <p style={{ color: '#333', fontSize: 13, margin: 0 }}>Đăng nhập để tiếp tục</p>
         </div>
-        {err && <div style={{ background: '#fdecea', color: '#e74c3c', padding: '8px 12px', borderRadius: 6, marginBottom: 14, fontSize: 13 }}>{err}</div>}
-        <label style={{ fontSize: 13, color: '#555', display: 'block', marginBottom: 4 }}>Email</label>
-        <input value={email} onChange={e => setEmail(e.target.value)} type="email" required
-          style={{ width: '100%', padding: '9px 12px', border: '1px solid #ddd', borderRadius: 6, marginBottom: 14, fontSize: 14, boxSizing: 'border-box' }} />
-        <label style={{ fontSize: 13, color: '#555', display: 'block', marginBottom: 4 }}>Mật khẩu</label>
+        {err && <div style={{ background: '#ffebee', color: '#c62828', padding: '8px 12px', borderRadius: 6, marginBottom: 14, fontSize: 13 }}>{err}</div>}
+        <label style={{ fontSize: 13, color: '#333', display: 'block', marginBottom: 4, fontWeight: 600 }}>Email hoặc SĐT</label>
+        <input value={email} onChange={e => setEmail(e.target.value)} type="text" required
+          style={{ width: '100%', padding: '9px 12px', border: '2px solid #333', borderRadius: 6, marginBottom: 14, fontSize: 14, boxSizing: 'border-box', color: '#000' }} />
+        <label style={{ fontSize: 13, color: '#333', display: 'block', marginBottom: 4, fontWeight: 600 }}>Mật khẩu</label>
         <input value={password} onChange={e => setPassword(e.target.value)} type="password" required
-          style={{ width: '100%', padding: '9px 12px', border: '1px solid #ddd', borderRadius: 6, marginBottom: 20, fontSize: 14, boxSizing: 'border-box' }} />
+          style={{ width: '100%', padding: '9px 12px', border: '2px solid #333', borderRadius: 6, marginBottom: 20, fontSize: 14, boxSizing: 'border-box', color: '#000' }} />
         <button type="submit" disabled={loading} style={{
-          width: '100%', padding: '10px', background: '#1e3a5f', color: '#fff',
+          width: '100%', padding: '10px', background: '#e53935', color: '#fff',
           border: 'none', borderRadius: 6, fontSize: 15, cursor: 'pointer', fontWeight: 600,
         }}>{loading ? 'Đang đăng nhập...' : 'Đăng nhập'}</button>
         
         {/* Demo accounts info */}
-        <div style={{ marginTop: 16, padding: 12, background: '#f5f6fa', borderRadius: 6, fontSize: 11, color: '#666', textAlign: 'center' }}>
+        <div style={{ marginTop: 16, padding: 12, background: '#fafafa', borderRadius: 6, fontSize: 11, color: '#333', textAlign: 'center', border: '1px solid #ddd' }}>
           <strong>📌 Demo:</strong> hocvien@nta.com hoặc phuhuynh@nta.com<br/>
           <strong>Mật khẩu:</strong> admin123
         </div>
@@ -124,12 +156,13 @@ const MENU = [
   { key: 'diem-so',   icon: '📊', label: 'Điểm số' },
   { key: 'diem-danh', icon: '📋', label: 'Điểm danh' },
   { key: 'hoc-phi',   icon: '💰', label: 'Học phí' },
+  { key: 'lich-test', icon: '📝', label: 'Lịch test' },
   { key: 'danh-gia',  icon: '⭐', label: 'Đánh giá GV' },
 ];
 
 function Sidebar({ user, tab, setTab, onLogout, open, setOpen }) {
   const sideStyle = {
-    width: 220, background: '#1e3a5f', color: '#fff',
+    width: 220, background: '#e53935', color: '#fff',
     display: 'flex', flexDirection: 'column', minHeight: '100vh',
     position: 'fixed', top: 0, left: open ? 0 : -220,
     transition: 'left .25s', zIndex: 200,
@@ -139,7 +172,7 @@ function Sidebar({ user, tab, setTab, onLogout, open, setOpen }) {
       {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.3)', zIndex: 199 }} />}
       <div style={sideStyle}>
         <div style={{ padding: '24px 16px 16px', borderBottom: '1px solid rgba(255,255,255,.1)' }}>
-          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#3a6ea5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 8 }}>
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 8, color: '#e53935', fontWeight: 'bold' }}>
             {(user?.ho_ten || 'U')[0].toUpperCase()}
           </div>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{user?.ho_ten || 'Học viên'}</div>
@@ -151,7 +184,7 @@ function Sidebar({ user, tab, setTab, onLogout, open, setOpen }) {
               style={{
                 padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
                 background: tab === m.key ? 'rgba(255,255,255,.15)' : 'transparent',
-                borderLeft: tab === m.key ? '3px solid #5dade2' : '3px solid transparent',
+                borderLeft: tab === m.key ? '3px solid #fff' : '3px solid transparent',
                 fontSize: 14, transition: 'background .15s',
               }}>
               <span>{m.icon}</span><span>{m.label}</span>
@@ -160,8 +193,8 @@ function Sidebar({ user, tab, setTab, onLogout, open, setOpen }) {
         </nav>
         <div style={{ padding: '16px' }}>
           <button onClick={onLogout} style={{
-            width: '100%', padding: '8px', background: 'rgba(255,255,255,.1)',
-            color: '#fff', border: '1px solid rgba(255,255,255,.2)', borderRadius: 6,
+            width: '100%', padding: '8px', background: '#333',
+            color: '#fff', border: 'none', borderRadius: 6,
             cursor: 'pointer', fontSize: 13,
           }}>🚪 Đăng xuất</button>
         </div>
@@ -187,7 +220,7 @@ function TabDashboard({ user, data, loading }) {
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div>;
   return (
     <div>
-      <h2 style={{ margin: '0 0 20px', color: '#1e3a5f' }}>Xin chào, {user?.ho_ten}! 👋</h2>
+      <h2 style={{ margin: '0 0 20px', color: '#e53935' }}>Xin chào, {user?.ho_ten}! 👋</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 16, marginBottom: 28 }}>
         {stats.map(s => (
           <div key={s.label} style={{ background: '#fff', borderRadius: 10, padding: '18px 20px', boxShadow: '0 1px 6px rgba(0,0,0,.07)', borderTop: `4px solid ${s.color}` }}>
@@ -198,7 +231,7 @@ function TabDashboard({ user, data, loading }) {
       </div>
 
       <div style={{ background: '#fff', borderRadius: 10, padding: 20, boxShadow: '0 1px 6px rgba(0,0,0,.07)', marginBottom: 20 }}>
-        <h3 style={{ margin: '0 0 12px', color: '#1e3a5f', fontSize: 15 }}>📊 Điểm gần nhất</h3>
+        <h3 style={{ margin: '0 0 12px', color: '#e53935', fontSize: 15 }}>📊 Điểm gần nhất</h3>
         {diemGanNhat.length === 0 ? <p style={{ color: '#aaa', fontSize: 13 }}>Chưa có điểm</p> : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead><tr style={{ background: '#f5f6fa' }}>
@@ -221,12 +254,12 @@ function TabDashboard({ user, data, loading }) {
       </div>
 
       <div style={{ background: '#fff', borderRadius: 10, padding: 20, boxShadow: '0 1px 6px rgba(0,0,0,.07)' }}>
-        <h3 style={{ margin: '0 0 12px', color: '#1e3a5f', fontSize: 15 }}>📅 Lịch học tuần này</h3>
+        <h3 style={{ margin: '0 0 12px', color: '#e53935', fontSize: 15 }}>📅 Lịch học tuần này</h3>
         {lichHoc.length === 0 ? <p style={{ color: '#aaa', fontSize: 13 }}>Không có lịch học</p> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {lichHoc.map((l, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: '#f5f6fa', borderRadius: 6, fontSize: 13 }}>
-                <span style={{ fontWeight: 600, color: '#1e3a5f', minWidth: 60 }}>{l.thu}</span>
+                <span style={{ fontWeight: 600, color: '#e53935', minWidth: 60 }}>{l.thu}</span>
                 <span>{l.gio_bat_dau} – {l.gio_ket_thuc}</span>
                 <span style={{ color: '#888' }}>{l.tenLop}</span>
               </div>
@@ -253,7 +286,7 @@ function TabLopHoc({ data, loading }) {
         return (
           <div key={i} style={{ background: '#fff', borderRadius: 10, padding: 20, boxShadow: '0 1px 6px rgba(0,0,0,.07)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-              <h3 style={{ margin: 0, color: '#1e3a5f', fontSize: 16 }}>{lh.khoaHoc?.ten_khoa || lh.ten_lop}</h3>
+              <h3 style={{ margin: 0, color: '#e53935', fontSize: 16 }}>{lh.khoaHoc?.ten_khoa || lh.ten_lop}</h3>
               <span style={{ background: badgeColor, color: '#fff', fontSize: 11, padding: '2px 8px', borderRadius: 10 }}>{trangThai}</span>
             </div>
             <div style={{ fontSize: 13, color: '#666', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -313,7 +346,7 @@ function TabBaiTap({ data, loading, addToast, reload }) {
         {FILTERS.map(([k,l]) => (
           <button key={k} onClick={() => setFilter(k)} style={{
             padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13,
-            background: filter === k ? '#1e3a5f' : '#e8ecf0', color: filter === k ? '#fff' : '#555',
+            background: filter === k ? '#e53935' : '#e8ecf0', color: filter === k ? '#fff' : '#555',
           }}>{l}</button>
         ))}
       </div>
@@ -346,7 +379,7 @@ function TabBaiTap({ data, loading, addToast, reload }) {
                 <td style={{ padding: '9px 12px' }}>
                   {!daNop && conHan && (
                     <button onClick={() => { setModal({ baiTapId: b.id }); setGhiChu(''); }} style={{
-                      padding: '4px 10px', background: '#1e3a5f', color: '#fff', border: 'none',
+                      padding: '4px 10px', background: '#e53935', color: '#fff', border: 'none',
                       borderRadius: 5, cursor: 'pointer', fontSize: 12,
                     }}>📤 Nộp bài</button>
                   )}
@@ -359,12 +392,12 @@ function TabBaiTap({ data, loading, addToast, reload }) {
       {modal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: '#fff', borderRadius: 10, padding: 28, width: 380, boxShadow: '0 4px 24px rgba(0,0,0,.15)' }}>
-            <h3 style={{ margin: '0 0 14px', color: '#1e3a5f' }}>📤 Nộp bài</h3>
+            <h3 style={{ margin: '0 0 14px', color: '#e53935' }}>📤 Nộp bài</h3>
             <textarea value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Ghi chú (tuỳ chọn)..."
               style={{ width: '100%', height: 100, padding: 10, border: '1px solid #ddd', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }} />
             <div style={{ display: 'flex', gap: 10, marginTop: 14, justifyContent: 'flex-end' }}>
               <button onClick={() => setModal(null)} style={{ padding: '7px 16px', border: '1px solid #ddd', borderRadius: 6, cursor: 'pointer', background: '#fff' }}>Hủy</button>
-              <button onClick={handleNopBai} disabled={submitting} style={{ padding: '7px 16px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+              <button onClick={handleNopBai} disabled={submitting} style={{ padding: '7px 16px', background: '#e53935', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
                 {submitting ? 'Đang nộp...' : 'Nộp bài'}
               </button>
             </div>
@@ -397,7 +430,7 @@ function TabDiemSo({ data, loading }) {
         const tb = items.filter(d => d.diem != null).reduce((s, d, _, a) => s + d.diem / a.length, 0);
         return (
           <div key={ten} style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 6px rgba(0,0,0,.07)', overflow: 'hidden' }}>
-            <div style={{ background: '#1e3a5f', color: '#fff', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ background: '#e53935', color: '#fff', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: 600 }}>{ten}</span>
               {items.some(d => d.diem != null) && (
                 <span style={{ fontSize: 13, background: 'rgba(255,255,255,.15)', padding: '2px 10px', borderRadius: 10 }}>
@@ -453,7 +486,7 @@ function TabDiemDanh({ data, loading }) {
         const tiLe = total ? Math.round((co_mat / total) * 100) : 0;
         return (
           <div key={tenLop} style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 6px rgba(0,0,0,.07)', overflow: 'hidden' }}>
-            <div style={{ background: '#1e3a5f', color: '#fff', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ background: '#e53935', color: '#fff', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: 600 }}>{tenLop}</span>
               <span style={{ fontSize: 13 }}>Có mặt: {tiLe}%</span>
             </div>
@@ -511,7 +544,7 @@ function TabHocPhi({ data, loading }) {
         return (
           <div key={i} style={{ background: '#fff', borderRadius: 10, padding: 20, boxShadow: '0 1px 6px rgba(0,0,0,.07)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-              <h3 style={{ margin: 0, color: '#1e3a5f', fontSize: 15 }}>{hp.lopHoc?.khoaHoc?.ten_khoa || hp.lopHoc?.ten_lop || 'Khóa học'}</h3>
+              <h3 style={{ margin: 0, color: '#e53935', fontSize: 15 }}>{hp.lopHoc?.khoaHoc?.ten_khoa || hp.lopHoc?.ten_lop || 'Khóa học'}</h3>
               {conNo <= 0
                 ? <span style={{ background: '#eafaf1', color: '#27ae60', padding: '3px 10px', borderRadius: 10, fontSize: 12 }}>✅ Đã thanh toán đủ</span>
                 : <span style={{ background: '#fef9e7', color: '#e67e22', padding: '3px 10px', borderRadius: 10, fontSize: 12 }}>⚠️ Còn nợ {fmt(conNo)}</span>
@@ -552,6 +585,203 @@ function TabHocPhi({ data, loading }) {
   );
 }
 
+// ── Tab: Lịch test ───────────────────────────────────────────────────────────
+function TabLichTest({ user }) {
+  const [lichTests, setLichTests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedLich, setSelectedLich] = useState(null);
+  const [dangLamBai, setDangLamBai] = useState(null);
+
+  useEffect(() => {
+    loadLichTests();
+  }, []);
+
+  const loadLichTests = async () => {
+    setLoading(true);
+    try {
+      const res = await testAPI.getMyLichTest();
+      setLichTests(res.data || res || []);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
+  const TRANG_THAI_CFG = {
+    cho_test: { label: "Chờ test", bg: "#fef3c7", color: "#92400e" },
+    dang_test: { label: "Đang test", bg: "#dbeafe", color: "#1d4ed8" },
+    hoan_thanh: { label: "Hoàn thành", bg: "#d1fae5", color: "#065f46" },
+    huy: { label: "Đã hủy", bg: "#fee2e2", color: "#991b1b" },
+  };
+
+  const cardStyle = {
+    background: "#fff", borderRadius: 10, border: "1px solid #e5e7eb",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.06)", padding: 20, marginBottom: 14,
+  };
+
+  // Chi tiết lịch test
+  if (selectedLich) {
+    const lich = selectedLich;
+    
+    // Đang lam bai - hien thi giao dien LamBai
+    if (dangLamBai) {
+      return (
+        <LamBai 
+          deThiId={lich.deThi?.id} 
+          lichHenTestId={lich.id}
+          onHoanThanh={() => {
+            setDangLamBai(null);
+            loadLichTests(); // Tai lai de xem ket qua
+          }}
+        />
+      );
+    }
+    
+    return (
+      <div style={{ minHeight: "100vh", background: "#f9fafb", padding: 24 }}>
+        <div style={{ maxWidth: 700, margin: "0 auto" }}>
+          <button
+            onClick={() => setSelectedLich(null)}
+            style={{ padding: "7px 16px", border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", marginBottom: 20 }}
+          >
+            ← Quay lại
+          </button>
+
+          <div style={cardStyle}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#e53935", marginBottom: 16 }}>{lich.deThi?.ten_de || "Bài kiểm tra đầu vào"}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+              {[
+                { label: "Giáo viên", value: lich.giaoVien?.ho_ten || "—" },
+                { label: "Địa điểm", value: lich.dia_diem || "—" },
+                { label: "Thời gian", value: lich.thoi_gian ? new Date(lich.thoi_gian).toLocaleString("vi-VN") : "—" },
+                { label: "Loại đề", value: lich.deThi?.loai?.toUpperCase() || "—" },
+              ].map((item, i) => (
+                <div key={i}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", marginBottom: 2 }}>{item.label}</div>
+                  <div style={{ fontSize: 14, color: "#111827" }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+            {lich.ghi_chu && (
+              <div style={{ padding: "10px 14px", background: "#f9fafb", borderRadius: 6, fontSize: 13, color: "#374151", marginBottom: 16 }}>
+                <span style={{ fontWeight: 600 }}>Ghi chú: </span>{lich.ghi_chu}
+              </div>
+            )}
+            {lich.deThi?.file_pdf && (
+              <a
+                href={`http://localhost:5000/uploads/${lich.deThi.file_pdf}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: "inline-block", padding: "8px 18px", background: "#e53935", color: "#fff", borderRadius: 6, fontSize: 13, textDecoration: "none", marginBottom: 16, marginRight: 8 }}
+              >
+                Xem đề thi (PDF)
+              </a>
+            )}
+            {lich.deThi?.file_audio && (
+              <a
+                href={`http://localhost:5000/uploads/${lich.deThi.file_audio}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: "inline-block", padding: "8px 18px", background: "#1d4ed8", color: "#fff", borderRadius: 6, fontSize: 13, textDecoration: "none", marginBottom: 16 }}
+              >
+                Nghe audio
+              </a>
+            )}
+            {/* Nut lam bai test online */}
+            {lich.deThi && lich.trang_thai !== 'hoan_thanh' && lich.trang_thai !== 'huy' && (
+              <div style={{ marginTop: 8, marginBottom: 16 }}>
+                <button
+                  onClick={() => setDangLamBai(true)}
+                  style={{ padding: "10px 24px", background: "#059669", color: "#fff", border: "none", borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+                >
+                  🎧 Bắt đầu làm bài test online
+                </button>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
+                  Có audio nghe và câu hỏi trắc nghiệm Nghe + Đọc
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Kết quả */}
+          <div style={cardStyle}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 12 }}>Kết quả bài test</div>
+            {lich.ketQuas && lich.ketQuas.length > 0 ? (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    {["Ngày làm", "Điểm tổng", "Nghe", "Đọc", "Nói", "Viết", "Thời gian (phút)"].map((h, i) => (
+                      <th key={i} style={{ padding: "8px 10px", background: "#f3f4f6", color: "#374151", fontWeight: 600, textAlign: "left", border: "1px solid #e5e7eb" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {lich.ketQuas.map((kq, i) => (
+                    <tr key={i}>
+                      <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb" }}>{kq.ngay_lam ? new Date(kq.ngay_lam).toLocaleDateString("vi-VN") : "—"}</td>
+                      <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb", fontWeight: 700, color: "#111827" }}>{kq.diem_tong ?? "—"}</td>
+                      <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb" }}>{kq.diem_nghe ?? "—"}</td>
+                      <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb" }}>{kq.diem_doc ?? "—"}</td>
+                      <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb" }}>{kq.diem_noi ?? "—"}</td>
+                      <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb" }}>{kq.diem_viet ?? "—"}</td>
+                      <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb" }}>{kq.thoi_gian_lam ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ padding: "16px", background: "#f9fafb", borderRadius: 8, fontSize: 13, color: "#6b7280", textAlign: "center" }}>
+                Vui lòng đến trung tâm để làm bài test
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Danh sách lịch test
+  if (loading) return <div style={{ padding: 40, textAlign: "center", color: "#888" }}>Đang tải...</div>;
+  if (lichTests.length === 0) return <p style={{ color: "#aaa" }}>Chưa có lịch kiểm tra nào</p>;
+
+  return (
+    <div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "#e53935", marginBottom: 16 }}>Lịch kiểm tra của bạn</div>
+      {lichTests.map(lich => {
+        const cfg = TRANG_THAI_CFG[lich.trang_thai] || { label: lich.trang_thai, bg: "#f3f4f6", color: "#374151" };
+        return (
+          <div key={lich.id} style={cardStyle}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>{lich.deThi?.ten_de || "Bài kiểm tra đầu vào"}</div>
+              <span style={{ padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, background: cfg.bg, color: cfg.color, whiteSpace: "nowrap" }}>
+                {cfg.label}
+              </span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase" }}>Giáo viên</div>
+                <div style={{ fontSize: 13, color: "#374151" }}>{lich.giaoVien?.ho_ten || "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase" }}>Địa điểm</div>
+                <div style={{ fontSize: 13, color: "#374151" }}>{lich.dia_diem || "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase" }}>Thời gian</div>
+                <div style={{ fontSize: 13, color: "#374151" }}>{lich.thoi_gian ? new Date(lich.thoi_gian).toLocaleString("vi-VN") : "—"}</div>
+              </div>
+            </div>
+            <button
+              onClick={() => setSelectedLich(lich)}
+              style={{ padding: "7px 18px", background: "#e53935", color: "#fff", border: "none", borderRadius: 6, fontSize: 13, cursor: "pointer" }}
+            >
+              Xem chi tiết / Bắt đầu làm bài
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Tab: Đánh giá GV ─────────────────────────────────────────────────────────
 function TabDanhGia({ lopHocData, addToast }) {
   const today = new Date().toISOString().split('T')[0];
@@ -585,7 +815,7 @@ function TabDanhGia({ lopHocData, addToast }) {
   return (
     <div style={{ maxWidth: 520 }}>
       <div style={{ background: '#fff', borderRadius: 10, padding: 28, boxShadow: '0 1px 6px rgba(0,0,0,.07)' }}>
-        <h3 style={{ margin: '0 0 20px', color: '#1e3a5f' }}>⭐ Đánh giá giảng viên</h3>
+        <h3 style={{ margin: '0 0 20px', color: '#e53935' }}>⭐ Đánh giá giảng viên</h3>
         <form onSubmit={handleSubmit}>
           <label style={{ fontSize: 13, color: '#555', display: 'block', marginBottom: 4 }}>Lớp học</label>
           <select value={form.lop_hoc_id} onChange={handleLopChange} required
@@ -619,7 +849,7 @@ function TabDanhGia({ lopHocData, addToast }) {
             style={{ width: '100%', padding: '9px 12px', border: '1px solid #ddd', borderRadius: 6, marginBottom: 18, fontSize: 14, resize: 'vertical', boxSizing: 'border-box' }} />
 
           <button type="submit" disabled={submitting} style={{
-            width: '100%', padding: '10px', background: '#1e3a5f', color: '#fff',
+            width: '100%', padding: '10px', background: '#e53935', color: '#fff',
             border: 'none', borderRadius: 6, fontSize: 15, cursor: 'pointer', fontWeight: 600,
           }}>{submitting ? 'Đang gửi...' : '⭐ Gửi đánh giá'}</button>
         </form>
@@ -699,6 +929,7 @@ export default function HocVienPortal() {
     if (tab === 'diem-so')   return <TabDiemSo data={data['diem-so']} loading={isLoading} />;
     if (tab === 'diem-danh') return <TabDiemDanh data={data['diem-danh']} loading={isLoading} />;
     if (tab === 'hoc-phi')   return <TabHocPhi data={data['hoc-phi']} loading={isLoading} />;
+    if (tab === 'lich-test') return <TabLichTest user={user} />;
     if (tab === 'danh-gia')  return <TabDanhGia lopHocData={data['danh-gia'] || data['lop-hoc']} addToast={addToast} />;
     return null;
   };
@@ -712,7 +943,7 @@ export default function HocVienPortal() {
       {/* Hamburger for mobile */}
       <button onClick={() => setSidebarOpen(true)} style={{
         display: 'none', position: 'fixed', top: 12, left: 12, zIndex: 300,
-        background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 6,
+        background: '#e53935', color: '#fff', border: 'none', borderRadius: 6,
         padding: '6px 10px', cursor: 'pointer', fontSize: 18,
         // show on mobile via media query workaround
       }} id="hv-hamburger">☰</button>
@@ -729,7 +960,7 @@ export default function HocVienPortal() {
       <div id="hv-main-content" style={{ flex: 1, marginLeft: 220, background: '#f5f6fa', minHeight: '100vh' }}>
         <div style={{ background: '#fff', padding: '14px 24px', boxShadow: '0 1px 4px rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 18 }}>{tabLabel?.icon}</span>
-          <span style={{ fontWeight: 600, color: '#1e3a5f', fontSize: 16 }}>{tabLabel?.label}</span>
+          <span style={{ fontWeight: 600, color: '#e53935', fontSize: 16 }}>{tabLabel?.label}</span>
         </div>
         <div style={{ padding: 24 }}>
           {renderContent()}

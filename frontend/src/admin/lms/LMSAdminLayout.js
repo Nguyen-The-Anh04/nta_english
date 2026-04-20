@@ -12,7 +12,7 @@ const MENU_CONFIGS = {
     { id: "diem-danh", label: "Điểm danh", icon: "📋" },
     { id: "bai-tap", label: "Bài tập", icon: "📚" },
     { id: "bang-diem", label: "Bảng điểm", icon: "📊" },
-    { id: "ke-toan", label: "Tổng quan kế toán", icon: "💰" },
+    { id: "quan-ly-de-thi", label: "Quản lý đề thi", icon: "📝" },
     { id: "cong-no", label: "Công nợ", icon: "📋" },
     { id: "phieu-thu-chi", label: "Phiếu thu/chi", icon: "📄" },
     { id: "students", label: "Danh sách học viên", icon: "👥" },

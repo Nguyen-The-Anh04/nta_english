@@ -76,13 +76,21 @@ const register = async (req, res) => {
 // POST /api/auth/login
 const login = async (req, res) => {
   try {
-    const { email, mat_khau } = req.body;
+    const { email, mat_khau, sdt } = req.body;
 
-    // Find user with role
-    const user = await NguoiDung.findOne({
-      where: { email },
-      include: [{ model: ChucVu, as: "chucVu" }],
-    });
+    // Find user by email or phone number
+    let user;
+    if (email) {
+      user = await NguoiDung.findOne({
+        where: { email },
+        include: [{ model: ChucVu, as: "chucVu" }],
+      });
+    } else if (sdt) {
+      user = await NguoiDung.findOne({
+        where: { sdt },
+        include: [{ model: ChucVu, as: "chucVu" }],
+      });
+    }
 
     if (!user) {
       return res.status(401).json({
@@ -141,6 +149,88 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server",
+    });
+  }
+};
+
+// POST /api/auth/login-demo - Demo login without password verification
+const loginDemo = async (req, res) => {
+  try {
+    const { email, userId } = req.body;
+
+    // Find user by email or id
+    let user;
+    if (email) {
+      user = await NguoiDung.findOne({
+        where: { email },
+        include: [{ model: ChucVu, as: "chucVu" }],
+      });
+    } else if (userId) {
+      user = await NguoiDung.findByPk(userId, {
+        include: [{ model: ChucVu, as: "chucVu" }],
+      });
+    }
+
+    // If user not found, create a demo user based on email
+    if (!user) {
+      // Map demo emails to user IDs
+      const demoUsers = {
+        "hocvien@nta.com": { id: 1, ho_ten: "Nguyễn Văn Học Viên", chuc_vu_id: 5 },
+        "phuhuynh@nta.com": { id: 2, ho_ten: "Phụ huynh học viên", chuc_vu_id: 5 },
+        "giaovien@nta.com": { id: 3, ho_ten: "Trần Thị Giáo Viên", chuc_vu_id: 3 },
+        "admin@nta.com": { id: 4, ho_ten: "Admin Quản Trị", chuc_vu_id: 1 },
+      };
+      
+      if (demoUsers[email]) {
+        const demoUser = demoUsers[email];
+        // Create demo user object
+        user = {
+          id: demoUser.id,
+          email: email,
+          ho_ten: demoUser.ho_ten,
+          chuc_vu_id: demoUser.chuc_vu_id,
+          trang_thai: "hoat_dong",
+          sdt: "0123456789",
+          chucVu: { ten_chuc_vu: demoUser.chuc_vu_id === 1 ? "Admin" : demoUser.chuc_vu_id === 3 ? "Giáo viên" : "Học viên" }
+        };
+      } else {
+        // Default demo user
+        user = {
+          id: userId || 1,
+          email: email || "demo@nta.com",
+          ho_ten: "Demo User",
+          chuc_vu_id: 5,
+          trang_thai: "hoat_dong",
+          sdt: "0123456789",
+          chucVu: { ten_chuc_vu: "Học viên" }
+        };
+      }
+    }
+
+    // Generate token (same as normal login)
+    const token = generateToken(user);
+
+    res.json({
+      success: true,
+      message: "Đăng nhập demo thành công",
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          ho_ten: user.ho_ten,
+          sdt: user.sdt,
+          chuc_vu_id: user.chuc_vu_id,
+          chuc_vu: user.chucVu ? user.chucVu.ten_chuc_vu : null,
+          profile: null,
+        },
+        token,
+      },
+    });
+  } catch (error) {
+    console.error("Login demo error:", error);
     res.status(500).json({
       success: false,
       message: "Lỗi server",
@@ -459,6 +549,7 @@ const getPermissions = async (req, res) => {
 module.exports = {
   register,
   login,
+  loginDemo,
   loginCTV,
   getProfile,
   updateProfile,

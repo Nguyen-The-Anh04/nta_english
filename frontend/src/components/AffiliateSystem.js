@@ -58,13 +58,13 @@ export default function AffiliateSystem({ initialPage = "register" }) {
   const [registerForm, setRegisterForm] = useState({ name: "", email: "", password: "", phone: "" });
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawSuccess, setWithdrawSuccess] = useState(null); // { phuong_thuc, so_tien, so_tk, ten_chu_tk }
+  const [showQRModal, setShowQRModal] = useState(null); // withdrawal object with qr_url
   const [bankInfo, setBankInfo] = useState({
     bankName: "MB BANK",
     accountName: "",
     accountNumber: "",
     method: "bank", // 'momo' hoặc 'bank'
-    accountName: "",
-    accountNumber: "",
   });
 
   // Real data from API
@@ -206,20 +206,26 @@ export default function AffiliateSystem({ initialPage = "register" }) {
 
   // Check for existing token on mount
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    // Ưu tiên ctv_token — tránh dùng nhầm token admin
+    const ctvToken = localStorage.getItem("ctv_token");
     const savedUser = localStorage.getItem("user");
     const savedCtv = localStorage.getItem("ctv");
 
-    if (token && savedUser && savedCtv) {
-      setUser(JSON.parse(savedUser));
-      setCtvInfo(JSON.parse(savedCtv));
-      setPage("dashboard");
+    if (ctvToken && savedUser && savedCtv) {
+      try {
+        const parsedCtv = JSON.parse(savedCtv);
+        if (parsedCtv && parsedCtv.id) {
+          setUser(JSON.parse(savedUser));
+          setCtvInfo(parsedCtv);
+          setPage("dashboard");
+        }
+      } catch {}
     }
   }, []);
 
   const loadDashboardData = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("ctv_token") || localStorage.getItem("token");
       if (!token) return;
 
       // Load stats
@@ -287,6 +293,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       if (result.success) {
         // Save token and user info
         localStorage.setItem("token", result.data.token);
+        localStorage.setItem("ctv_token", result.data.token);
         localStorage.setItem("user", JSON.stringify(result.data.user));
         localStorage.setItem("ctv", JSON.stringify(result.data.ctv));
 
@@ -316,8 +323,9 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       console.log("Login result:", result);
 
       if (result.success) {
-        // Save token and user info
+        // Save token and user info — dùng ctv_token riêng để không bị ghi đè bởi admin token
         localStorage.setItem("token", result.data.token);
+        localStorage.setItem("ctv_token", result.data.token);
         localStorage.setItem("user", JSON.stringify(result.data.user));
         localStorage.setItem("ctv", JSON.stringify(result.data.ctv));
 
@@ -350,7 +358,7 @@ export default function AffiliateSystem({ initialPage = "register" }) {
     }
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("ctv_token") || localStorage.getItem("token");
       const result = await createAffiliateWithdraw({
         so_tien: amount,
         so_tk_ngan_hang: bankInfo.accountNumber,
@@ -361,10 +369,16 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       });
 
       if (result.success) {
-        showToast("✅ Yêu cầu rút tiền đã được gửi!\n💰 Admin sẽ duyệt và gửi QR Code MoMo hoặc chuyển ngân hàng");
+        setWithdrawSuccess({
+          phuong_thuc: bankInfo.method,
+          so_tien: amount,
+          so_tk: bankInfo.accountNumber,
+          ten_chu_tk: bankInfo.accountName,
+          ten_ngan_hang: bankInfo.bankName,
+        });
         setShowWithdraw(false);
         setWithdrawAmount("");
-        loadDashboardData(); // Reload data
+        loadDashboardData();
       } else {
         showToast(result.message || "Rút tiền thất bại", "error");
       }
@@ -1074,113 +1088,130 @@ export default function AffiliateSystem({ initialPage = "register" }) {
 
       {/* WITHDRAW MODAL */}
       {showWithdraw && (
-        <Modal onClose={() => setShowWithdraw(false)} title="💸 Rút tiền">
-          <div style={{ marginBottom: 15 }}>
-            <label style={{ display: "block", fontSize: 13, color: "#666", marginBottom: 6 }}>Ngân hàng</label>
-            <input
-              value={bankInfo.bankName}
-              onChange={(e) => setBankInfo({ ...bankInfo, bankName: e.target.value })}
-              style={{ width: "100%", padding: "12px", border: "2px solid #e0e0e0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }}
-            />
+        <Modal onClose={() => setShowWithdraw(false)} title="💸 Yêu cầu rút tiền">
+          {/* Phương thức */}
+          <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+            {[{ key: "bank", icon: "🏦", label: "Ngân hàng", color: "#3b82f6" }, { key: "momo", icon: "📱", label: "MoMo", color: "#a855f7" }].map(m => (
+              <div key={m.key} onClick={() => setBankInfo(p => ({ ...p, method: m.key }))}
+                style={{ flex: 1, padding: "14px 10px", borderRadius: 12, border: `2px solid ${bankInfo.method === m.key ? m.color : "#e5e7eb"}`, background: bankInfo.method === m.key ? m.color + "10" : "#fff", cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
+                <div style={{ fontSize: 22, marginBottom: 4 }}>{m.icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: bankInfo.method === m.key ? m.color : "#374151" }}>{m.label}</div>
+              </div>
+            ))}
           </div>
-          <div style={{ marginBottom: 15 }}>
-            <label style={{ display: "block", fontSize: 13, color: "#666", marginBottom: 6 }}>Tên tài khoản</label>
-            <input
-              value={bankInfo.accountName}
-              onChange={(e) => setBankInfo({ ...bankInfo, accountName: e.target.value })}
-              placeholder="NGUYEN VAN A"
-              style={{ width: "100%", padding: "12px", border: "2px solid #e0e0e0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }}
-            />
+
+          {/* Fields theo phương thức */}
+          {bankInfo.method === "bank" ? (
+            <>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Ngân hàng</label>
+                <input value={bankInfo.bankName} onChange={e => setBankInfo(p => ({ ...p, bankName: e.target.value }))}
+                  placeholder="VD: MB BANK, Vietcombank..."
+                  style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 14, boxSizing: "border-box", outline: "none" }} />
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Số tài khoản</label>
+                <input value={bankInfo.accountNumber} onChange={e => setBankInfo(p => ({ ...p, accountNumber: e.target.value }))}
+                  placeholder="1234567890"
+                  style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 14, boxSizing: "border-box", outline: "none" }} />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Tên chủ tài khoản</label>
+                <input value={bankInfo.accountName} onChange={e => setBankInfo(p => ({ ...p, accountName: e.target.value }))}
+                  placeholder="NGUYEN VAN A"
+                  style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 14, boxSizing: "border-box", outline: "none" }} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Số điện thoại MoMo</label>
+                <input value={bankInfo.accountNumber} onChange={e => setBankInfo(p => ({ ...p, accountNumber: e.target.value, bankName: "MoMo" }))}
+                  placeholder="0901234567"
+                  style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #a855f7", borderRadius: 8, fontSize: 14, boxSizing: "border-box", outline: "none" }} />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Tên tài khoản MoMo</label>
+                <input value={bankInfo.accountName} onChange={e => setBankInfo(p => ({ ...p, accountName: e.target.value }))}
+                  placeholder="Nguyễn Văn A"
+                  style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #a855f7", borderRadius: 8, fontSize: 14, boxSizing: "border-box", outline: "none" }} />
+              </div>
+              <div style={{ background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "#7c3aed" }}>
+                Sau khi gửi yêu cầu, hệ thống sẽ hiển thị QR MoMo để admin quét chuyển tiền cho bạn.
+              </div>
+            </>
+          )}
+
+          {/* Số tiền */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Số tiền rút</label>
+            <input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)}
+              placeholder={`Tối thiểu ${MIN_WITHDRAW.toLocaleString("vi-VN")} đ`}
+              style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 14, boxSizing: "border-box", outline: "none" }} />
           </div>
-          <div style={{ marginBottom: 15 }}>
-            <label style={{ display: "block", fontSize: 13, color: "#666", marginBottom: 6 }}>Số tài khoản</label>
-            <input
-              value={bankInfo.accountNumber}
-              onChange={(e) => setBankInfo({ ...bankInfo, accountNumber: e.target.value })}
-              placeholder="1234567890"
-              style={{ width: "100%", padding: "12px", border: "2px solid #e0e0e0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }}
-            />
-          </div>
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", fontSize: 13, color: "#666", marginBottom: 6 }}>Số tiền rút</label>
-            <input
-              type="number"
-              value={withdrawAmount}
-              onChange={(e) => setWithdrawAmount(e.target.value)}
-              placeholder="Nhập số tiền"
-              style={{ width: "100%", padding: "12px", border: "2px solid #e0e0e0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }}
-            />
-          </div>
-          
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", fontSize: 13, color: "#666", marginBottom: 8 }}>Phương thức nhận tiền</label>
-            <div style={{ display: "flex", gap: 12 }}>
-              <label style={{ 
-                flex: 1, 
-                padding: "12px 15px", 
-                border: bankInfo.method === "momo" ? "2px solid #8e24aa" : "2px solid #e0e0e0",
-                borderRadius: 10, 
-                cursor: "pointer",
-                textAlign: "center",
-                background: bankInfo.method === "momo" ? "#f3e5f5" : "white"
-              }}>
-                <input 
-                  type="radio" 
-                  name="method" 
-                  value="momo" 
-                  checked={bankInfo.method === "momo"}
-                  onChange={(e) => setBankInfo({ ...bankInfo, method: e.target.value })}
-                  style={{ marginRight: 8 }}
-                />
-                <span style={{ color: bankInfo.method === "momo" ? "#8e24aa" : "#333", fontWeight: 600 }}>💰 MoMo</span>
-              </label>
-              <label style={{ 
-                flex: 1, 
-                padding: "12px 15px", 
-                border: bankInfo.method === "bank" ? "2px solid #1e88e5" : "2px solid #e0e0e0",
-                borderRadius: 10, 
-                cursor: "pointer",
-                textAlign: "center",
-                background: bankInfo.method === "bank" ? "#e3f2fd" : "white"
-              }}>
-                <input 
-                  type="radio" 
-                  name="method" 
-                  value="bank" 
-                  checked={bankInfo.method === "bank"}
-                  onChange={(e) => setBankInfo({ ...bankInfo, method: e.target.value })}
-                  style={{ marginRight: 8 }}
-                />
-                <span style={{ color: bankInfo.method === "bank" ? "#1e88e5" : "#333", fontWeight: 600 }}>🏦 Ngân hàng</span>
-              </label>
+
+          {/* Info box */}
+          <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 14px", marginBottom: 18, fontSize: 13 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ color: "#6b7280" }}>Số dư khả dụng</span>
+              <span style={{ fontWeight: 700, color: "#10b981" }}>{formatCurrency(stats.co_the_rut)}</span>
             </div>
-            <p style={{ fontSize: 11, color: "#888", marginTop: 6 }}>
-              {bankInfo.method === "momo" ? "→ Nhận tiền qua QR Code MoMo (nhanh)" : "→ Nhận tiền qua chuyển khoản ngân hàng"}
-            </p>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ color: "#6b7280" }}>Phí rút tiền</span>
+              <span style={{ fontWeight: 600, color: "#e11d48" }}>-{formatCurrency(WITHDRAW_FEE)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 6, borderTop: "1px solid #e5e7eb" }}>
+              <span style={{ color: "#374151", fontWeight: 600 }}>Thực nhận</span>
+              <span style={{ fontWeight: 800, color: "#111827" }}>{formatCurrency(Math.max(0, (parseInt(withdrawAmount) || 0) - WITHDRAW_FEE))}</span>
+            </div>
           </div>
-          <div style={{ background: "#f5f5f5", borderRadius: 10, padding: 15, marginBottom: 20, fontSize: 13 }}>
-            <p style={{ marginBottom: 5, color: "#666" }}>💰 Số dư khả dụng: <strong>{formatCurrency(stats.co_the_rut)}</strong></p>
-            <p style={{ marginBottom: 5, color: "#666" }}>📝 Tối thiểu: <strong>{formatCurrency(MIN_WITHDRAW)}</strong></p>
-            <p style={{ marginBottom: 5, color: "#666" }}>💸 Phí rút tiền: <strong>{formatCurrency(WITHDRAW_FEE)}</strong></p>
-            <p style={{ color: "#e53935" }}>✅ Tối đa có thể rút: <strong>{formatCurrency(stats.co_the_rut - WITHDRAW_FEE)}</strong></p>
-          </div>
-          <button
-            onClick={handleWithdraw}
-            style={{
-              width: "100%",
-              padding: "14px",
-              background: "linear-gradient(135deg, #e53935 0%, #c62828 100%)",
-              color: "white",
-              border: "none",
-              borderRadius: 10,
-              fontSize: 15,
-              fontWeight: "700",
-              cursor: "pointer",
-            }}
-          >
-            ✅ Cập nhật ngay
+
+          <button onClick={handleWithdraw}
+            style={{ width: "100%", padding: "13px", background: bankInfo.method === "momo" ? "linear-gradient(135deg,#a855f7,#7c3aed)" : "linear-gradient(135deg,#3b82f6,#1d4ed8)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+            {bankInfo.method === "momo" ? "📱 Gửi yêu cầu rút qua MoMo" : "🏦 Gửi yêu cầu rút tiền"}
           </button>
         </Modal>
+      )}
+
+      {/* WITHDRAW SUCCESS — CHỜ ADMIN DUYỆT */}
+      {withdrawSuccess && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 28, maxWidth: 380, width: "100%", textAlign: "center", boxShadow: "0 8px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 32 }}>⏳</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#111827", marginBottom: 8 }}>Yêu cầu đã được gửi!</div>
+            <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 20, lineHeight: 1.6 }}>
+              Yêu cầu rút tiền của bạn đang chờ admin xét duyệt.<br />
+              {withdrawSuccess.phuong_thuc === "momo"
+                ? "Sau khi duyệt, mã QR MoMo sẽ xuất hiện trong lịch sử rút tiền để bạn quét nhận tiền."
+                : "Sau khi duyệt, admin sẽ chuyển khoản ngân hàng trong vòng 24h làm việc."}
+            </div>
+            <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 16px", marginBottom: 20, textAlign: "left" }}>
+              {[
+                ["Phương thức", withdrawSuccess.phuong_thuc === "momo" ? "📱 MoMo" : "🏦 Ngân hàng"],
+                [withdrawSuccess.phuong_thuc === "momo" ? "Số MoMo" : "Số TK", withdrawSuccess.so_tk],
+                ["Tên TK", withdrawSuccess.ten_chu_tk],
+                ["Số tiền", formatCurrency(withdrawSuccess.so_tien)],
+                ["Thực nhận", formatCurrency(withdrawSuccess.so_tien - WITHDRAW_FEE)],
+              ].map(([k, v]) => v && (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                  <span style={{ color: "#9ca3af" }}>{k}</span>
+                  <span style={{ fontWeight: 700, color: "#111827" }}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", marginBottom: 20, fontSize: 12, color: "#92400e" }}>
+              Kiểm tra mục "Lịch sử rút tiền" để xem trạng thái và nhận QR khi được duyệt.
+            </div>
+            <button onClick={() => { setWithdrawSuccess(null); loadDashboardData(); setShowWithdrawHistory(true); }}
+              style={{ width: "100%", padding: "12px", background: "#e11d48", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
+              Xem lịch sử rút tiền
+            </button>
+            <button onClick={() => setWithdrawSuccess(null)}
+              style={{ width: "100%", padding: "10px", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              Đóng
+            </button>
+          </div>
+        </div>
       )}
 
       {/* REVENUE MODAL */}
@@ -1235,40 +1266,89 @@ export default function AffiliateSystem({ initialPage = "register" }) {
       {/* WITHDRAW HISTORY MODAL */}
       {showWithdrawHistory && (
         <Modal onClose={() => setShowWithdrawHistory(false)} title="📋 Lịch sử rút tiền">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <button onClick={loadDashboardData} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 12px', fontSize: 12, cursor: 'pointer', color: '#6b7280' }}>
+              🔄 Làm mới
+            </button>
+          </div>
           <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ background: "#f5f5f5" }}>
-                <th style={{ padding: "10px 8px", textAlign: "left", borderBottom: "1px solid #ddd" }}>ID</th>
-                <th style={{ padding: "10px 8px", textAlign: "right", borderBottom: "1px solid #ddd" }}>Số tiền</th>
-                <th style={{ padding: "10px 8px", textAlign: "right", borderBottom: "1px solid #ddd" }}>Phí</th>
-                <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: "1px solid #ddd" }}>Trạng thái</th>
-                <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: "1px solid #ddd" }}>Ngày</th>
+              <tr style={{ background: "#fef2f2" }}>
+                {["ID", "Phương thức", "Số tiền", "Thực nhận", "Trạng thái", "Ngày", ""].map((h, i) => (
+                  <th key={i} style={{ padding: "10px 8px", textAlign: i === 2 || i === 3 ? "right" : i >= 4 ? "center" : "left", borderBottom: "1px solid #fecaca", fontSize: 12, fontWeight: 700, color: "#ef4444" }}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {withdrawals.map((withdraw) => (
-                <tr key={withdraw.id}>
-                  <td style={{ padding: "10px 8px", borderBottom: "#eee" }}>#{withdraw.id}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "right", fontWeight: "600" }}>{formatCurrency(withdraw.so_tien)}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "right", color: "#666" }}>{formatCurrency(WITHDRAW_FEE)}</td>
-                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "center" }}>
-                    <span style={{ 
-                      background: withdraw.trang_thai === "da_duyet" ? "#e8f5e9" : withdraw.trang_thai === "cho_duyet" ? "#fff3e0" : "#ffebee",
-                      color: withdraw.trang_thai === "da_duyet" ? "#4caf50" : withdraw.trang_thai === "cho_duyet" ? "#e65100" : "#f44336",
-                      padding: "4px 10px", 
-                      borderRadius: 20, 
-                      fontSize: 11, 
-                      fontWeight: "600" 
-                    }}>
-                      {withdraw.trang_thai === "da_duyet" ? "✅ Đã duyệt" : withdraw.trang_thai === "cho_duyet" ? "⏳ Chờ duyệt" : "❌ Từ chối"}
-                    </span>
-                  </td>
-                  <td style={{ padding: "10px 8px", borderBottom: "#eee", textAlign: "center", color: "#666" }}>{new Date(withdraw.ngay_yeu_cau).toLocaleDateString("vi-VN")}</td>
-                </tr>
-              ))}
+              {withdrawals.length === 0 && <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#9ca3af" }}>Chưa có yêu cầu rút tiền</td></tr>}
+              {withdrawals.map((w) => {
+                const qr_url = w.ghi_chu?.startsWith("QR:") ? w.ghi_chu.substring(3) : null;
+                return (
+                  <tr key={w.id} style={{ borderBottom: "1px solid #f9fafb" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
+                    onMouseLeave={e => e.currentTarget.style.background = ""}>
+                    <td style={{ padding: "10px 8px", fontWeight: 600, color: "#374151" }}>#{w.id}</td>
+                    <td style={{ padding: "10px 8px" }}>
+                      {w.phuong_thuc === "momo" ? (
+                        <span style={{ background: "#faf5ff", color: "#7c3aed", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>📱 MoMo</span>
+                      ) : (
+                        <span style={{ background: "#eff6ff", color: "#1d4ed8", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>🏦 Bank</span>
+                      )}
+                    </td>
+                    <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 700, color: "#111827" }}>{formatCurrency(w.so_tien)}</td>
+                    <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: "#10b981", background: "#f0fdf4" }}>{formatCurrency(w.so_tien - WITHDRAW_FEE)}</td>
+                    <td style={{ padding: "10px 8px", textAlign: "center" }}>
+                      <span style={{
+                        background: w.trang_thai === "da_duyet" ? "#d1fae5" : w.trang_thai === "cho_duyet" ? "#fef3c7" : "#fee2e2",
+                        color: w.trang_thai === "da_duyet" ? "#10b981" : w.trang_thai === "cho_duyet" ? "#f59e0b" : "#ef4444",
+                        padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700
+                      }}>
+                        {w.trang_thai === "da_duyet" ? "✅ Đã duyệt" : w.trang_thai === "cho_duyet" ? "⏳ Chờ" : "❌ Từ chối"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "10px 8px", textAlign: "center", color: "#6b7280", fontSize: 12 }}>{new Date(w.ngay_yeu_cau).toLocaleDateString("vi-VN")}</td>
+                    <td style={{ padding: "10px 8px", textAlign: "center" }}>
+                      {w.trang_thai === "da_duyet" && w.phuong_thuc === "momo" && qr_url && (
+                        <button onClick={() => setShowQRModal(w)}
+                          style={{ padding: "5px 12px", background: "#a855f7", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                          📱 QR
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </Modal>
+      )}
+
+      {/* QR MODAL — hiển thị QR MoMo sau khi admin duyệt */}
+      {showQRModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 3500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowQRModal(null)}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 28, maxWidth: 360, width: "100%", textAlign: "center", boxShadow: "0 8px 40px rgba(0,0,0,0.25)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>📱</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#7c3aed", marginBottom: 6 }}>Quét mã nhận tiền</div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>Mở app MoMo và quét mã QR bên dưới</div>
+            <div style={{ background: "#faf5ff", border: "2px solid #e9d5ff", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+              <img src={showQRModal.ghi_chu?.startsWith("QR:") ? showQRModal.ghi_chu.substring(3) : ""}
+                alt="QR MoMo" style={{ width: 220, height: 220, borderRadius: 8 }}
+                onError={e => { e.target.style.display = "none"; e.target.parentNode.innerHTML = '<div style="color:#9ca3af;padding:40px">QR không khả dụng</div>'; }} />
+            </div>
+            <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 16px", marginBottom: 16, textAlign: "left" }}>
+              {[["Số MoMo", showQRModal.so_tk_ngan_hang], ["Tên TK", showQRModal.ten_chu_tk], ["Thực nhận", formatCurrency(showQRModal.so_tien - WITHDRAW_FEE)]].map(([k, v]) => v && (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                  <span style={{ color: "#9ca3af" }}>{k}</span>
+                  <span style={{ fontWeight: 700, color: "#111827" }}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowQRModal(null)}
+              style={{ width: "100%", padding: "12px", background: "#111827", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+              Đóng
+            </button>
+          </div>
+        </div>
       )}
 
       {/* USERS MODAL (Downline) */}

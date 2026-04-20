@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const API = 'http://localhost:5000/api/books';
 const API_AFF = 'http://localhost:5000/api/affiliate';
-const fmt = n => (n||0).toLocaleString('vi-VN')+'đ';
+const fmt = n => Number(n||0).toLocaleString('vi-VN') + ' đ';
 const fmtDate = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const authHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' });
 
@@ -276,9 +276,9 @@ export default function OrderManagement() {
         {loading ? <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div> : (
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
-              <tr style={{ background: '#f9fafb' }}>
+              <tr style={{ background: '#ef4444' }}>
                 {['Mã đơn','Khách hàng','CTV giới thiệu','Tổng tiền','Giảm giá','Thanh toán','Trạng thái','Ngày','Thao tác'].map(h => (
-                  <th key={h} style={{ padding: '11px 12px', textAlign: 'left', fontSize: 12, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding: '11px 12px', textAlign: 'center', fontSize: 12, color: '#ffffff', fontWeight: 600, whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{h}</th>
                 ))}
               </tr>
             </thead>

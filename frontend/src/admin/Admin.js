@@ -24,6 +24,7 @@ import StudentFeedback from "./lms/StudentFeedback";
 import PaymentManagement from "./lms/PaymentManagement";
 import ClassManagement from "./lms/ClassManagement";
 import StudentManagement from "./lms/StudentManagement";
+import QuanLyDeThi from "./lms/QuanLyDeThi";
 import DiemDanh from "./lms/DiemDanh";
 import BaiTap from "./lms/BaiTap";
 import BangDiem from "./lms/BangDiem";

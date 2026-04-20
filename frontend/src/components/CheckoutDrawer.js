@@ -109,6 +109,8 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
         khuyen_mai_id: appliedKhuyenMai?.id || null,
         ma_khoa: appliedKhuyenMai?.ma_khoa || null,
         giam_gia: giamGia,
+        ho_ten_khach: formData.name,
+        sdt_khach: formData.phone,
       };
 
       // Xử lý thanh toán online (MoMo hoặc VNPAY)
@@ -174,7 +176,12 @@ function CheckoutDrawer({ isOpen, onClose, cart, onBack, onOrderSuccess }) {
         const result = await createOrder(orderData);
         
         if (result.success) {
-          alert(`Đặt hàng thành công!\nMã đơn hàng: ${result.data.ma_don_hang}\nTổng tiền: ${formatPrice(result.data.tong_tien)}`);
+          const d = result.data;
+          let msg = `Đặt hàng thành công!\nMã đơn hàng: ${d.ma_don_hang}\nTổng tiền: ${formatPrice(d.tong_tien)}`;
+          if (d.account_created && d.new_account) {
+            msg += `\n\n✅ Tài khoản đã được tạo tự động:\nTên đăng nhập: ${d.new_account.username}\nMật khẩu: ${d.new_account.password}\n\nVui lòng đăng nhập để theo dõi đơn hàng.`;
+          }
+          alert(msg);
           onClose();
           if (onOrderSuccess) {
             onOrderSuccess();

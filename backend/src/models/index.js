@@ -29,6 +29,10 @@ const DKLopHoc = CourseModels.DKLopHoc;
 const { TuVanLead } = require("./TuVanLeadModels");
 const { DanhGia } = require("./ReviewModels");
 const KhuyenMai = require("./KhuyenMaiModels");
+const { KhachHang } = require("./KhachHangModels");
+
+// Test Models
+const { DeThi, LichHenTest, KetQuaLichTest } = require("./TestModels");
 
 // =====================================================
 // ASSOCIATIONS — khai báo một lần duy nhất
@@ -103,6 +107,12 @@ if (LichSuLop) {
   LichSuLop.belongsTo(NguoiDung, { foreignKey: "nguoi_thuc_hien_id", as: "nguoiThucHien" });
 }
 
+// ── KhachHang ↔ NguoiDung (nhân viên phụ trách) ──
+if (KhachHang) {
+  KhachHang.belongsTo(NguoiDung, { foreignKey: "nhan_vien_id", as: "nhanVien" });
+  NguoiDung.hasMany(KhachHang, { foreignKey: "nhan_vien_id", as: "khachHangs" });
+}
+
 // =====================================================
 // EXPORTS
 // =====================================================
@@ -120,5 +130,7 @@ module.exports = {
   LoaiSach, Sach, DonHang, ChiTietDonHang,
   CTV, HoaHong, RutTienCTV, CommissionProducts,
   // Other
-  TuVanLead, DanhGia, KhuyenMai,
+  TuVanLead, DanhGia, KhuyenMai, KhachHang,
+  // Test
+  DeThi, LichHenTest, KetQuaLichTest,
 };

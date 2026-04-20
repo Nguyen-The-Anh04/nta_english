@@ -248,7 +248,24 @@ const isCTVOrAdmin = async (req, res, next) => {
   } catch (e) {}
   return res.status(403).json({
     success: false,
-    message: "Chỉ CTV hoặc admin mới có quyền truy cập",
+    message: "Chỉ CTV hoặc admin mới có quyền truy cấp",
+  });
+};
+
+// Middleware cho Admin & Staff (Admin, Sale, Teacher, Accountant)
+const isAdminOrStaff = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Vui lòng đăng nhập",
+    });
+  }
+  if (req.user.chuc_vu_id >= 1 && req.user.chuc_vu_id <= 4) {
+    return next();
+  }
+  return res.status(403).json({
+    success: false,
+    message: "Không có quyền truy cập",
   });
 };
 
@@ -257,6 +274,7 @@ module.exports = {
   authOptional,
   checkRole,
   isAdmin,
+  isAdminOrStaff,
   isTeacher,
   isStudent,
   isCTV,

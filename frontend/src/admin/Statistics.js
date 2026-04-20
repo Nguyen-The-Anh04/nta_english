@@ -103,9 +103,9 @@ export default function Statistics() {
           <h3 style={{ margin: '0 0 16px', fontSize: 16 }}>Top 10 sản phẩm bán chạy</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#f9fafb' }}>
+              <tr style={{ background: '#ef4444' }}>
                 {['STT','Tên sản phẩm','Đã bán','Doanh thu','Tỉ lệ'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 13, color: '#6b7280', fontWeight: 600 }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: '#ffffff', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -140,9 +140,9 @@ export default function Statistics() {
           <h3 style={{ margin: '0 0 16px', fontSize: 16 }}>Top 10 CTV</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#f9fafb' }}>
+              <tr style={{ background: '#ef4444' }}>
                 {['STT','Tên','Email','Tổng hoa hồng','Downline'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 13, color: '#6b7280', fontWeight: 600 }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: '#ffffff', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{h}</th>
                 ))}
               </tr>
             </thead>

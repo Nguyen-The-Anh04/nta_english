@@ -24,6 +24,7 @@ const createLead = async (req, res) => {
     };
 
     // Create lead
+    const now = new Date().toLocaleString('vi-VN');
     const lead = await TuVanLead.create({
       ho_ten: name,
       sdt: phone,
@@ -32,6 +33,10 @@ const createLead = async (req, res) => {
       ghi_chu: message || null,
       nguon_lead: "landing_page",
       trang_thai: "moi",
+      trung_tam: "NTA_English",
+      tu_van_vien: "NGUYỄN THẾ ANH",
+      khoi_tao: `NGUYỄN THẾ ANH ${now}`,
+      cap_nhat_gan_nhat: `NGUYỄN THẾ ANH ${now}`,
     });
 
     res.status(201).json({
@@ -161,6 +166,11 @@ const updateLead = async (req, res) => {
         message: "Không tìm thấy lead",
       });
     }
+
+    // Auto update cap_nhat_gan_nhat with current user and time
+    const now = new Date().toLocaleString('vi-VN');
+    const currentUser = updateData.tu_van_vien || "NGUYỄN THẾ ANH";
+    updateData.cap_nhat_gan_nhat = `${currentUser} ${now}`;
 
     await lead.update(updateData);
 

@@ -40,7 +40,12 @@ const TuVanLead = sequelize.define(
         "da_tu_van",
         "da_test",
         "da_dk_hoc",
-        "khong_phu_hop"
+        "khong_phu_hop",
+        "khach_chi_hoi",
+        "den_trung_tam",
+        "uu_tien",
+        "lien_hac_sau",
+        "da_hen_test"
       ),
       defaultValue: "moi",
     },
@@ -51,6 +56,24 @@ const TuVanLead = sequelize.define(
     nguon_lead: {
       type: DataTypes.ENUM("landing_page", "fb_ads", "zalo", "walkin"),
       defaultValue: "landing_page",
+    },
+    trung_tam: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: "NTA_English",
+    },
+    tu_van_vien: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      defaultValue: "NGUYỄN THẾ ANH",
+    },
+    khoi_tao: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    cap_nhat_gan_nhat: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
     },
   },
   {

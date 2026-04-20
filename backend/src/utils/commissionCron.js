@@ -2,33 +2,33 @@ const cron = require("node-cron");
 const { HoaHong, DonHang } = require("../models");
 const { Op } = require("sequelize");
 
-// Run every day at 00:00
+// Chạy mỗi ngày lúc 00:00
+// Tự động xác nhận hoa hồng sau 3 ngày nếu đơn hàng đã hoàn tất (da_giao)
 const checkCommissionApproval = cron.schedule("0 0 * * *", async () => {
   try {
     console.log("Running commission approval check...");
 
-    // Find commissions that are pending for more than 7 days
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
+    // Tìm hoa hồng pending > 3 ngày từ đơn đã giao
     const pendingCommissions = await HoaHong.findAll({
       where: {
         trang_thai: "cho_xac_nhan",
-        created_at: {
-          [Op.lte]: sevenDaysAgo,
-        },
+        created_at: { [Op.lte]: threeDaysAgo },
       },
+      include: [{
+        model: DonHang,
+        as: "donHang",
+        where: { trang_thai: { [Op.in]: ["da_giao", "da_tt"] } },
+        required: true,
+      }],
     });
 
     console.log(`Found ${pendingCommissions.length} commissions to approve`);
 
-    // Update status to approved
     for (const commission of pendingCommissions) {
-      await commission.update({
-        trang_thai: "da_tra",
-        ngay_tra: new Date(),
-      });
-
+      await commission.update({ trang_thai: "da_tra" });
       console.log(`Approved commission ID: ${commission.id}`);
     }
 
@@ -38,7 +38,4 @@ const checkCommissionApproval = cron.schedule("0 0 * * *", async () => {
   }
 });
 
-// Start the cron job
-checkCommissionApproval.start();
-
-module.exports = checkCommissionApproval;
+module.exports = { checkCommissionApproval };

@@ -234,6 +234,19 @@ export const login = async (email, password) => {
   return result;
 };
 
+// Demo login - for testing without password
+export const loginDemo = async (email, userId) => {
+  const response = await fetch(`${API_BASE_URL}/auth/login-demo`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, userId }),
+  });
+  const result = await response.json();
+  return result;
+};
+
 export const register = async (userData) => {
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: "POST",
@@ -283,7 +296,7 @@ export const loginCTV = async (email, password) => {
 };
 
 export const fetchAffiliateStats = () => {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("ctv_token") || localStorage.getItem("token");
 
   return fetch(`${API_BASE_URL}/affiliate/stats`, {
     headers: {
@@ -293,48 +306,39 @@ export const fetchAffiliateStats = () => {
 };
 
 export const fetchAffiliateCommissions = async (params = {}) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('ctv_token') || localStorage.getItem('token');
   const queryString = new URLSearchParams(params).toString();
   const url = queryString 
     ? `${API_BASE_URL}/affiliate/commissions?${queryString}`
     : `${API_BASE_URL}/affiliate/commissions`;
   const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: { 'Authorization': `Bearer ${token}` },
   });
-  const result = await response.json();
-  return result;
+  return response.json();
 };
 
 export const fetchAffiliateDownline = async () => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('ctv_token') || localStorage.getItem('token');
   const response = await fetch(`${API_BASE_URL}/affiliate/downline`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: { 'Authorization': `Bearer ${token}` },
   });
-  const result = await response.json();
-  return result;
+  return response.json();
 };
 
 export const fetchAffiliateWithdrawals = async (params = {}) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('ctv_token') || localStorage.getItem('token');
   const queryString = new URLSearchParams(params).toString();
   const url = queryString 
     ? `${API_BASE_URL}/affiliate/withdrawals?${queryString}`
     : `${API_BASE_URL}/affiliate/withdrawals`;
   const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: { 'Authorization': `Bearer ${token}` },
   });
-  const result = await response.json();
-  return result;
+  return response.json();
 };
 
 export const createAffiliateWithdraw = async (data) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('ctv_token') || localStorage.getItem('token');
   const response = await fetch(`${API_BASE_URL}/affiliate/withdraw`, {
     method: "POST",
     headers: {
@@ -343,8 +347,7 @@ export const createAffiliateWithdraw = async (data) => {
     },
     body: JSON.stringify(data),
   });
-  const result = await response.json();
-  return result;
+  return response.json();
 };
 
 // Admin: Backfill hoa hồng cho đơn da_tt chưa có
@@ -594,7 +597,7 @@ export const createVNPayPayment = async (paymentData) => {
 };
 
 // Admin CTV Management API
-export const fetchCTVs = async (params = {}, token) => {
+export const fetchCTVs = async (params = {}, token = localStorage.getItem('token')) => {
   const queryString = new URLSearchParams(params).toString();
   const url = queryString 
     ? `${API_BASE_URL}/affiliate/admin/ctvs?${queryString}`
@@ -608,7 +611,7 @@ export const fetchCTVs = async (params = {}, token) => {
   return result;
 };
 
-export const updateCTVStatus = async (ctvId, status, token) => {
+export const updateCTVStatus = async (ctvId, status, token = localStorage.getItem('token')) => {
   const response = await fetch(`${API_BASE_URL}/affiliate/admin/ctvs/${ctvId}/status`, {
     method: 'PUT',
     headers: {
@@ -621,7 +624,7 @@ export const updateCTVStatus = async (ctvId, status, token) => {
   return result;
 };
 
-export const deleteCTV = async (ctvId, token) => {
+export const deleteCTV = async (ctvId, token = localStorage.getItem('token')) => {
   const response = await fetch(`${API_BASE_URL}/affiliate/admin/ctvs/${ctvId}`, {
     method: 'DELETE',
     headers: {
@@ -633,7 +636,7 @@ export const deleteCTV = async (ctvId, token) => {
 };
 
 // Admin Commission Management API
-export const fetchCommissions = async (params = {}, token) => {
+export const fetchCommissions = async (params = {}, token = localStorage.getItem('token')) => {
   const queryString = new URLSearchParams(params).toString();
   const url = queryString 
     ? `${API_BASE_URL}/affiliate/admin/commissions?${queryString}`
@@ -647,7 +650,7 @@ export const fetchCommissions = async (params = {}, token) => {
   return result;
 };
 
-export const updateCommissionStatus = async (commissionId, status, token) => {
+export const updateCommissionStatus = async (commissionId, status, token = localStorage.getItem('token')) => {
   const response = await fetch(`${API_BASE_URL}/affiliate/admin/commissions/${commissionId}/status`, {
     method: 'PUT',
     headers: {
@@ -661,7 +664,7 @@ export const updateCommissionStatus = async (commissionId, status, token) => {
 };
 
 // Admin Commission Products API
-export const fetchCommissionProducts = async (token) => {
+export const fetchCommissionProducts = async (token = localStorage.getItem('token')) => {
   const response = await fetch(`${API_BASE_URL}/affiliate/admin/commission-products`, {
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -671,7 +674,7 @@ export const fetchCommissionProducts = async (token) => {
   return result;
 };
 
-export const createCommissionProduct = async (data, token) => {
+export const createCommissionProduct = async (data, token = localStorage.getItem('token')) => {
   const response = await fetch(`${API_BASE_URL}/affiliate/admin/commission-products`, {
     method: 'POST',
     headers: {
@@ -684,7 +687,7 @@ export const createCommissionProduct = async (data, token) => {
   return result;
 };
 
-export const updateCommissionProduct = async (id, data, token) => {
+export const updateCommissionProduct = async (id, data, token = localStorage.getItem('token')) => {
   const response = await fetch(`${API_BASE_URL}/affiliate/admin/commission-products/${id}`, {
     method: 'PUT',
     headers: {
@@ -697,7 +700,7 @@ export const updateCommissionProduct = async (id, data, token) => {
   return result;
 };
 
-export const deleteCommissionProduct = async (id, token) => {
+export const deleteCommissionProduct = async (id, token = localStorage.getItem('token')) => {
   const response = await fetch(`${API_BASE_URL}/affiliate/admin/commission-products/${id}`, {
     method: 'DELETE',
     headers: {
@@ -786,7 +789,9 @@ export const getCTVByRefCode = async (refCode) => {
 
 // ==================== LMS API ====================
 const lmsGet = (path) => {
-  const token = localStorage.getItem('token');
+  // Use admin token if available, otherwise use regular token
+  const adminUser = localStorage.getItem('adminUser');
+  const token = adminUser ? localStorage.getItem('token') || localStorage.getItem('admin_token') : localStorage.getItem('token');
   return fetch(`${API_BASE_URL}/lms/${path}`, { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json());
 };
 const lmsPost = (path, data) => {
@@ -905,3 +910,86 @@ export const hvPortalAPI = {
   danhGia: (data) => _hvPost('hoc-vien/portal/danh-gia', data),
   getHocPhi: () => _hvGet('hoc-vien/portal/hoc-phi'),
 };
+
+// ==================== TEST APPOINTMENTS API ====================
+const _testGet = (path) => {
+  // Use token from localStorage - check both 'token' and admin token
+  const adminToken = localStorage.getItem('admin_token');
+  const userToken = localStorage.getItem('token');
+  const token = adminToken || userToken || localStorage.getItem('hv_token');
+  return fetch(`${API_BASE_URL}/test/${path}`, { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json());
+};
+const _testPost = (path, data) => {
+  // Use token from localStorage - check both 'token' and admin token
+  const adminToken = localStorage.getItem('admin_token');
+  const userToken = localStorage.getItem('token');
+  const token = adminToken || userToken || localStorage.getItem('hv_token');
+  return fetch(`${API_BASE_URL}/test/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) }).then(r => r.json());
+};
+const _testPut = (path, data) => {
+  // Use token from localStorage - check both 'token' and admin token
+  const adminToken = localStorage.getItem('admin_token');
+  const userToken = localStorage.getItem('token');
+  const token = adminToken || userToken || localStorage.getItem('hv_token');
+  return fetch(`${API_BASE_URL}/test/${path}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) }).then(r => r.json());
+};
+
+export const testAPI = {
+  getDeThi: () => _testGet('de-thi'),
+  createDeThi: (formData) => {
+    const token = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/test/de-thi`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData }).then(r => r.json());
+  },
+  deleteDeThi: (id) => {
+    const token = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/test/de-thi/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json());
+  },
+  getLichHen: (params = {}) => _testGet(`lich-hen?${new URLSearchParams(params)}`),
+  createLichHen: (data) => _testPost('lich-hen', data),
+  updateLichHen: (id, data) => _testPut(`lich-hen/${id}`, data),
+  deleteLichHen: (id) => {
+    // Use token from localStorage - check both 'token' and admin token
+    const adminToken = localStorage.getItem('admin_token');
+    const userToken = localStorage.getItem('token');
+    const token = adminToken || userToken;
+    return fetch(`${API_BASE_URL}/test/lich-hen/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json());
+  },
+  updateKetQua: (id, data) => _testPut(`ket-qua/${id}`, data),
+  getMyLichTest: () => _testGet('my-lich-test'),
+};
+
+// ==================== EXAM API ====================
+const _examGet = (p) => {
+  const t = localStorage.getItem('token') || localStorage.getItem('hv_token');
+  return fetch(`${API_BASE_URL}/exam/${p}`, { headers: { 'Authorization': `Bearer ${t}` } }).then(r => r.json());
+};
+const _examPost = (p, data) => {
+  const t = localStorage.getItem('token') || localStorage.getItem('hv_token');
+  return fetch(`${API_BASE_URL}/exam/${p}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${t}` }, body: JSON.stringify(data) }).then(r => r.json());
+};
+const _examDel = (p) => {
+  const t = localStorage.getItem('token') || localStorage.getItem('hv_token');
+  return fetch(`${API_BASE_URL}/exam/${p}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${t}` } }).then(r => r.json());
+};
+
+export const examAPI = {
+  // De thi
+  getAllDeThi: () => _examGet('de-thi'),
+  getDeThiById: (id) => _examGet(`de-thi/${id}`),
+  createDeThi: (formData) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/exam/de-thi`, { method: 'POST', headers: { 'Authorization': `Bearer ${t}` }, body: formData }).then(r => r.json());
+  },
+  deleteDeThi: (id) => _examDel(`de-thi/${id}`),
+  addCauHoi: (deThiId, data) => _examPost(`de-thi/${deThiId}/cau-hoi`, data),
+  deleteCauHoi: (id) => _examDel(`cau-hoi/${id}`),
+  // Lam bai
+  batDau: (data) => _examPost('bat-dau', data),
+  traLoi: (data) => _examPost('tra-loi', data),
+  nopBai: (data) => _examPost('nop-bai', data),
+  // Ket qua
+  getKetQua: (id) => _examGet(`ket-qua/${id}`),
+  getMyResults: () => _examGet('my-results'),
+  getAllKetQua: (params = {}) => _examGet(`admin/ket-qua?${new URLSearchParams(params)}`),
+};
+

@@ -299,22 +299,35 @@ function OrderDetail({ order, onBack, onOrderCancelled }) {
                           : "none",
                     }}
                   >
-                    <div
-                      style={{
-                        width: 80,
-                        height: 80,
-                        borderRadius: 12,
-                        background:
-                          "linear-gradient(135deg, #fff5f5 0%, #ffe4e8 100%)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 36,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {item.sach?.hinh_anh || "📚"}
-                    </div>
+                  <div
+                    style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: 12,
+                      background: "linear-gradient(135deg, #fff5f5 0%, #ffe4e8 100%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 36,
+                      flexShrink: 0,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {item.sach?.hinh_anh && !item.sach.hinh_anh.startsWith("📚") ? (
+                      <img
+                        src={
+                          item.sach.hinh_anh.startsWith("http")
+                            ? item.sach.hinh_anh
+                            : item.sach.hinh_anh.startsWith("/uploads/")
+                            ? `http://localhost:5000${item.sach.hinh_anh}`
+                            : `http://localhost:5000/uploads/${item.sach.hinh_anh}`
+                        }
+                        alt={item.sach.ten_sach}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        onError={e => { e.target.style.display = "none"; e.target.parentNode.innerHTML = "📚"; }}
+                      />
+                    ) : "📚"}
+                  </div>
                     <div style={{ flex: 1 }}>
                       <div
                         style={{
