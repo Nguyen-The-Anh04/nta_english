@@ -59,10 +59,11 @@ const getPhongHocs = async (req, res) => {
 
 const getLopHocs = async (req, res) => {
   try {
-    const { trang_thai, khoa_hoc_id, search } = req.query;
+    const { trang_thai, khoa_hoc_id, search, giao_vien_id } = req.query;
     const where = {};
     if (trang_thai) where.trang_thai = trang_thai;
     if (khoa_hoc_id) where.khoa_hoc_id = khoa_hoc_id;
+    if (giao_vien_id) where.giao_vien_id = giao_vien_id;
     if (search) where.ma_lop = { [Op.like]: `%${search}%` };
 
     const lops = await LopHoc.findAll({
@@ -202,7 +203,7 @@ const updateDangKy = async (req, res) => {
 const getHocViens = async (req, res) => {
   try {
     const { search, page = 1, limit = 20 } = req.query;
-    const where = { chuc_vu_id: 5 }; // chuc_vu_id = 5 là học viên
+    const where = { chuc_vu_id: 5 };
     if (search) {
       where[Op.or] = [
         { ho_ten: { [Op.like]: `%${search}%` } },
@@ -213,7 +214,7 @@ const getHocViens = async (req, res) => {
     const offset = (page - 1) * limit;
     const { count, rows } = await NguoiDung.findAndCountAll({
       where,
-      attributes: ["id", "ho_ten", "email", "sdt", "trang_thai", "created_at"],
+      attributes: ["id", "ho_ten", "email", "sdt", "trang_thai", "gioi_tinh", "created_at"],
       include: [{
         model: DkLopHoc, as: "dangKyLops",
         include: [{ model: LopHoc, as: "lopHoc", attributes: ["id", "ma_lop", "trang_thai"],
@@ -225,8 +226,7 @@ const getHocViens = async (req, res) => {
     });
     res.json({ success: true, data: { hocViens: rows, pagination: { total: count, page: parseInt(page), totalPages: Math.ceil(count / limit) } } });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
-  }
+    res.status(500).json({ success: false, message: e.message }); }
 };
 
 const createHocVien = async (req, res) => {
@@ -902,6 +902,7 @@ const nopBai = async (req, res) => {
   try {
     const { bai_tap_id, ghi_chu } = req.body;
     const hoc_vien_id = req.user.id;
+    const file_nop = req.file ? req.file.filename : null;
 
     const bt = await BaiTap.findByPk(bai_tap_id);
     if (!bt) return res.status(404).json({ success: false, message: "Không tìm thấy bài tập" });
@@ -910,9 +911,9 @@ const nopBai = async (req, res) => {
 
     const [nb, created] = await NopBai.findOrCreate({
       where: { bai_tap_id, hoc_vien_id },
-      defaults: { ghi_chu, trang_thai: isLate ? "tre_han" : "da_nop" },
+      defaults: { ghi_chu, file_nop, trang_thai: isLate ? "tre_han" : "da_nop" },
     });
-    if (!created) await nb.update({ ghi_chu, trang_thai: isLate ? "tre_han" : "da_nop" });
+    if (!created) await nb.update({ ghi_chu, ...(file_nop && { file_nop }), trang_thai: isLate ? "tre_han" : "da_nop" });
 
     res.json({ success: true, data: nb, message: isLate ? "Nộp bài trễ hạn" : "Nộp bài thành công" });
   } catch (e) {
@@ -1001,4 +1002,238 @@ module.exports = {
   ...module.exports,
   getHocVienDashboard, getMyLopHoc, getMyBaiTap, nopBai,
   getMyDiemSo, getMyDiemDanh, hocVienDanhGia, getMyHocPhi,
+};
+
+// ==================== PHU HUYNH ====================
+const { PhuHuynh } = require("../models/LMSModels");
+
+// GET /api/lms/phu-huynh?hoc_vien_id= hoặc ?nguoi_dung_id=
+const getPhuHuynh = async (req, res) => {
+  try {
+    const { hoc_vien_id, nguoi_dung_id } = req.query;
+    const where = {};
+    if (hoc_vien_id) where.hoc_vien_id = hoc_vien_id;
+    if (nguoi_dung_id) where.nguoi_dung_id = nguoi_dung_id;
+    const { NguoiDung } = require("../models/UserModels");
+    const list = await PhuHuynh.findAll({
+      where,
+      include: [{ model: NguoiDung, as: "hocVien", attributes: ["id","ho_ten","sdt","email"] }],
+      order: [["la_tai_khoan_chinh","DESC"],["id","ASC"]],
+    });
+    res.json({ success: true, data: list });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+// POST /api/lms/phu-huynh
+const createPhuHuynh = async (req, res) => {
+  try {
+    const { hoc_vien_id, ho_ten, sdt, email, quan_he, la_tai_khoan_chinh, ghi_chu } = req.body;
+    if (!ho_ten) return res.status(400).json({ success: false, message: "Thiếu họ tên phụ huynh" });
+
+    // Nếu là tài khoản chính → tạo tài khoản NguoiDung cho phụ huynh
+    let nguoi_dung_id = null;
+    if (la_tai_khoan_chinh && sdt) {
+      const { NguoiDung } = require("../models/UserModels");
+      const bcrypt = require("bcryptjs");
+      let existing = await NguoiDung.findOne({ where: { sdt } });
+      if (!existing) {
+        const hash = await bcrypt.hash("123456", 10);
+        existing = await NguoiDung.create({
+          ho_ten, sdt, email: email || `ph_${sdt}@nta.vn`,
+          mat_khau: hash, chuc_vu_id: 7, // role phụ huynh
+          trang_thai: "hoat_dong",
+        });
+      }
+      nguoi_dung_id = existing.id;
+    }
+
+    const ph = await PhuHuynh.create({ hoc_vien_id, ho_ten, sdt, email, quan_he, la_tai_khoan_chinh: !!la_tai_khoan_chinh, nguoi_dung_id, ghi_chu });
+    res.status(201).json({ success: true, data: ph, message: "Thêm phụ huynh thành công" });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+// PUT /api/lms/phu-huynh/:id
+const updatePhuHuynh = async (req, res) => {
+  try {
+    const ph = await PhuHuynh.findByPk(req.params.id);
+    if (!ph) return res.status(404).json({ success: false, message: "Không tìm thấy" });
+    await ph.update(req.body);
+    res.json({ success: true, data: ph });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+// DELETE /api/lms/phu-huynh/:id
+const deletePhuHuynh = async (req, res) => {
+  try {
+    await PhuHuynh.destroy({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+module.exports = {
+  ...module.exports,
+  getPhuHuynh, createPhuHuynh, updatePhuHuynh, deletePhuHuynh,
+};
+
+// ==================== PHU HUYNH - LICH HOC CON ====================
+const getLichHocCon = async (req, res) => {
+  try {
+    const { hocVienId } = req.params;
+    const dangKys = await DkLopHoc.findAll({
+      where: { hoc_vien_id: hocVienId },
+      include: [{
+        model: LopHoc, as: "lopHoc",
+        include: [
+          { model: KhoaHoc, as: "khoaHoc", attributes: ["id","ten_khoa"] },
+          { model: NguoiDung, as: "giaoVien", attributes: ["id","ho_ten","sdt"] },
+          { model: LichHoc, as: "lichHocs" },
+          { model: PhongHoc, as: "phongHoc", attributes: ["id","ma_phong"] },
+        ],
+      }],
+    });
+    res.json({ success: true, data: dangKys });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+const getBaiTapCon = async (req, res) => {
+  try {
+    const { hocVienId } = req.params;
+    const dangKys = await DkLopHoc.findAll({
+      where: { hoc_vien_id: hocVienId, trang_thai: "da_xac_nhan" },
+      attributes: ["lop_hoc_id"],
+    });
+    const lopIds = dangKys.map(dk => dk.lop_hoc_id);
+    if (!lopIds.length) return res.json({ success: true, data: [] });
+    const { Op } = require("sequelize");
+    const baiTaps = await BaiTap.findAll({
+      where: { lop_hoc_id: { [Op.in]: lopIds } },
+      include: [
+        { model: LopHoc, as: "lopHoc", attributes: ["id","ma_lop"] },
+        { model: NguoiDung, as: "giaoVien", attributes: ["id","ho_ten"] },
+        { model: NopBai, as: "nopBais", where: { hoc_vien_id: hocVienId }, required: false,
+          include: [{ model: DiemSo, as: "diemSo" }] },
+      ],
+      order: [["han_nop","ASC"]],
+    });
+    res.json({ success: true, data: baiTaps.map(bt => ({
+      ...bt.toJSON(), da_nop: bt.nopBais?.length > 0, nop_bai: bt.nopBais?.[0] || null,
+      diem: bt.nopBais?.[0]?.diemSo || null,
+    })) });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+module.exports = {
+  ...module.exports,
+  getLichHocCon, getBaiTapCon,
+};
+
+// ==================== THONG BAO ====================
+const { DataTypes } = require("sequelize");
+
+const ThongBao = sequelize.define("ThongBao", {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  tieu_de: { type: DataTypes.STRING(255), allowNull: false },
+  noi_dung: { type: DataTypes.TEXT },
+  loai: { type: DataTypes.STRING(50), field: "loai_tb", defaultValue: "thong_bao" },
+  nguoi_gui_id: { type: DataTypes.INTEGER },
+  nguoi_nhan_id: { type: DataTypes.INTEGER },
+  lop_hoc_id: { type: DataTypes.INTEGER },
+  da_doc: { type: DataTypes.BOOLEAN, defaultValue: false },
+}, { tableName: "thong_bao", timestamps: true, createdAt: "created_at", updatedAt: false });
+
+// GET /api/lms/thong-bao — học viên/giáo viên xem thông báo của mình
+const getThongBao = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { Op } = require("sequelize");
+    const list = await ThongBao.findAll({
+      where: {
+        [Op.or]: [
+          { nguoi_nhan_id: userId },
+          { nguoi_nhan_id: null, lop_hoc_id: { [Op.ne]: null } },
+        ],
+      },
+      order: [["created_at", "DESC"]],
+      limit: 50,
+    });
+    res.json({ success: true, data: list });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+// POST /api/lms/thong-bao — giáo viên/admin tạo thông báo
+const createThongBao = async (req, res) => {
+  try {
+    const { tieu_de, noi_dung, loai, nguoi_nhan_id, lop_hoc_id } = req.body;
+    const tb = await ThongBao.create({
+      tieu_de, noi_dung, loai: loai || "thong_bao",
+      nguoi_gui_id: req.user.id,
+      nguoi_nhan_id: nguoi_nhan_id || null,
+      lop_hoc_id: lop_hoc_id || null,
+    });
+    res.status(201).json({ success: true, data: tb });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+// PUT /api/lms/thong-bao/:id/doc — đánh dấu đã đọc
+const danhDauDaDoc = async (req, res) => {
+  try {
+    await ThongBao.update({ da_doc: true }, { where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+module.exports = {
+  ...module.exports,
+  getThongBao, createThongBao, danhDauDaDoc,
+};
+
+// ==================== GHI CHU HOC VIEN ====================
+const { DataTypes: DT2 } = require("sequelize");
+const seq2 = require("../config/db");
+
+const GhiChuHocVien = seq2.define("GhiChuHocVien", {
+  id:          { type: DT2.INTEGER, primaryKey: true, autoIncrement: true },
+  hoc_vien_id: { type: DT2.INTEGER, allowNull: false },
+  noi_dung:    { type: DT2.TEXT, allowNull: false },
+  nguoi_tao_id:{ type: DT2.INTEGER },
+  ten_nguoi_tao:{ type: DT2.STRING(150) },
+}, { tableName: "ghi_chu_hoc_vien", timestamps: true, createdAt: "created_at", updatedAt: false });
+
+// GET /api/lms/hoc-vien/:id/ghi-chu
+const getGhiChuHocVien = async (req, res) => {
+  try {
+    const list = await GhiChuHocVien.findAll({
+      where: { hoc_vien_id: req.params.id },
+      order: [["created_at", "DESC"]],
+    });
+    res.json({ success: true, data: list });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+// POST /api/lms/hoc-vien/:id/ghi-chu
+const createGhiChuHocVien = async (req, res) => {
+  try {
+    const { noi_dung } = req.body;
+    const nguoi_tao = req.user;
+    const gc = await GhiChuHocVien.create({
+      hoc_vien_id: req.params.id,
+      noi_dung,
+      nguoi_tao_id: nguoi_tao?.id,
+      ten_nguoi_tao: nguoi_tao?.ho_ten || nguoi_tao?.email || "Admin",
+    });
+    res.status(201).json({ success: true, data: gc });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+// DELETE /api/lms/hoc-vien/:id/ghi-chu/:gcId
+const deleteGhiChuHocVien = async (req, res) => {
+  try {
+    await GhiChuHocVien.destroy({ where: { id: req.params.gcId, hoc_vien_id: req.params.id } });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+};
+
+module.exports = {
+  ...module.exports,
+  getGhiChuHocVien, createGhiChuHocVien, deleteGhiChuHocVien,
 };

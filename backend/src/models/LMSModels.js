@@ -34,6 +34,11 @@ const LopHoc = sequelize.define("LopHoc", {
   ngay_bat_dau: { type: DataTypes.DATEONLY },
   ngay_ket_thuc: { type: DataTypes.DATEONLY },
   si_so_hien_tai: { type: DataTypes.INTEGER, defaultValue: 0 },
+  si_so_toi_da: { type: DataTypes.INTEGER, defaultValue: 15 },
+  so_buoi_tong:   { type: DataTypes.INTEGER, defaultValue: 0 },
+  so_buoi_da_hoc: { type: DataTypes.INTEGER, defaultValue: 0 },
+  hoc_phi:  { type: DataTypes.DECIMAL(12, 0), defaultValue: 0 },
+  hinh_anh: { type: DataTypes.STRING(500) },
   trang_thai: { type: DataTypes.ENUM("dang_lap", "dang_dien_ra", "ket_thuc", "huy"), defaultValue: "dang_lap" },
 }, { tableName: "lop_hoc", timestamps: true, createdAt: "created_at", updatedAt: false });
 
@@ -61,12 +66,16 @@ const HopDong = sequelize.define("HopDong", {
   ma_hd: { type: DataTypes.STRING(20), allowNull: false, unique: true },
   hoc_vien_id: { type: DataTypes.INTEGER, allowNull: false },
   khoa_hoc_id: { type: DataTypes.INTEGER, allowNull: false },
-  tong_tien: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-  da_tra: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
+  tong_tien: { type: DataTypes.DECIMAL(12, 0), allowNull: false },
+  da_tra:    { type: DataTypes.DECIMAL(12, 0), defaultValue: 0 },
+  con_no:    { type: DataTypes.DECIMAL(12, 0), defaultValue: 0 },
   so_ky_nop: { type: DataTypes.INTEGER, defaultValue: 1 },
   trang_thai: { type: DataTypes.ENUM("hoat_dong", "hoan_thanh", "huy"), defaultValue: "hoat_dong" },
-  ngay_ky: { type: DataTypes.DATEONLY },
-  han_ky_cuoi: { type: DataTypes.DATEONLY },
+  ngay_ky:    { type: DataTypes.DATEONLY },
+  han_ky_cuoi:{ type: DataTypes.DATEONLY },
+  co_cam_ket:      { type: DataTypes.BOOLEAN, defaultValue: false },
+  so_khoa_dang_ky: { type: DataTypes.INTEGER, defaultValue: 1 },
+  ghi_chu: { type: DataTypes.TEXT },
 }, { tableName: "hop_dong", timestamps: true, createdAt: "created_at", updatedAt: false });
 
 // ===== THANH TOAN HOC PHI =====
@@ -209,9 +218,9 @@ const PhieuThu = sequelize.define("PhieuThu", {
   nguoi_nop_id: { type: DataTypes.INTEGER, allowNull: false },
   tong_tien: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
   noi_dung: { type: DataTypes.TEXT },
-  phuong_thuc: { type: DataTypes.ENUM("tien_mat", "chuyen_khoan", "momo", "vnpay"), defaultValue: "tien_mat" },
+  phuong_thuc: { type: DataTypes.STRING(20), defaultValue: "tien_mat" },
   ngay_thu: { type: DataTypes.DATEONLY, allowNull: false },
-  nguoi_thu_id: { type: DataTypes.INTEGER },
+  loai_thu: { type: DataTypes.STRING(50) },
 }, { tableName: "phieu_thu", timestamps: true, createdAt: "created_at", updatedAt: false });
 
 // ===== PHIEU CHI =====
@@ -221,7 +230,7 @@ const PhieuChi = sequelize.define("PhieuChi", {
   nguoi_nhan_id: { type: DataTypes.INTEGER },
   tong_tien: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
   noi_dung: { type: DataTypes.TEXT },
-  loai_chi: { type: DataTypes.ENUM("luong", "hoa_hong", "van_phong", "khac"), defaultValue: "khac" },
+  loai_chi: { type: DataTypes.STRING(50), defaultValue: "khac" },
   ngay_chi: { type: DataTypes.DATEONLY, allowNull: false },
   nguoi_duyet_id: { type: DataTypes.INTEGER },
 }, { tableName: "phieu_chi", timestamps: true, createdAt: "created_at", updatedAt: false });
@@ -229,8 +238,29 @@ const PhieuChi = sequelize.define("PhieuChi", {
 PhieuThu.belongsTo(HopDong, { foreignKey: "hop_dong_id", as: "hopDong" });
 // PhieuChi references will be set in index.js
 
+// ===== PHU HUYNH =====
+const { NguoiDung } = require("./UserModels");
+const PhuHuynh = sequelize.define("PhuHuynh", {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  hoc_vien_id: { type: DataTypes.INTEGER },
+  ho_ten: { type: DataTypes.STRING(150), allowNull: false },
+  sdt: { type: DataTypes.STRING(20) },
+  email: { type: DataTypes.STRING(150) },
+  quan_he: {
+    type: DataTypes.ENUM("bo","me","ong","ba","anh","chi","nguoi_giam_ho"),
+    defaultValue: "me",
+  },
+  la_tai_khoan_chinh: { type: DataTypes.BOOLEAN, defaultValue: false },
+  nguoi_dung_id: { type: DataTypes.INTEGER },
+  ghi_chu: { type: DataTypes.TEXT },
+}, { tableName: "phu_huynh", timestamps: true, createdAt: "created_at", updatedAt: false });
+
+PhuHuynh.belongsTo(NguoiDung, { foreignKey: "hoc_vien_id", as: "hocVien" });
+NguoiDung.hasMany(PhuHuynh, { foreignKey: "hoc_vien_id", as: "phuHuynhs" });
+PhuHuynh.belongsTo(NguoiDung, { foreignKey: "nguoi_dung_id", as: "taiKhoan" });
+
 module.exports = {
   KhoaHoc, PhongHoc, LopHoc, DkLopHoc, LichHoc, HopDong, ThanhToanHocPhi,
   DiemDanh, BaiTap, NopBai, DiemSo, DanhGiaGiaoVien,
-  PhieuThu, PhieuChi,
+  PhieuThu, PhieuChi, PhuHuynh,
 };

@@ -1,29 +1,36 @@
-const sequelize = require('./src/config/db');
-
-const migrations = [
-  ["ctv", "trang_thai", "VARCHAR(20) DEFAULT 'hoat_dong'"],
-  ["rut_tien_ctv", "ten_ngan_hang", "VARCHAR(100) NULL"],
-  ["rut_tien_ctv", "ten_chu_tk", "VARCHAR(255) NULL"],
-  ["rut_tien_ctv", "phuong_thuc", "VARCHAR(20) DEFAULT 'bank'"],
-  ["rut_tien_ctv", "ngay_duyet", "TIMESTAMP NULL"],
-  ["rut_tien_ctv", "ghi_chu", "TEXT NULL"],
-  ["rut_tien_ctv", "ma_giao_dich", "VARCHAR(100) NULL"],
-  ["rut_tien_ctv", "nguoi_duyet_id", "INT NULL"],
-];
+require("dotenv").config();
+const mysql = require("mysql2/promise");
 
 async function run() {
-  for (const [table, col, def] of migrations) {
+  const c = await mysql.createConnection({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASS,
+    database: process.env.DB_NAME,
+  });
+
+  const fixes = [
+    // Thêm gioi_tinh vào nguoi_dung
+    { sql: "ALTER TABLE nguoi_dung ADD COLUMN gioi_tinh VARCHAR(10) NULL", name: "gioi_tinh" },
+    // Thêm ma_hoc_vien nếu cần
+    { sql: "ALTER TABLE nguoi_dung ADD COLUMN ma_hoc_vien VARCHAR(20) NULL", name: "ma_hoc_vien" },
+  ];
+
+  for (const fix of fixes) {
     try {
-      await sequelize.query(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
-      console.log(`✅ Added ${table}.${col}`);
+      await c.execute(fix.sql);
+      console.log(`✅ Thêm cột: ${fix.name}`);
     } catch (e) {
-      if (e.message.includes('Duplicate column') || e.message.includes('already exists')) {
-        console.log(`⏭️  ${table}.${col} already exists`);
+      if (e.code === "ER_DUP_FIELDNAME") {
+        console.log(`⏭️  Cột đã có: ${fix.name}`);
       } else {
-        console.log(`❌ ${table}.${col}: ${e.message}`);
+        console.error(`❌ Lỗi ${fix.name}:`, e.message);
       }
     }
   }
-  process.exit(0);
+
+  await c.end();
+  console.log("Done!");
 }
-run();
+
+run().catch(console.error);

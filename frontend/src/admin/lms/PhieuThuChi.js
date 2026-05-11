@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { keToanAPI } from '../../api';
 
-const fmt = (n) => (n || 0).toLocaleString('vi-VN') + 'đ';
+const fmt = (n) => {
+  const num = Number(n) || 0;
+  return num.toLocaleString('vi-VN') + 'đ';
+};
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const today = () => new Date().toISOString().split('T')[0];
 const firstOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; };
@@ -30,7 +33,7 @@ export default function PhieuThuChi() {
         .then(res => {
           const list = Array.isArray(res) ? res : (res.data || []);
           setPhieuThus(list);
-          setTongThu(list.reduce((s, p) => s + (p.tong_tien || 0), 0));
+          setTongThu(list.reduce((s, p) => s + Number(p.tong_tien || 0), 0));
         })
         .catch(() => setPhieuThus([]))
         .finally(() => setLoading(false));
@@ -39,7 +42,7 @@ export default function PhieuThuChi() {
         .then(res => {
           const list = Array.isArray(res) ? res : (res.data || []);
           setPhieuChis(list);
-          setTongChi(list.reduce((s, p) => s + (p.tong_tien || 0), 0));
+          setTongChi(list.reduce((s, p) => s + Number(p.tong_tien || 0), 0));
         })
         .catch(() => setPhieuChis([]))
         .finally(() => setLoading(false));

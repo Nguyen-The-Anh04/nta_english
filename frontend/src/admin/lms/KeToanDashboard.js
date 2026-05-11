@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { keToanAPI } from '../../api';
 
-const fmt = (n) => (n || 0).toLocaleString('vi-VN') + 'đ';
+const fmt = (n) => {
+  const num = Number(n) || 0;
+  return num.toLocaleString('vi-VN') + 'đ';
+};
 
 export default function KeToanDashboard({ onNavigate }) {
   const now = new Date();
@@ -13,12 +16,12 @@ export default function KeToanDashboard({ onNavigate }) {
   useEffect(() => {
     setLoading(true);
     keToanAPI.getTongQuan(thang, nam)
-      .then(res => setData(res))
+      .then(res => setData(res?.data || res))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [thang, nam]);
 
-  const loiNhuan = data ? (data.tong_thu || 0) - (data.tong_chi || 0) : 0;
+  const loiNhuan = data ? Number(data.tong_thu || 0) - Number(data.tong_chi || 0) : 0;
   const chartData = data?.doanh_thu_theo_thang || [];
   const maxVal = Math.max(...chartData.map(d => Math.max(d.thu || 0, d.chi || 0)), 1);
 

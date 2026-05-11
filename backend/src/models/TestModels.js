@@ -17,6 +17,9 @@ const LichHenTest = sequelize.define("LichHenTest", {
   thoi_gian: { type: DataTypes.DATE },
   ghi_chu: { type: DataTypes.TEXT },
   trang_thai: { type: DataTypes.ENUM("cho_test","dang_test","hoan_thanh","huy"), defaultValue: "cho_test" },
+  ten_phu_huynh: { type: DataTypes.STRING(150) },
+  sdt_phu_huynh: { type: DataTypes.STRING(20) },
+  quan_he_phu_huynh: { type: DataTypes.STRING(30), defaultValue: "me" },
 }, { tableName: "lich_hen_test", timestamps: true, createdAt: "created_at", updatedAt: "updated_at" });
 
 // Define KetQuaLichTest

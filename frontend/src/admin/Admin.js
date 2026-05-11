@@ -25,12 +25,15 @@ import PaymentManagement from "./lms/PaymentManagement";
 import ClassManagement from "./lms/ClassManagement";
 import StudentManagement from "./lms/StudentManagement";
 import QuanLyDeThi from "./lms/QuanLyDeThi";
+import QuanLyDeThiMoi from "./lms/QuanLyDeThiMoi";
 import DiemDanh from "./lms/DiemDanh";
 import BaiTap from "./lms/BaiTap";
 import BangDiem from "./lms/BangDiem";
 import KeToanDashboard from "./lms/KeToanDashboard";
 import CongNo from "./lms/CongNo";
 import PhieuThuChi from "./lms/PhieuThuChi";
+import LichHocPage from "./lms/LichHocPage";
+import ClassDetailPage from "./lms/ClassDetailPage";
 
 export default function Admin({ onLogout }) {
   // Lấy role từ localStorage (được lưu khi login thành công)
@@ -74,7 +77,8 @@ export default function Admin({ onLogout }) {
   };
   
   const [lmsActivePage, setLmsActivePage] = useState(getInitialLmsPage());
-  const [pendingLeads, setPendingLeads] = useState([]); // Leads chờ book lịch test
+  const [classDetailData, setClassDetailData] = useState(null); // { lopId, lopData }
+  const [pendingLeads, setPendingLeads] = useState([]);
 
   // Function to add lead to pending list for test appointment
   const addLeadToTest = (lead) => {
@@ -104,6 +108,15 @@ export default function Admin({ onLogout }) {
         return <StudentFeedback />;
       case "class-management":
         return <ClassManagement />;
+      case "lich-hoc":
+        return <LichHocPage onNavigate={handleLmsNavigate} />;
+      case "class-detail":
+        return <ClassDetailPage
+          lopId={classDetailData?.lopId}
+          lopData={classDetailData?.lopData}
+          onBack={() => handleLmsNavigate("lich-hoc")}
+          onNavigate={handleLmsNavigate}
+        />;
       case "student-management":
         return <StudentManagement />;
       case "diem-danh":
@@ -112,6 +125,10 @@ export default function Admin({ onLogout }) {
         return <BaiTap />;
       case "bang-diem":
         return <BangDiem />;
+      case "quan-ly-de-thi":
+        return <QuanLyDeThi />;
+      case "quan-ly-de-thi-moi":
+        return <QuanLyDeThiMoi />;
       case "ke-toan":
         return <KeToanDashboard onNavigate={handleLmsNavigate} />;
       case "cong-no":
@@ -123,12 +140,13 @@ export default function Admin({ onLogout }) {
     }
   };
 
-  const handleLmsNavigate = (page, leadData = null) => {
+  const handleLmsNavigate = (page, data = null) => {
     if (page === "main-admin") {
       setActivePage("dashboard");
-    } else if (page === "test-appointment" && leadData) {
-      // Add lead to pending list when navigating from leads
-      setPendingLeads((prev) => [...prev, { ...leadData, tempId: Date.now() }]);
+    } else if (page === "test-appointment" && data && data.tempId === undefined) {
+      setPendingLeads((prev) => [...prev, { ...data, tempId: Date.now() }]);
+    } else if (page === "class-detail" && data) {
+      setClassDetailData(data);
     }
     setLmsActivePage(page);
     setActivePage("lms");

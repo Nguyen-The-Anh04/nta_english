@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { testAPI, login } from "../api";
+import { testAPI, login, examAPI } from "../api";
+import LamBai from "./LamBai";
 
 const TRANG_THAI_CFG = {
   cho_test: { label: "Chờ test", bg: "#fef3c7", color: "#92400e" },
@@ -14,6 +15,9 @@ export default function HocVienTestPortal() {
   const [lichTests, setLichTests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedLich, setSelectedLich] = useState(null);
+  const [showLamBai, setShowLamBai] = useState(false);
+  const [deThiId, setDeThiId] = useState(null);
+  const [lichHenTestId, setLichHenTestId] = useState(null);
   const [sdt, setSdt] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -39,6 +43,21 @@ export default function HocVienTestPortal() {
     } catch (e) { console.error(e); }
     setLoading(false);
   };
+
+  // Render LamBai if showing
+  if (showLamBai && deThiId) {
+    return (
+      <LamBai 
+        deThiId={deThiId} 
+        lichHenTestId={lichHenTestId} 
+        onHoanThanh={() => {
+          setShowLamBai(false);
+          setSelectedLich(null);
+          loadLichTests();
+        }} 
+      />
+    );
+  }
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -254,10 +273,17 @@ export default function HocVienTestPortal() {
                 </div>
               </div>
               <button
-                onClick={() => setSelectedLich(lich)}
-                style={{ padding: "7px 18px", background: "#111827", color: "#fff", border: "none", borderRadius: 6, fontSize: 13, cursor: "pointer" }}
+                onClick={() => {
+                  setSelectedLich(lich);
+                  if (lich.de_thi_id) {
+                    setDeThiId(lich.de_thi_id);
+                    setLichHenTestId(lich.id);
+                    setShowLamBai(true);
+                  }
+                }}
+                style={{ padding: "7px 18px", background: lich.de_thi_id ? "#059669" : "#111827", color: "#fff", border: "none", borderRadius: 6, fontSize: 13, cursor: "pointer" }}
               >
-                Xem chi tiết / Bắt đầu làm bài
+                {lich.de_thi_id ? "🎯 Bắt đầu làm bài" : "Xem chi tiết"}
               </button>
             </div>
           );

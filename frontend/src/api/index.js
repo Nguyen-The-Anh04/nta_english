@@ -823,6 +823,12 @@ export const lmsAPI = {
   getHocViens: (params = {}) => lmsGet(`hoc-vien?${new URLSearchParams(params)}`),
   createHocVien: (data) => lmsPost('hoc-vien', data),
   updateHocVien: (id, data) => lmsPut(`hoc-vien/${id}`, data),
+  getGhiChuHocVien: (id) => lmsGet(`hoc-vien/${id}/ghi-chu`),
+  createGhiChuHocVien: (id, data) => lmsPost(`hoc-vien/${id}/ghi-chu`, data),
+  deleteGhiChuHocVien: (id, gcId) => {
+    const token = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/lms/hoc-vien/${id}/ghi-chu/${gcId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+  },
 
   // Dang ky
   getDangKyByLop: (lopId) => lmsGet(`lop-hoc/${lopId}/hoc-vien`),
@@ -904,7 +910,23 @@ export const hvPortalAPI = {
   getDashboard: () => _hvGet('hoc-vien/portal/dashboard'),
   getLopHoc: () => _hvGet('hoc-vien/portal/lop-hoc'),
   getBaiTap: () => _hvGet('hoc-vien/portal/bai-tap'),
-  nopBai: (data) => _hvPost('hoc-vien/portal/nop-bai', data),
+  nopBai: (data) => {
+    const token = localStorage.getItem('hv_token');
+    const fd = new FormData();
+    if (data.bai_tap_id) fd.append('bai_tap_id', data.bai_tap_id);
+    if (data.ghi_chu) fd.append('ghi_chu', data.ghi_chu);
+    if (data.file_nop) fd.append('file_nop', data.file_nop);
+    return fetch(`${API_BASE_URL}/lms/hoc-vien/portal/nop-bai`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    }).then(r => r.json());
+  },
+  getThongBao: () => _hvGet('thong-bao'),
+  danhDauDaDoc: (id) => {
+    const token = localStorage.getItem('hv_token');
+    return fetch(`${API_BASE_URL}/lms/thong-bao/${id}/doc`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+  },
   getDiemSo: () => _hvGet('hoc-vien/portal/diem-so'),
   getDiemDanh: () => _hvGet('hoc-vien/portal/diem-danh'),
   danhGia: (data) => _hvPost('hoc-vien/portal/danh-gia', data),
@@ -912,18 +934,13 @@ export const hvPortalAPI = {
 };
 
 // ==================== TEST APPOINTMENTS API ====================
+const _testToken = () => localStorage.getItem('hv_token') || localStorage.getItem('token') || localStorage.getItem('admin_token');
 const _testGet = (path) => {
-  // Use token from localStorage - check both 'token' and admin token
-  const adminToken = localStorage.getItem('admin_token');
-  const userToken = localStorage.getItem('token');
-  const token = adminToken || userToken || localStorage.getItem('hv_token');
+  const token = _testToken();
   return fetch(`${API_BASE_URL}/test/${path}`, { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json());
 };
 const _testPost = (path, data) => {
-  // Use token from localStorage - check both 'token' and admin token
-  const adminToken = localStorage.getItem('admin_token');
-  const userToken = localStorage.getItem('token');
-  const token = adminToken || userToken || localStorage.getItem('hv_token');
+  const token = _testToken();
   return fetch(`${API_BASE_URL}/test/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) }).then(r => r.json());
 };
 const _testPut = (path, data) => {
@@ -959,16 +976,17 @@ export const testAPI = {
 };
 
 // ==================== EXAM API ====================
+const _examToken = () => localStorage.getItem('hv_token') || localStorage.getItem('token');
 const _examGet = (p) => {
-  const t = localStorage.getItem('token') || localStorage.getItem('hv_token');
+  const t = _examToken();
   return fetch(`${API_BASE_URL}/exam/${p}`, { headers: { 'Authorization': `Bearer ${t}` } }).then(r => r.json());
 };
 const _examPost = (p, data) => {
-  const t = localStorage.getItem('token') || localStorage.getItem('hv_token');
+  const t = _examToken();
   return fetch(`${API_BASE_URL}/exam/${p}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${t}` }, body: JSON.stringify(data) }).then(r => r.json());
 };
 const _examDel = (p) => {
-  const t = localStorage.getItem('token') || localStorage.getItem('hv_token');
+  const t = _examToken();
   return fetch(`${API_BASE_URL}/exam/${p}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${t}` } }).then(r => r.json());
 };
 
@@ -983,13 +1001,136 @@ export const examAPI = {
   deleteDeThi: (id) => _examDel(`de-thi/${id}`),
   addCauHoi: (deThiId, data) => _examPost(`de-thi/${deThiId}/cau-hoi`, data),
   deleteCauHoi: (id) => _examDel(`cau-hoi/${id}`),
+  // Publish/Cong bo
+  publishDeThi: (id, trang_thai) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/exam/de-thi/${id}/publish`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trang_thai })
+    }).then(r => r.json());
+  },
+  // Cap nhat de thi
+  updateDeThi: (id, formData) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/exam/de-thi/${id}/cap-nhat`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${t}` },
+      body: formData
+    }).then(r => r.json());
+  },
   // Lam bai
   batDau: (data) => _examPost('bat-dau', data),
   traLoi: (data) => _examPost('tra-loi', data),
   nopBai: (data) => _examPost('nop-bai', data),
   // Ket qua
   getKetQua: (id) => _examGet(`ket-qua/${id}`),
+  getKetQuaByLich: (lichHenTestId) => _examGet(`ket-qua-by-lich/${lichHenTestId}`),
   getMyResults: () => _examGet('my-results'),
   getAllKetQua: (params = {}) => _examGet(`admin/ket-qua?${new URLSearchParams(params)}`),
+};
+
+// ==================== NEW ONLINE EXAM API ====================
+export const onlineExamAPI = {
+  // Exams
+  getAllExams: () => fetch(`${API_BASE_URL}/online-exam/exams`).then(r => r.json()),
+  getExamById: (id) => fetch(`${API_BASE_URL}/online-exam/exams/${id}`).then(r => r.json()),
+  createExam: (data) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/online-exam/exams`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(r => r.json());
+  },
+  updateExam: (id, data) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/online-exam/exams/${id}`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(r => r.json());
+  },
+  deleteExam: (id) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/online-exam/exams/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${t}` }
+    }).then(r => r.json());
+  },
+  
+  // Sections
+  createSection: (data) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/online-exam/sections`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(r => r.json());
+  },
+  updateSection: (id, data) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/online-exam/sections/${id}`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(r => r.json());
+  },
+  deleteSection: (id) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/online-exam/sections/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${t}` }
+    }).then(r => r.json());
+  },
+  
+  // Questions
+  createQuestion: (data) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/online-exam/questions`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(r => r.json());
+  },
+  deleteQuestion: (id) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/online-exam/questions/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${t}` }
+    }).then(r => r.json());
+  },
+  
+  // Answers
+  createAnswer: (data) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/online-exam/answers`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(r => r.json());
+  },
+  deleteAnswer: (id) => {
+    const t = localStorage.getItem('token');
+    return fetch(`${API_BASE_URL}/online-exam/answers/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${t}` }
+    }).then(r => r.json());
+  },
+  
+  // Exam taking
+  startExam: (data) => fetch(`${API_BASE_URL}/online-exam/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(r => r.json()),
+  
+  submitExam: (data) => fetch(`${API_BASE_URL}/online-exam/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(r => r.json()),
+  
+  getUserResults: (userId) => fetch(`${API_BASE_URL}/online-exam/results/${userId}`).then(r => r.json()),
 };
 

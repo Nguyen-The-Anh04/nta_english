@@ -85,6 +85,14 @@ const NguoiDung = sequelize.define(
       type: DataTypes.ENUM("hoat_dong", "ngung"),
       defaultValue: "hoat_dong",
     },
+    chuc_vu_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    gioi_tinh: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
   },
   {
     tableName: "nguoi_dung",

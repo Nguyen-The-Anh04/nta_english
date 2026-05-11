@@ -148,7 +148,7 @@ function LoginForm({ onLogin }) {
   );
 }
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
+// ── Menu Configuration ─────────────────────────────────────────────────────────
 const MENU = [
   { key: 'dashboard', icon: '🏠', label: 'Dashboard' },
   { key: 'lop-hoc',   icon: '📚', label: 'Lớp học' },
@@ -156,52 +156,10 @@ const MENU = [
   { key: 'diem-so',   icon: '📊', label: 'Điểm số' },
   { key: 'diem-danh', icon: '📋', label: 'Điểm danh' },
   { key: 'hoc-phi',   icon: '💰', label: 'Học phí' },
-  { key: 'lich-test', icon: '📝', label: 'Lịch test' },
+  { key: 'lich-test', icon: '🗓️', label: 'Lịch test' },
+  { key: 'thong-bao', icon: '🔔', label: 'Thông báo' },
   { key: 'danh-gia',  icon: '⭐', label: 'Đánh giá GV' },
 ];
-
-function Sidebar({ user, tab, setTab, onLogout, open, setOpen }) {
-  const sideStyle = {
-    width: 220, background: '#e53935', color: '#fff',
-    display: 'flex', flexDirection: 'column', minHeight: '100vh',
-    position: 'fixed', top: 0, left: open ? 0 : -220,
-    transition: 'left .25s', zIndex: 200,
-  };
-  return (
-    <>
-      {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.3)', zIndex: 199 }} />}
-      <div style={sideStyle}>
-        <div style={{ padding: '24px 16px 16px', borderBottom: '1px solid rgba(255,255,255,.1)' }}>
-          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 8, color: '#e53935', fontWeight: 'bold' }}>
-            {(user?.ho_ten || 'U')[0].toUpperCase()}
-          </div>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{user?.ho_ten || 'Học viên'}</div>
-          <div style={{ fontSize: 12, opacity: .7 }}>{user?.email}</div>
-        </div>
-        <nav style={{ flex: 1, padding: '12px 0' }}>
-          {MENU.map(m => (
-            <div key={m.key} onClick={() => { setTab(m.key); setOpen(false); }}
-              style={{
-                padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
-                background: tab === m.key ? 'rgba(255,255,255,.15)' : 'transparent',
-                borderLeft: tab === m.key ? '3px solid #fff' : '3px solid transparent',
-                fontSize: 14, transition: 'background .15s',
-              }}>
-              <span>{m.icon}</span><span>{m.label}</span>
-            </div>
-          ))}
-        </nav>
-        <div style={{ padding: '16px' }}>
-          <button onClick={onLogout} style={{
-            width: '100%', padding: '8px', background: '#333',
-            color: '#fff', border: 'none', borderRadius: 6,
-            cursor: 'pointer', fontSize: 13,
-          }}>🚪 Đăng xuất</button>
-        </div>
-      </div>
-    </>
-  );
-}
 
 // ── Tab: Dashboard ────────────────────────────────────────────────────────────
 function TabDashboard({ user, data, loading }) {
@@ -212,10 +170,20 @@ function TabDashboard({ user, data, loading }) {
     { label: 'Có mặt tháng này',   value: d.co_mat_thang ?? '—',       color: '#27ae60' },
     { label: 'Vắng mặt tháng này', value: d.vang_mat_thang ?? '—',     color: '#e74c3c' },
   ];
-  const diemGanNhat = d.diem_gan_nhat || [];
-  const lichHoc = (d.lop_hoc || []).flatMap(lh =>
-    (lh.lopHoc?.lichHocs || []).map(l => ({ ...l, tenLop: lh.lopHoc?.ten_lop }))
-  );
+  const diemGanNhat = Array.isArray(d.diem_gan_nhat) ? d.diem_gan_nhat : [];
+  const lopHocArray = Array.isArray(d.lop_hoc) ? d.lop_hoc : [];
+  const lichHoc = lopHocArray.flatMap(lh =>
+    (Array.isArray(lh.lopHoc?.lichHocs) ? lh.lopHoc.lichHocs : []).map(l => ({
+      ...l,
+      thu: l.thu_trong_tuan || l.thu,
+      tenLop: lh.lopHoc?.khoaHoc?.ten_khoa || lh.lopHoc?.ma_lop || '—',
+      giaoVien: lh.lopHoc?.giaoVien?.ho_ten || '—',
+      maLop: lh.lopHoc?.ma_lop || '—',
+    }))
+  ).sort((a, b) => {
+    const order = { Thu2:1, Thu3:2, Thu4:3, Thu5:4, Thu6:5, Thu7:6, CNhat:7 };
+    return (order[a.thu] || 9) - (order[b.thu] || 9);
+  });
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div>;
   return (
@@ -258,10 +226,11 @@ function TabDashboard({ user, data, loading }) {
         {lichHoc.length === 0 ? <p style={{ color: '#aaa', fontSize: 13 }}>Không có lịch học</p> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {lichHoc.map((l, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: '#f5f6fa', borderRadius: 6, fontSize: 13 }}>
-                <span style={{ fontWeight: 600, color: '#e53935', minWidth: 60 }}>{l.thu}</span>
-                <span>{l.gio_bat_dau} – {l.gio_ket_thuc}</span>
-                <span style={{ color: '#888' }}>{l.tenLop}</span>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#f5f6fa', borderRadius: 8, fontSize: 13, borderLeft: '3px solid #e53935' }}>
+                <span style={{ fontWeight: 700, color: '#e53935', minWidth: 52, fontSize: 12 }}>{l.thu}</span>
+                <span style={{ fontWeight: 600, color: '#111', minWidth: 110 }}>{l.gio_bat_dau?.slice(0,5)} – {l.gio_ket_thuc?.slice(0,5)}</span>
+                <span style={{ color: '#374151', flex: 1 }}>{l.tenLop}</span>
+                <span style={{ color: '#6b7280', fontSize: 12 }}>GV: {l.giaoVien}</span>
               </div>
             ))}
           </div>
@@ -273,7 +242,7 @@ function TabDashboard({ user, data, loading }) {
 
 // ── Tab: Lớp học ──────────────────────────────────────────────────────────────
 function TabLopHoc({ data, loading }) {
-  const list = data || [];
+  const list = Array.isArray(data) ? data : [];
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div>;
   if (!list.length) return <p style={{ color: '#aaa' }}>Chưa có lớp học nào.</p>;
   return (
@@ -315,11 +284,12 @@ function TabLopHoc({ data, loading }) {
 // ── Tab: Bài tập ──────────────────────────────────────────────────────────────
 function TabBaiTap({ data, loading, addToast, reload }) {
   const [filter, setFilter] = useState('all');
-  const [modal, setModal] = useState(null); // { baiTapId }
+  const [modal, setModal] = useState(null); // { baiTapId, tenBai }
   const [ghiChu, setGhiChu] = useState('');
+  const [fileNop, setFileNop] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const list = data || [];
+  const list = Array.isArray(data) ? data : [];
   const filtered = list.filter(b => {
     if (filter === 'chua_nop') return !b.nopBai;
     if (filter === 'da_nop') return !!b.nopBai;
@@ -330,9 +300,9 @@ function TabBaiTap({ data, loading, addToast, reload }) {
   const handleNopBai = async () => {
     setSubmitting(true);
     try {
-      await hvPortalAPI.nopBai({ bai_tap_id: modal.baiTapId, ghi_chu: ghiChu });
+      await hvPortalAPI.nopBai({ bai_tap_id: modal.baiTapId, ghi_chu: ghiChu, file_nop: fileNop });
       addToast('Nộp bài thành công!');
-      setModal(null); setGhiChu('');
+      setModal(null); setGhiChu(''); setFileNop(null);
       reload('bai-tap');
     } catch { addToast('Lỗi khi nộp bài', 'error'); }
     finally { setSubmitting(false); }
@@ -378,7 +348,7 @@ function TabBaiTap({ data, loading, addToast, reload }) {
                 </td>
                 <td style={{ padding: '9px 12px' }}>
                   {!daNop && conHan && (
-                    <button onClick={() => { setModal({ baiTapId: b.id }); setGhiChu(''); }} style={{
+                    <button onClick={() => { setModal({ baiTapId: b.id, tenBai: b.ten_bai }); setGhiChu(''); setFileNop(null); }} style={{
                       padding: '4px 10px', background: '#e53935', color: '#fff', border: 'none',
                       borderRadius: 5, cursor: 'pointer', fontSize: 12,
                     }}>📤 Nộp bài</button>
@@ -391,13 +361,28 @@ function TabBaiTap({ data, loading, addToast, reload }) {
       </div>
       {modal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 10, padding: 28, width: 380, boxShadow: '0 4px 24px rgba(0,0,0,.15)' }}>
-            <h3 style={{ margin: '0 0 14px', color: '#e53935' }}>📤 Nộp bài</h3>
-            <textarea value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Ghi chú (tuỳ chọn)..."
-              style={{ width: '100%', height: 100, padding: 10, border: '1px solid #ddd', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }} />
-            <div style={{ display: 'flex', gap: 10, marginTop: 14, justifyContent: 'flex-end' }}>
-              <button onClick={() => setModal(null)} style={{ padding: '7px 16px', border: '1px solid #ddd', borderRadius: 6, cursor: 'pointer', background: '#fff' }}>Hủy</button>
-              <button onClick={handleNopBai} disabled={submitting} style={{ padding: '7px 16px', background: '#e53935', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+          <div style={{ background: '#fff', borderRadius: 10, padding: 28, width: 420, boxShadow: '0 4px 24px rgba(0,0,0,.15)' }}>
+            <h3 style={{ margin: '0 0 4px', color: '#e53935' }}>📤 Nộp bài</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#666' }}>{modal.tenBai}</p>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
+                📎 Đính kèm file (PDF, Word, ảnh...)
+              </label>
+              <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.mp3,.mp4"
+                onChange={e => setFileNop(e.target.files[0] || null)}
+                style={{ fontSize: 13, width: '100%' }} />
+              {fileNop && <div style={{ fontSize: 12, color: '#059669', marginTop: 4 }}>✓ {fileNop.name}</div>}
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
+                💬 Ghi chú (tuỳ chọn)
+              </label>
+              <textarea value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Nhập ghi chú..."
+                style={{ width: '100%', height: 80, padding: 10, border: '1px solid #ddd', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setModal(null); setFileNop(null); }} style={{ padding: '7px 16px', border: '1px solid #ddd', borderRadius: 6, cursor: 'pointer', background: '#fff' }}>Hủy</button>
+              <button onClick={handleNopBai} disabled={submitting} style={{ padding: '7px 16px', background: '#e53935', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>
                 {submitting ? 'Đang nộp...' : 'Nộp bài'}
               </button>
             </div>
@@ -410,7 +395,7 @@ function TabBaiTap({ data, loading, addToast, reload }) {
 
 // ── Tab: Điểm số ──────────────────────────────────────────────────────────────
 function TabDiemSo({ data, loading }) {
-  const list = data || [];
+  const list = Array.isArray(data) ? data : [];
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div>;
   if (!list.length) return <p style={{ color: '#aaa' }}>Chưa có điểm nào.</p>;
 
@@ -464,7 +449,7 @@ function TabDiemSo({ data, loading }) {
 
 // ── Tab: Điểm danh ────────────────────────────────────────────────────────────
 function TabDiemDanh({ data, loading }) {
-  const list = data || [];
+  const list = Array.isArray(data) ? data : [];
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div>;
   if (!list.length) return <p style={{ color: '#aaa' }}>Chưa có dữ liệu điểm danh.</p>;
 
@@ -529,7 +514,7 @@ function TabDiemDanh({ data, loading }) {
 
 // ── Tab: Học phí ──────────────────────────────────────────────────────────────
 function TabHocPhi({ data, loading }) {
-  const list = data || [];
+  const list = Array.isArray(data) ? data : [];
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div>;
   if (!list.length) return <p style={{ color: '#aaa' }}>Chưa có thông tin học phí.</p>;
 
@@ -596,14 +581,15 @@ function TabLichTest({ user }) {
     loadLichTests();
   }, []);
 
-  const loadLichTests = async () => {
-    setLoading(true);
-    try {
-      const res = await testAPI.getMyLichTest();
-      setLichTests(res.data || res || []);
-    } catch (e) { console.error(e); }
-    setLoading(false);
-  };
+   const loadLichTests = async () => {
+     setLoading(true);
+     try {
+       const res = await testAPI.getMyLichTest();
+       const data = res.data || res;
+       setLichTests(Array.isArray(data) ? data : []);
+     } catch (e) { console.error(e); setLichTests([]); }
+     setLoading(false);
+   };
 
   const TRANG_THAI_CFG = {
     cho_test: { label: "Chờ test", bg: "#fef3c7", color: "#92400e" },
@@ -629,7 +615,8 @@ function TabLichTest({ user }) {
           lichHenTestId={lich.id}
           onHoanThanh={() => {
             setDangLamBai(null);
-            loadLichTests(); // Tai lai de xem ket qua
+            setSelectedLich(prev => prev ? { ...prev, trang_thai: "hoan_thanh" } : null);
+            loadLichTests();
           }}
         />
       );
@@ -782,6 +769,59 @@ function TabLichTest({ user }) {
   );
 }
 
+// ── Tab: Thông báo ────────────────────────────────────────────────────────────
+function TabThongBao({ data, loading, reload }) {
+  const list = Array.isArray(data) ? data : [];
+  const loaiCfg = {
+    thong_bao: { label: 'Thông báo', bg: '#dbeafe', color: '#1d4ed8', icon: '📢' },
+    bai_tap:   { label: 'Bài tập',   bg: '#fef3c7', color: '#92400e', icon: '📝' },
+    diem_so:   { label: 'Điểm số',   bg: '#d1fae5', color: '#065f46', icon: '📊' },
+    hoc_phi:   { label: 'Học phí',   bg: '#fee2e2', color: '#991b1b', icon: '💰' },
+    he_thong:  { label: 'Hệ thống',  bg: '#f3f4f6', color: '#374151', icon: '⚙️' },
+  };
+  const handleDoc = async (id) => {
+    try { await hvPortalAPI.danhDauDaDoc(id); reload('thong-bao'); } catch {}
+  };
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Đang tải...</div>;
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ margin: 0, color: '#e53935', fontSize: 18 }}>🔔 Thông báo</h2>
+        <span style={{ fontSize: 13, color: '#6b7280' }}>{list.filter(t => !t.da_doc).length} chưa đọc</span>
+      </div>
+      {list.length === 0 ? (
+        <div style={{ background: '#fff', borderRadius: 10, padding: 40, textAlign: 'center', color: '#aaa' }}>
+          Chưa có thông báo nào
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {list.map((tb, i) => {
+            const cfg = loaiCfg[tb.loai] || loaiCfg.thong_bao;
+            return (
+              <div key={i} onClick={() => !tb.da_doc && handleDoc(tb.id)}
+                style={{ background: tb.da_doc ? '#fff' : '#fef2f2', borderRadius: 10, padding: '14px 18px',
+                  boxShadow: '0 1px 4px rgba(0,0,0,.06)', cursor: tb.da_doc ? 'default' : 'pointer',
+                  borderLeft: `4px solid ${tb.da_doc ? '#e5e7eb' : '#e53935'}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <span style={{ fontSize: 18 }}>{cfg.icon}</span>
+                  <span style={{ fontWeight: 700, color: '#111827', flex: 1, fontSize: 14 }}>{tb.tieu_de}</span>
+                  {!tb.da_doc && <span style={{ fontSize: 11, background: '#e53935', color: '#fff', padding: '2px 8px', borderRadius: 10 }}>Mới</span>}
+                  <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                </div>
+                {tb.noi_dung && <p style={{ margin: '0 0 6px', fontSize: 13, color: '#374151', lineHeight: 1.6 }}>{tb.noi_dung}</p>}
+                <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                  {tb.created_at ? new Date(tb.created_at).toLocaleString('vi-VN') : ''}
+                  {!tb.da_doc && <span style={{ marginLeft: 8, color: '#e53935' }}>· Nhấn để đánh dấu đã đọc</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Tab: Đánh giá GV ─────────────────────────────────────────────────────────
 function TabDanhGia({ lopHocData, addToast }) {
   const today = new Date().toISOString().split('T')[0];
@@ -791,7 +831,7 @@ function TabDanhGia({ lopHocData, addToast }) {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const lopList = lopHocData || [];
+  const lopList = Array.isArray(lopHocData) ? lopHocData : [];
 
   const handleLopChange = (e) => {
     const id = e.target.value;
@@ -867,9 +907,8 @@ export default function HocVienPortal() {
   const [tab, setTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({});
-  const [toasts, setToasts] = useState([]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [loadedTabs] = useState(() => new Set());
+   const [toasts, setToasts] = useState([]);
+   const [loadedTabs] = useState(() => new Set());
 
   const addToast = (msg, type = 'success') => {
     const id = Date.now();
@@ -890,6 +929,7 @@ export default function HocVienPortal() {
       else if (tabKey === 'diem-danh') res = await hvPortalAPI.getDiemDanh();
       else if (tabKey === 'hoc-phi') res = await hvPortalAPI.getHocPhi();
       else if (tabKey === 'danh-gia') res = await hvPortalAPI.getLopHoc();
+      else if (tabKey === 'thong-bao') res = await hvPortalAPI.getThongBao();
       if (res) setData(d => ({ ...d, [tabKey]: res.data ?? res }));
     } catch { addToast('Lỗi tải dữ liệu', 'error'); }
     finally { setLoading(false); }
@@ -931,32 +971,101 @@ export default function HocVienPortal() {
     if (tab === 'hoc-phi')   return <TabHocPhi data={data['hoc-phi']} loading={isLoading} />;
     if (tab === 'lich-test') return <TabLichTest user={user} />;
     if (tab === 'danh-gia')  return <TabDanhGia lopHocData={data['danh-gia'] || data['lop-hoc']} addToast={addToast} />;
+    if (tab === 'thong-bao') return <TabThongBao data={data['thong-bao']} loading={isLoading} reload={reload} />;
     return null;
   };
 
   const tabLabel = MENU.find(m => m.key === tab);
 
-  return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
-      <Toast toasts={toasts} />
+   return (
+     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+       <Toast toasts={toasts} />
 
-      {/* Hamburger for mobile */}
-      <button onClick={() => setSidebarOpen(true)} style={{
-        display: 'none', position: 'fixed', top: 12, left: 12, zIndex: 300,
-        background: '#e53935', color: '#fff', border: 'none', borderRadius: 6,
-        padding: '6px 10px', cursor: 'pointer', fontSize: 18,
-        // show on mobile via media query workaround
-      }} id="hv-hamburger">☰</button>
+       <style>{`
+         @media (max-width: 768px) {
+           #hv-sidebar {
+             width: 60px !important;
+           }
+           #hv-sidebar .sidebar-text {
+             display: none !important;
+           }
+           #hv-sidebar .sidebar-user-info {
+             padding: 12px 8px !important;
+           }
+           #hv-sidebar .sidebar-user-avatar {
+             width: 36px !important;
+             height: 36px !important;
+             font-size: 16px !important;
+             margin-bottom: 4px !important;
+           }
+           #hv-sidebar .sidebar-nav-item {
+             padding: 10px 8px !important;
+             justify-content: center !important;
+           }
+           #hv-sidebar .sidebar-nav-item span:first-child {
+             font-size: 18px !important;
+           }
+           #hv-sidebar .sidebar-logout-btn {
+             padding: 8px !important;
+             font-size: 16px !important;
+           }
+           #hv-sidebar .sidebar-logout-text {
+             display: none !important;
+           }
+           #hv-main-content {
+             margin-left: 60px !important;
+           }
+           #hv-main-content > div:first-child {
+             padding: 10px 16px !important;
+           }
+           #hv-main-content > div:last-child {
+             padding: 16px !important;
+           }
+         }
+       `}</style>
 
-      <style>{`
-        @media (max-width: 768px) {
-          #hv-hamburger { display: block !important; }
-          #hv-main-content { margin-left: 0 !important; }
-        }
-      `}</style>
+       {/* Sidebar - always visible on all screens */}
+      <div id="hv-sidebar" style={{
+        width: 220, background: '#e53935', color: '#fff',
+        display: 'flex', flexDirection: 'column', minHeight: '100vh',
+        position: 'fixed', top: 0, left: 0, zIndex: 200,
+      }}>
+        <div className="sidebar-user-info" style={{ padding: '24px 16px 16px', borderBottom: '1px solid rgba(255,255,255,.1)' }}>
+          <div className="sidebar-user-avatar" style={{ width: 48, height: 48, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 8, color: '#e53935', fontWeight: 'bold' }}>
+            {(user?.ho_ten || 'U')[0].toUpperCase()}
+          </div>
+          <div className="sidebar-text" style={{ fontWeight: 600, fontSize: 14 }}>{user?.ho_ten || 'Học viên'}</div>
+          <div className="sidebar-text" style={{ fontSize: 12, opacity: .7 }}>{user?.email}</div>
+        </div>
+        <nav style={{ flex: 1, padding: '12px 0', overflowY: 'auto' }}>
+          {MENU.map(m => (
+            <div key={m.key} onClick={() => setTab(m.key)}
+              className="sidebar-nav-item"
+              title={m.label}
+              style={{
+                padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+                background: tab === m.key ? 'rgba(255,255,255,.15)' : 'transparent',
+                borderLeft: tab === m.key ? '3px solid #fff' : '3px solid transparent',
+                fontSize: 14, transition: 'background .15s',
+              }}>
+              <span>{m.icon}</span><span className="sidebar-text">{m.label}</span>
+            </div>
+          ))}
+        </nav>
+        <div style={{ padding: '16px' }}>
+          <button className="sidebar-logout-btn" title="Đăng xuất" onClick={handleLogout} style={{
+            width: '100%', padding: '8px', background: '#333',
+            color: '#fff', border: 'none', borderRadius: 6,
+            cursor: 'pointer', fontSize: 13,
+          }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+              🚪 <span className="sidebar-logout-text">Đăng xuất</span>
+            </span>
+          </button>
+        </div>
+      </div>
 
-      <Sidebar user={user} tab={tab} setTab={setTab} onLogout={handleLogout} open={sidebarOpen} setOpen={setSidebarOpen} />
-
+      {/* Main content - always shifted for sidebar */}
       <div id="hv-main-content" style={{ flex: 1, marginLeft: 220, background: '#f5f6fa', minHeight: '100vh' }}>
         <div style={{ background: '#fff', padding: '14px 24px', boxShadow: '0 1px 4px rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 18 }}>{tabLabel?.icon}</span>

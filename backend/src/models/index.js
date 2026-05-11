@@ -76,7 +76,6 @@ DanhGiaGiaoVien.belongsTo(NguoiDung, { foreignKey: "hoc_vien_id", as: "hocVien" 
 
 // ── NguoiDung ↔ PhieuThu / PhieuChi ──
 PhieuThu.belongsTo(NguoiDung, { foreignKey: "nguoi_nop_id", as: "nguoiNop" });
-PhieuThu.belongsTo(NguoiDung, { foreignKey: "nguoi_thu_id", as: "nguoiThu" });
 PhieuChi.belongsTo(NguoiDung, { foreignKey: "nguoi_nhan_id", as: "nguoiNhan" });
 PhieuChi.belongsTo(NguoiDung, { foreignKey: "nguoi_duyet_id", as: "nguoiDuyet" });
 

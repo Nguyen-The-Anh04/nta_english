@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { setCookie } from "./utils/cookieUtils";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import Home from "./pages/Home";
+import OnlineExamListPage from "./pages/OnlineExamListPage";
+import OnlineExamPage from "./pages/OnlineExamPage";
 import Books from "./components/Books";
 import Collab from "./components/Collab";
 import Shop from "./components/Shop";
@@ -15,8 +17,10 @@ import HocVienPortal from "./pages/HocVienPortal";
 import HocVienTestPortal from "./pages/HocVienTestPortal";
 import GiaoVienPortal from "./pages/GiaoVienPortal";
 import SalePortal from "./pages/SalePortal";
+import KeToanPortal from "./pages/KeToanPortal";
 import TraCuuDonHang from "./pages/TraCuuDonHang";
 import DonHangKhach from "./pages/DonHangKhach";
+import PhuHuynhPortal from "./pages/PhuHuynhPortal";
 import Footer from "./components/Footer";
 
 // ProductDetail Wrapper - Fetch data from API
@@ -330,6 +334,10 @@ if (path === "/admin") {
     return <SalePortal />;
   }
 
+  if (path === "/ketoan" || path === "/ke-toan") {
+    return <KeToanPortal />;
+  }
+
   if (path === "/test-portal") {
     // Chuyển hướng về /hocvien - học viên xem lịch test trong portal chính
     navigate("/hocvien");
@@ -338,6 +346,10 @@ if (path === "/admin") {
 
   if (path === "/tra-cuu-don-hang") {
     return <TraCuuDonHang />;
+  }
+
+  if (path === "/phuhuynh" || path === "/phu-huynh") {
+    return <PhuHuynhPortal />;
   }
 
   // Render based on URL
@@ -448,6 +460,22 @@ if (path === "/admin") {
 
   if (path === "/don-hang") {
     return <DonHangKhach />;
+  }
+
+  // Online Exam Routes
+  if (path === "/thi" || path === "/thi/") {
+    return <OnlineExamListPage />;
+  }
+
+  if (path.startsWith("/thi/")) {
+    const examId = parseInt(path.split("/")[2]);
+    return (
+      <OnlineExamPage
+        examId={examId}
+        userId={null}
+        onComplete={() => navigate("/thi")}
+      />
+    );
   }
 
   if (path.startsWith("/product/")) {

@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LMSAdminLayout from "../admin/lms/LMSAdminLayout";
+import ClassManagement from "../admin/lms/ClassManagement";
+import DiemDanh from "../admin/lms/DiemDanh";
+import BaiTap from "../admin/lms/BaiTap";
+import BangDiem from "../admin/lms/BangDiem";
+import StudentManagement from "../admin/lms/StudentManagement";
+import QuanLyDeThi from "../admin/lms/QuanLyDeThi";
+import TestAppointments from "../admin/lms/TestAppointments";
+import StudentFeedback from "../admin/lms/StudentFeedback";
+import LichHocPage from "../admin/lms/LichHocPage";
 import { loginDemo } from "../api";
 
 // Demo teacher account
@@ -34,33 +43,52 @@ export default function GiaoVienPortal() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    try {
+      const res = await loginDemo(email, null);
+      // Thử login thực trước
+      const realRes = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, mat_khau: password }),
+      }).then(r => r.json());
 
-    // Check demo account
-    if (email === DEMO_TEACHER.email && password === DEMO_TEACHER.password) {
-      try {
-        // Use loginDemo API to get valid JWT token
-        const res = await loginDemo(email, DEMO_TEACHER.user.id);
-        if (res.success && res.data && res.data.token) {
-          localStorage.setItem("gv_token", res.data.token);
-          localStorage.setItem("gv_user", JSON.stringify(res.data.user));
-          setUser(res.data.user);
-          setIsLoggedIn(true);
-        } else {
-          // Fallback
+      if (realRes.success && realRes.data) {
+        const u = realRes.data.user;
+        if (u.chuc_vu_id !== 3 && u.chuc_vu_id !== 1) {
+          setError("Tài khoản không có quyền truy cập portal giáo viên!");
+          setLoading(false);
+          return;
+        }
+        localStorage.setItem("gv_token", realRes.data.token);
+        localStorage.setItem("gv_user", JSON.stringify(u));
+        setUser(u);
+        setIsLoggedIn(true);
+      } else if (email === DEMO_TEACHER.email && password === DEMO_TEACHER.password) {
+        // Fallback demo
+        try {
+          const demoRes = await loginDemo(email, DEMO_TEACHER.user.id);
+          if (demoRes.success && demoRes.data?.token) {
+            localStorage.setItem("gv_token", demoRes.data.token);
+            localStorage.setItem("gv_user", JSON.stringify(demoRes.data.user));
+            setUser(demoRes.data.user);
+            setIsLoggedIn(true);
+          } else {
+            localStorage.setItem("gv_token", "demo_token_" + Date.now());
+            localStorage.setItem("gv_user", JSON.stringify(DEMO_TEACHER.user));
+            setUser(DEMO_TEACHER.user);
+            setIsLoggedIn(true);
+          }
+        } catch {
           localStorage.setItem("gv_token", "demo_token_" + Date.now());
           localStorage.setItem("gv_user", JSON.stringify(DEMO_TEACHER.user));
           setUser(DEMO_TEACHER.user);
           setIsLoggedIn(true);
         }
-      } catch (err) {
-        // Fallback
-        localStorage.setItem("gv_token", "demo_token_" + Date.now());
-        localStorage.setItem("gv_user", JSON.stringify(DEMO_TEACHER.user));
-        setUser(DEMO_TEACHER.user);
-        setIsLoggedIn(true);
+      } else {
+        setError(realRes.message || "Email hoặc mật khẩu không đúng!");
       }
-    } else {
-      setError("Email hoặc mật khẩu không đúng!");
+    } catch {
+      setError("Lỗi kết nối máy chủ!");
     }
     setLoading(false);
   };
@@ -140,6 +168,21 @@ export default function GiaoVienPortal() {
   }
 
   // Teacher portal with LMSAdminLayout (role = 3 for teacher)
+  const renderPage = () => {
+    switch (activePage) {
+      case "class-management":   return <ClassManagement />;
+      case "lich-hoc":           return <LichHocPage />;
+      case "diem-danh":          return <DiemDanh />;
+      case "bai-tap":            return <BaiTap />;
+      case "bang-diem":          return <BangDiem />;
+      case "student-management": return <StudentManagement />;
+      case "quan-ly-de-thi":     return <QuanLyDeThi />;
+      case "test-appointment":   return <TestAppointments />;
+      case "feedback":           return <StudentFeedback />;
+      default:                   return <ClassManagement />;
+    }
+  };
+
   return (
     <LMSAdminLayout
       activePage={activePage}
@@ -147,6 +190,8 @@ export default function GiaoVienPortal() {
       onLogout={handleLogout}
       role={3}
       userName={user?.ho_ten || "Giáo viên"}
-    />
+    >
+      {renderPage()}
+    </LMSAdminLayout>
   );
 }

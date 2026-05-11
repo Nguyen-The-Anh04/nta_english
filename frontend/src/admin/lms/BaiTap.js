@@ -27,7 +27,9 @@ export default function BaiTap() {
   const [showChamDiem, setShowChamDiem] = useState(null); // hoc_vien_id being graded
 
   useEffect(() => {
-    lmsAPI.getLopHocs().then(res => setLops(res.data || res || []));
+    const gvUser = (() => { try { return JSON.parse(localStorage.getItem("gv_user") || "null"); } catch { return null; } })();
+    const params = (gvUser?.chuc_vu_id === 3) ? { giao_vien_id: gvUser.id } : {};
+    lmsAPI.getLopHocs(params).then(res => setLops(res.data || res || []));
   }, []);
 
   useEffect(() => {

@@ -25,5 +25,6 @@ module.exports = (app) => {
   app.use("/api/lms", lmsRoutes);
   app.use("/api/test", testRoutes);
   app.use("/api/exam", require("./exam"));
+  app.use("/api/online-exam", require("./onlineExam"));
   app.use("/api/customers", customerRoutes);
 };

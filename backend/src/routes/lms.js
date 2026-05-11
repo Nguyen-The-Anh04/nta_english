@@ -1,7 +1,18 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
+const path = require("path");
 const lms = require("../controllers/lmsController");
 const { auth } = require("../middleware/auth");
+
+// Upload bài nộp
+const uploadNopBai = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, path.join(__dirname, "../../uploads")),
+    filename: (req, file, cb) => cb(null, `nopbai_${Date.now()}${path.extname(file.originalname)}`),
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+});
 
 // Khoa hoc
 router.get("/khoa-hoc", lms.getKhoaHocs);
@@ -31,6 +42,9 @@ router.put("/dang-ky/:id", auth, lms.updateDangKy);
 router.get("/hoc-vien", auth, lms.getHocViens);
 router.post("/hoc-vien", auth, lms.createHocVien);
 router.put("/hoc-vien/:id", auth, lms.updateHocVien);
+router.get("/hoc-vien/:id/ghi-chu", auth, lms.getGhiChuHocVien);
+router.post("/hoc-vien/:id/ghi-chu", auth, lms.createGhiChuHocVien);
+router.delete("/hoc-vien/:id/ghi-chu/:gcId", auth, lms.deleteGhiChuHocVien);
 
 // Hop dong & thanh toan
 router.get("/hop-dong", auth, lms.getHopDongs);
@@ -69,10 +83,23 @@ router.get("/ke-toan/bao-cao", auth, lms.getBaoCaoDoanhThu);
 router.get("/hoc-vien/portal/dashboard", auth, lms.getHocVienDashboard);
 router.get("/hoc-vien/portal/lop-hoc", auth, lms.getMyLopHoc);
 router.get("/hoc-vien/portal/bai-tap", auth, lms.getMyBaiTap);
-router.post("/hoc-vien/portal/nop-bai", auth, lms.nopBai);
+router.post("/hoc-vien/portal/nop-bai", auth, uploadNopBai.single("file_nop"), lms.nopBai);
 router.get("/hoc-vien/portal/diem-so", auth, lms.getMyDiemSo);
 router.get("/hoc-vien/portal/diem-danh", auth, lms.getMyDiemDanh);
 router.post("/hoc-vien/portal/danh-gia", auth, lms.hocVienDanhGia);
 router.get("/hoc-vien/portal/hoc-phi", auth, lms.getMyHocPhi);
+
+// Phu huynh
+router.get("/phu-huynh", auth, lms.getPhuHuynh);
+router.post("/phu-huynh", auth, lms.createPhuHuynh);
+router.put("/phu-huynh/:id", auth, lms.updatePhuHuynh);
+router.delete("/phu-huynh/:id", auth, lms.deletePhuHuynh);
+router.get("/phu-huynh/lich-hoc/:hocVienId", auth, lms.getLichHocCon);
+router.get("/phu-huynh/bai-tap/:hocVienId", auth, lms.getBaiTapCon);
+
+// ==================== THONG BAO ====================
+router.get("/thong-bao", auth, lms.getThongBao);
+router.post("/thong-bao", auth, lms.createThongBao);
+router.put("/thong-bao/:id/doc", auth, lms.danhDauDaDoc);
 
 module.exports = router;

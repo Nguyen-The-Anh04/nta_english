@@ -12,10 +12,9 @@ const generateToken = (user) => {
       chuc_vu_id: user.chuc_vu_id,
     },
     process.env.JWT_SECRET || "nta_secret_key_2026",
-    { expiresIn: "7d" }
+    { expiresIn: "30d" }
   );
 };
-
 // POST /api/auth/register
 const register = async (req, res) => {
   try {

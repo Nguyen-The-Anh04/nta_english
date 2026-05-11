@@ -1,267 +1,99 @@
 import { useState } from "react";
-import {
-  Search,
-  ArrowRightCircle,
-  Calendar,
-  FileText,
-  MoreHorizontal,
-  CheckCircle
-} from "lucide-react";
 
-const transferredStudents = [
-  {
-    id: "HV014",
-    name: "Lê Văn H",
-    email: "levanh@gmail.com",
-    phone: "0934 567 123",
-    oldClass: "IELTS25-01",
-    newClass: "IELTS25-02",
-    oldCourse: "IELTS 5.5",
-    newCourse: "IELTS 6.5",
-    transferDate: "2024-04-15",
-    reason: "Chuyển lên level cao hơn",
-    approvedBy: "Nguyễn Thị Mai",
-  },
-  {
-    id: "HV015",
-    name: "Trần Thị I",
-    email: "tranthii@gmail.com",
-    phone: "0987 654 987",
-    oldClass: "GE25-01",
-    newClass: "IELTS25-01",
-    oldCourse: "General English",
-    newCourse: "IELTS 5.5",
-    transferDate: "2024-04-10",
-    reason: "Chuyển khóa học",
-    approvedBy: "Lê Văn Hùng",
-  },
-  {
-    id: "HV016",
-    name: "Phạm Văn J",
-    email: "phamvanj@gmail.com",
-    phone: "0912 345 987",
-    oldClass: "TOEIC25-01",
-    newClass: "TOEIC25-02",
-    oldCourse: "TOEIC 600",
-    newCourse: "TOEIC 750",
-    transferDate: "2024-04-05",
-    reason: "Lên lớp theo lộ trình",
-    approvedBy: "Trần Văn Đức",
-  },
+const TH = { padding:"10px 14px", textAlign:"left", fontSize:13, fontWeight:700, color:"#fff", background:"#e11d48", borderRight:"1px solid rgba(255,255,255,0.2)", whiteSpace:"nowrap" };
+const TD = { padding:"10px 14px", fontSize:13, borderBottom:"1px solid #f3f4f6", verticalAlign:"middle" };
+
+// Dữ liệu mẫu
+const SAMPLE = [
+  { id:1, ho_ten:"Nguyễn Thị Thu Hà",  ma_hv:"HV2406280001", lop_cu:"COM03", lop_moi:"COM04", phi_cu:18000000, phi_moi:18000000, tien_da_thu:0, ghi_chu:"" },
+  { id:2, ho_ten:"Nguyễn Đào Tường Vy", ma_hv:"HV2312170009", lop_cu:"COM03", lop_moi:"COM04", phi_cu:18000000, phi_moi:18000000, tien_da_thu:0, ghi_chu:"" },
 ];
 
-export default function TransferredStudents() {
-  const [searchTerm, setSearchTerm] = useState("");
+const PAGE_SIZE = 20;
 
-  const filteredStudents = transferredStudents.filter((student) =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.phone.includes(searchTerm) ||
-    student.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+export default function TransferredStudents() {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+
+  const filtered = SAMPLE.filter(r => {
+    const q = search.toLowerCase();
+    return !q || r.ho_ten.toLowerCase().includes(q) || r.ma_hv.toLowerCase().includes(q);
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+  const fmtMoney = n => Number(n).toLocaleString("vi-VN");
 
   return (
-    <div>
-      {/* Header */}
-      <div
-        style={{
-          background: "white",
-          borderRadius: 16,
-          padding: 24,
-          marginBottom: 24,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: "700", color: "#1e293b" }}>
-              Học viên chuyển lớp
-            </h2>
-            <p style={{ margin: "4px 0 0", fontSize: 14, color: "#64748b" }}>
-              Lịch sử chuyển lớp của học viên
-            </p>
-          </div>
+    <div style={{ fontFamily:"system-ui,sans-serif" }}>
+      <div style={{ fontSize:12, color:"#9ca3af", marginBottom:16 }}>
+        Thông tin học &nbsp;/&nbsp; <strong style={{ color:"#111827" }}>Học viên chuyển lớp</strong>
+      </div>
 
-          {/* Search */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              background: "#f8fafc",
-              borderRadius: 12,
-              padding: "10px 16px",
-              border: "1px solid #e2e8f0",
-              minWidth: 300,
-            }}
-          >
-            <Search size={18} color="#94a3b8" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm học viên..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                border: "none",
-                background: "transparent",
-                outline: "none",
-                fontSize: 14,
-                color: "#1e293b",
-                width: "100%",
-              }}
-            />
-          </div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, border:"1px solid #d1d5db", borderRadius:6, padding:"6px 12px", background:"#fff", width:280 }}>
+          <span style={{ color:"#9ca3af" }}>▼</span>
+          <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Tìm kiếm"
+            style={{ border:"none", outline:"none", fontSize:13, flex:1 }} />
+          <span style={{ color:"#9ca3af" }}>🔍</span>
         </div>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
-        <div
-          style={{
-            background: "white",
-            borderRadius: 16,
-            padding: 20,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: "#dbeafe", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <ArrowRightCircle size={24} color="#3b82f6" />
-            </div>
-            <div>
-              <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Tổng chuyển lớp</p>
-              <p style={{ margin: 0, fontSize: 28, fontWeight: "800", color: "#1e293b" }}>{transferredStudents.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: "white",
-            borderRadius: 16,
-            padding: 20,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: "#d1fae5", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <CheckCircle size={24} color="#10b981" />
-            </div>
-            <div>
-              <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Tháng này</p>
-              <p style={{ margin: 0, fontSize: 28, fontWeight: "800", color: "#1e293b" }}>{transferredStudents.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: "white",
-            borderRadius: 16,
-            padding: 20,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: "#e11d4820", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <ArrowRightCircle size={24} color="#e11d48" />
-            </div>
-            <div>
-              <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Chuyển khóa</p>
-              <p style={{ margin: 0, fontSize: 28, fontWeight: "800", color: "#1e293b" }}>2</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div
-        style={{
-          background: "white",
-          borderRadius: 16,
-          overflow: "hidden",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-        }}
-      >
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: 12, fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Học viên</th>
-              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: 12, fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Lớp cũ</th>
-              <th style={{ padding: "16px 20px", textAlign: "center", fontSize: 12, fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}></th>
-              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: 12, fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Lớp mới</th>
-              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: 12, fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Ngày chuyển</th>
-              <th style={{ padding: "16px 20px", textAlign: "center", fontSize: 12, fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredStudents.map((student) => (
-              <tr key={student.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                <td style={{ padding: "16px 20px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
-                      👨
-                    </div>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 15, fontWeight: "600", color: "#1e293b" }}>{student.name}</p>
-                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>{student.id}</p>
-                    </div>
-                  </div>
-                </td>
-                <td style={{ padding: "16px 20px" }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: "500", color: "#64748b" }}>{student.oldCourse}</p>
-                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>{student.oldClass}</p>
-                </td>
-                <td style={{ padding: "16px 20px", textAlign: "center" }}>
-                  <ArrowRightCircle size={20} color="#e11d48" />
-                </td>
-                <td style={{ padding: "16px 20px" }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: "500", color: "#10b981" }}>{student.newCourse}</p>
-                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>{student.newClass}</p>
-                </td>
-                <td style={{ padding: "16px 20px" }}>
-                  <span style={{ fontSize: 14, color: "#64748b" }}>{student.transferDate}</span>
-                </td>
-                <td style={{ padding: "16px 20px" }}>
-                  <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
-                    <button
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 10,
-                        border: "1px solid #e2e8f0",
-                        background: "white",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#3b82f6",
-                      }}
-                      title="Xem chi tiết"
-                    >
-                      <FileText size={16} />
-                    </button>
-                    <button
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 10,
-                        border: "1px solid #e2e8f0",
-                        background: "white",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#64748b",
-                      }}
-                    >
-                      <MoreHorizontal size={16} />
-                    </button>
-                  </div>
-                </td>
+      <div style={{ background:"#fff", borderRadius:8, border:"1px solid #e5e7eb", overflow:"hidden" }}>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
+            <thead>
+              <tr>
+                <th style={{...TH, width:32}}></th>
+                <th style={TH}>Thông tin</th>
+                <th style={TH}>Lớp cũ</th>
+                <th style={TH}>Lớp mới</th>
+                <th style={TH}>Tiền đã thu</th>
+                <th style={TH}>Ghi chú</th>
+                <th style={{...TH, borderRight:"none"}}></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {paged.length === 0
+                ? <tr><td colSpan={7} style={{ padding:40, textAlign:"center", color:"#9ca3af" }}>Không có dữ liệu</td></tr>
+                : paged.map((r, i) => (
+                  <tr key={r.id} style={{ borderBottom:"1px solid #f3f4f6" }}>
+                    <td style={{...TD, color:"#9ca3af", fontSize:16, cursor:"pointer"}}>+</td>
+                    <td style={TD}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                        <div style={{ width:36, height:36, borderRadius:"50%", background:"#f3f4f6", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>👤</div>
+                        <div>
+                          <div style={{ fontWeight:600, color:"#111827", fontSize:14 }}>{r.ho_ten}</div>
+                          <div style={{ fontSize:11, color:"#9ca3af" }}>{r.ma_hv}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={TD}>
+                      <div style={{ color:"#2563eb", fontWeight:600 }}>{r.lop_cu}</div>
+                      <div style={{ fontSize:12, color:"#6b7280" }}>{fmtMoney(r.phi_cu)}</div>
+                    </td>
+                    <td style={TD}>
+                      <div style={{ color:"#2563eb", fontWeight:600 }}>{r.lop_moi}</div>
+                      <div style={{ fontSize:12, color:"#6b7280" }}>{fmtMoney(r.phi_moi)}</div>
+                    </td>
+                    <td style={{...TD, color:"#16a34a", fontWeight:700}}>{r.tien_da_thu}</td>
+                    <td style={TD}>{r.ghi_chu||""}</td>
+                    <td style={{...TD, borderRight:"none"}}>
+                      <span style={{ fontSize:20, color:"#f59e0b", cursor:"pointer" }}>👁</span>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", gap:6, padding:"12px 16px", borderTop:"1px solid #f3f4f6", fontSize:13, color:"#6b7280" }}>
+          <span>Tổng cộng: {filtered.length}</span>
+          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}
+            style={{ width:28, height:28, border:"1px solid #d1d5db", borderRadius:4, background:"#fff", cursor:"pointer" }}>‹</button>
+          <span style={{ width:28, height:28, border:"1px solid #e11d48", borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, color:"#e11d48" }}>{page}</span>
+          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}
+            style={{ width:28, height:28, border:"1px solid #d1d5db", borderRadius:4, background:"#fff", cursor:"pointer" }}>›</button>
+        </div>
       </div>
     </div>
   );

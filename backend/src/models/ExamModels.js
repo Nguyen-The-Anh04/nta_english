@@ -15,22 +15,40 @@ const DeThi = sequelize.define("DeThi", {
   thoi_gian_phut: { type: DataTypes.INTEGER, defaultValue: 60 },
   so_cau_nghe: { type: DataTypes.INTEGER, defaultValue: 0 },
   so_cau_doc: { type: DataTypes.INTEGER, defaultValue: 0 },
+  json_data: { type: DataTypes.TEXT('long') },
   trang_thai: { type: DataTypes.ENUM("hoat_dong","tam_dung"), defaultValue: "hoat_dong" },
   created_by: { type: DataTypes.INTEGER },
 }, { tableName: "de_thi", timestamps: true, createdAt: "created_at", updatedAt: false });
+
+// ===== PASSAGE (đoạn văn đọc hiểu) =====
+const Passage = sequelize.define("Passage", {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  de_thi_id: { type: DataTypes.INTEGER, allowNull: false },
+  section_type: { type: DataTypes.STRING(20), defaultValue: "reading" },
+  title: { type: DataTypes.STRING(255) },
+  content: { type: DataTypes.TEXT('long') },
+  order_index: { type: DataTypes.INTEGER, defaultValue: 1 },
+}, { tableName: "passages", timestamps: true, createdAt: "created_at", updatedAt: false });
 
 // ===== CAU HOI =====
 const CauHoi = sequelize.define("CauHoi", {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   de_thi_id: { type: DataTypes.INTEGER, allowNull: false },
   stt: { type: DataTypes.INTEGER, defaultValue: 1 },
-  phan: { type: DataTypes.ENUM("nghe","doc"), defaultValue: "doc" },
+  phan: { type: DataTypes.ENUM("nghe","doc","viet"), defaultValue: "doc" },
   ky_nang: { type: DataTypes.ENUM("nghe","doc","noi","viet") },
   noi_dung: { type: DataTypes.TEXT, allowNull: false },
   lua_chon: { type: DataTypes.JSON },
-  dap_an_dung: { type: DataTypes.STRING(10) },
-  diem: { type: DataTypes.DECIMAL(3,2), defaultValue: 1.00 },
+  dap_an_dung: { type: DataTypes.TEXT },
+  diem: { type: DataTypes.DECIMAL(5,2), defaultValue: 1.00 },
   hinh_anh: { type: DataTypes.STRING(500) },
+  loai_cau: { type: DataTypes.STRING(20), defaultValue: "mcq" }, // mcq, fill_blank, true_false, essay
+  bai_tap_id: { type: DataTypes.STRING(20) },
+  huong_dan: { type: DataTypes.TEXT },
+  passage: { type: DataTypes.TEXT },
+  passage_id: { type: DataTypes.INTEGER },
+  section_type: { type: DataTypes.STRING(20), defaultValue: "reading" },
+  order_index: { type: DataTypes.INTEGER, defaultValue: 1 },
 }, { tableName: "cau_hoi_de_thi", timestamps: false });
 
 // ===== KET QUA DE THI =====
@@ -61,6 +79,11 @@ const BaiLam = sequelize.define("BaiLam", {
 DeThi.hasMany(CauHoi, { foreignKey: "de_thi_id", as: "cauHois" });
 CauHoi.belongsTo(DeThi, { foreignKey: "de_thi_id", as: "deThi" });
 
+DeThi.hasMany(Passage, { foreignKey: "de_thi_id", as: "passages" });
+Passage.belongsTo(DeThi, { foreignKey: "de_thi_id", as: "deThi" });
+Passage.hasMany(CauHoi, { foreignKey: "passage_id", as: "cauHois" });
+CauHoi.belongsTo(Passage, { foreignKey: "passage_id", as: "passageObj" });
+
 DeThi.hasMany(KetQuaDeThi, { foreignKey: "de_thi_id", as: "ketQuas" });
 KetQuaDeThi.belongsTo(DeThi, { foreignKey: "de_thi_id", as: "deThi" });
 
@@ -73,4 +96,4 @@ BaiLam.belongsTo(KetQuaDeThi, { foreignKey: "ket_qua_de_thi_id", as: "ketQua" })
 CauHoi.hasMany(BaiLam, { foreignKey: "cau_hoi_id", as: "baiLams" });
 BaiLam.belongsTo(CauHoi, { foreignKey: "cau_hoi_id", as: "cauHoi" });
 
-module.exports = { DeThi, CauHoi, KetQuaDeThi, BaiLam };
+module.exports = { DeThi, Passage, CauHoi, KetQuaDeThi, BaiLam };

@@ -268,7 +268,6 @@ const getAllOrders = async (req, res) => {
       where,
       include: [
         { model: NguoiDung, as: "nguoiMua", attributes: ["id", "ho_ten", "email", "sdt"] },
-        { model: NguoiDung, as: "nguoiCTV", attributes: ["id", "ho_ten"] },
         { 
           model: ChiTietDonHang, 
           as: "chiTiets", 
@@ -298,12 +297,11 @@ const getOrderById = async (req, res) => {
   try {
     const order = await DonHang.findByPk(req.params.id, {
       include: [
-        { model: NguoiDung, as: "nguoiMua", attributes: ["id", "ho_ten", "email", "sdt", "dia_chi"] },
-        { model: NguoiDung, as: "nguoiCTV", attributes: ["id", "ho_ten", "ma_gioi_thieu"] },
+        { model: NguoiDung, as: "nguoiMua", attributes: ["id", "ho_ten", "email", "sdt"] },
         { 
           model: ChiTietDonHang, 
           as: "chiTiets", 
-          include: [{ model: Sach, as: "sach", attributes: ["id", "ten_sach", "gia_ban", "hinh_anh"] }] 
+          include: [{ model: Sach, as: "sach", attributes: ["id", "ten_sach", "gia_ban", "hinh_anh", "tac_gia"] }] 
         },
       ],
     });
@@ -312,10 +310,26 @@ const getOrderById = async (req, res) => {
       return res.status(404).json({ success: false, message: "Đơn hàng không tồn tại" });
     }
 
-    res.json({ success: true, data: order });
+    // Lấy thông tin CTV từ bảng ctv (ctv_id trên đơn hàng là ctv.id)
+    let ctvInfo = null;
+    if (order.ctv_id) {
+      ctvInfo = await CTV.findByPk(order.ctv_id, {
+        include: [{ model: NguoiDung, as: "nguoiDung", attributes: ["id", "ho_ten", "email", "sdt"] }],
+      });
+    }
+
+    const result = order.toJSON();
+    result.ctvGioiThieu = ctvInfo ? {
+      id: ctvInfo.id,
+      ho_ten: ctvInfo.nguoiDung?.ho_ten,
+      email: ctvInfo.nguoiDung?.email,
+      ma_gioi_thieu: ctvInfo.ma_gioi_thieu,
+    } : null;
+
+    res.json({ success: true, data: result });
   } catch (error) {
     console.error("Get order by ID error:", error);
-    res.status(500).json({ success: false, message: "Lỗi server" });
+    res.status(500).json({ success: false, message: "Lỗi server: " + error.message });
   }
 };
 
@@ -1250,7 +1264,7 @@ const registerAffiliate = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, chuc_vu_id: user.chuc_vu_id },
       process.env.JWT_SECRET || "nta_secret_key_2026",
-      { expiresIn: "7d" }
+      { expiresIn: "30d" }
     );
 
     res.status(201).json({

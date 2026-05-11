@@ -1,355 +1,120 @@
-import { useState } from "react";
-import {
-  Search,
-  ClipboardList,
-  Calendar,
-  Clock,
-  DollarSign,
-  Phone,
-  Mail,
-  AlertCircle,
-  CheckCircle,
-  MoreHorizontal,
-  FileText,
-  Bell
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { lmsAPI } from "../../api";
 
-const registrationAppointments = [
-  {
-    id: "REG001",
-    name: "Nguyễn Văn A",
-    phone: "0912 345 678",
-    email: "nguyenvana@gmail.com",
-    course: "IELTS 5.5",
-    expectedDate: "2024-04-22",
-    amount: 3500000,
-    staff: "Nguyễn Thị Mai",
-    status: "sap-den",
-    note: "Học viên xác nhận sẽ đóng tiền vào ngày mai",
-  },
-  {
-    id: "REG002",
-    name: "Trần Thị B",
-    phone: "0987 654 321",
-    email: "tranthib@yahoo.com",
-    course: "TOEIC 750",
-    expectedDate: "2024-04-23",
-    amount: 2800000,
-    staff: "Lê Văn Hùng",
-    status: "chua-xac-nhan",
-    note: "Chờ học viên xác nhận lại",
-  },
-  {
-    id: "REG003",
-    name: "Lê Văn C",
-    phone: "0934 567 890",
-    email: "levanc@gmail.com",
-    course: "IELTS 6.5",
-    expectedDate: "2024-04-21",
-    amount: 4200000,
-    staff: "NguyỆn Thị Mai",
-    status: "qua-han",
-    note: "Đã quá hạn 1 ngày, cần liên hệ lại",
-  },
-  {
-    id: "REG004",
-    name: "Phạm Thị D",
-    phone: "0901 234 567",
-    email: "phamthid@gmail.com",
-    course: "General English",
-    expectedDate: "2024-04-25",
-    amount: 2500000,
-    staff: "Trần Văn Đức",
-    status: "sap-den",
-    note: "Học viên sẽ đóng tiền vào cuối tuần",
-  },
-  {
-    id: "REG005",
-    name: "Ngô Văn E",
-    phone: "0978 901 234",
-    email: "ngovane@gmail.com",
-    course: "Business English",
-    expectedDate: "2024-04-24",
-    amount: 5000000,
-    staff: "Lê Văn Hùng",
-    status: "da-thanh-toan",
-    note: "Đã thanh toán đầy đủ",
-  },
-];
+const TH = { padding:"10px 14px", textAlign:"left", fontSize:13, fontWeight:700, color:"#fff", background:"#e11d48", borderRight:"1px solid rgba(255,255,255,0.2)", whiteSpace:"nowrap" };
+const TD = { padding:"10px 14px", fontSize:13, borderBottom:"1px solid #f3f4f6", verticalAlign:"middle" };
 
-const statusConfig = {
-  "sap-den": { label: "Sắp đến hạn", color: "#3b82f6", bg: "#dbeafe", icon: Clock },
-  "chua-xac-nhan": { label: "Chưa xác nhận", color: "#f59e0b", bg: "#fef3c7", icon: AlertCircle },
-  "qua-han": { label: "Quá hạn", color: "#ef4444", bg: "#fee2e2", icon: AlertCircle },
-  "da-thanh-toan": { label: "Đã thanh toán", color: "#10b981", bg: "#d1fae5", icon: CheckCircle },
+const TRANG_THAI = {
+  cho_xep_lop: { label:"Chờ xếp lớp", bg:"#fef3c7", color:"#92400e" },
+  da_xep_lop:  { label:"Đã xếp lớp",  bg:"#d1fae5", color:"#065f46" },
+  huy:         { label:"Đã hủy",       bg:"#fee2e2", color:"#991b1b" },
 };
 
-export default function RegistrationAppointments() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
+const PAGE_SIZE = 20;
 
-  const filteredAppointments = registrationAppointments.filter((apt) => {
-    const matchesStatus = filterStatus === "all" || apt.status === filterStatus;
-    const matchesSearch =
-      apt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.phone.includes(searchTerm) ||
-      apt.id.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSearch;
+export default function RegistrationAppointments() {
+  const [hds, setHds] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    lmsAPI.getHopDongs({}).then(r => {
+      setHds(Array.isArray(r) ? r : (r.data || []));
+    }).finally(() => setLoading(false));
+  }, []);
+
+  const filtered = hds.filter(hd => {
+    const q = search.toLowerCase();
+    const hv = hd.hocVien || {};
+    return !q || (hv.ho_ten||"").toLowerCase().includes(q) || (hv.sdt||"").includes(q);
   });
 
-  const formatCurrency = (amount) => {
-    return amount.toLocaleString("vi-VN") + " đ";
-  };
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+  const fmtMoney = n => n ? Number(n).toLocaleString("vi-VN") : "0";
+  const fmtDate = s => { if (!s) return "—"; const d = new Date(s); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; };
 
   return (
-    <div>
-      {/* Header */}
-      <div
-        style={{
-          background: "white",
-          borderRadius: 16,
-          padding: 24,
-          marginBottom: 24,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: "700", color: "#1e293b" }}>
-              Hẹn đăng ký
-            </h2>
-            <p style={{ margin: "4px 0 0", fontSize: 14, color: "#64748b" }}>
-              Danh sách khách hàng sắp đóng tiền
-            </p>
-          </div>
+    <div style={{ fontFamily:"system-ui,sans-serif" }}>
+      <div style={{ fontSize:12, color:"#9ca3af", marginBottom:16 }}>
+        Thông tin học &nbsp;/&nbsp; <strong style={{ color:"#111827" }}>Hẹn đăng ký</strong>
+      </div>
 
-          <div style={{ display: "flex", gap: 12 }}>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              style={{
-                padding: "10px 16px",
-                borderRadius: 10,
-                border: "1px solid #e2e8f0",
-                fontSize: 14,
-                color: "#1e293b",
-                background: "white",
-                cursor: "pointer",
-              }}
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="sap-den">Sắp đến hạn</option>
-              <option value="chua-xac-nhan">Chưa xác nhận</option>
-              <option value="qua-han">Quá hạn</option>
-              <option value="da-thanh-toan">Đã thanh toán</option>
-            </select>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                background: "#f8fafc",
-                borderRadius: 12,
-                padding: "10px 16px",
-                border: "1px solid #e2e8f0",
-                minWidth: 250,
-              }}
-            >
-              <Search size={18} color="#94a3b8" />
-              <input
-                type="text"
-                placeholder="Tìm kiếm..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  outline: "none",
-                  fontSize: 14,
-                  color: "#1e293b",
-                  width: "100%",
-                }}
-              />
-            </div>
-          </div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, border:"1px solid #d1d5db", borderRadius:6, padding:"6px 12px", background:"#fff", width:280 }}>
+          <span style={{ color:"#9ca3af" }}>▼</span>
+          <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Tìm kiếm"
+            style={{ border:"none", outline:"none", fontSize:13, flex:1 }} />
+          <span style={{ color:"#9ca3af" }}>🔍</span>
         </div>
+        <button style={{ padding:"8px 18px", background:"#2563eb", color:"#fff", border:"none", borderRadius:6, fontSize:13, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>
+          ↪ Xếp lớp
+        </button>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-        {Object.entries(statusConfig).map(([key, status]) => {
-          const count = registrationAppointments.filter((apt) => apt.status === key).length;
-          const total = registrationAppointments
-            .filter((apt) => apt.status === key)
-            .reduce((acc, apt) => acc + apt.amount, 0);
-          
-          return (
-            <div
-              key={key}
-              style={{
-                background: "white",
-                borderRadius: 16,
-                padding: 20,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                borderLeft: `4px solid ${status.color}`,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                <status.icon size={20} color={status.color} />
-                <span style={{ fontSize: 13, color: "#64748b" }}>{status.label}</span>
-              </div>
-              <p style={{ margin: 0, fontSize: 28, fontWeight: "800", color: "#1e293b" }}>{count}</p>
-              <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>{formatCurrency(total)}</p>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Cards */}
-      <div style={{ display: "grid", gap: 16 }}>
-        {filteredAppointments.map((apt) => {
-          const status = statusConfig[apt.status];
-          const StatusIcon = status.icon;
-          const isUrgent = apt.status === "qua-han" || apt.status === "chua-xac-nhan";
-
-          return (
-            <div
-              key={apt.id}
-              style={{
-                background: "white",
-                borderRadius: 16,
-                padding: 24,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                borderLeft: isUrgent ? "4px solid #e11d48" : "4px solid transparent",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 16,
-              }}
-            >
-              <div style={{ display: "flex", gap: 16, flex: 1, minWidth: 250 }}>
-                <div
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 14,
-                    background: isUrgent ? "#fee2e2" : status.bg,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <ClipboardList size={28} color={isUrgent ? "#e11d48" : status.color} />
-                </div>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: "700", color: "#1e293b" }}>{apt.name}</h3>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "4px 12px",
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: "600",
-                        background: status.bg,
-                        color: status.color,
-                      }}
-                    >
-                      <StatusIcon size={14} />
-                      {status.label}
-                    </span>
-                  </div>
-                  <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>
-                    {apt.course} • {apt.id}
-                  </p>
-                  <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <Phone size={14} color="#94a3b8" />
-                      <span style={{ fontSize: 13, color: "#64748b" }}>{apt.phone}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <Mail size={14} color="#94a3b8" />
-                      <span style={{ fontSize: 13, color: "#64748b" }}>{apt.email}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-                <div style={{ textAlign: "right" }}>
-                  <p style={{ margin: 0, fontSize: 22, fontWeight: "800", color: "#10b981" }}>
-                    {formatCurrency(apt.amount)}
-                  </p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, justifyContent: "flex-end" }}>
-                    <Calendar size={14} color="#94a3b8" />
-                    <span style={{ fontSize: 13, color: apt.status === "qua-han" ? "#ef4444" : "#64748b", fontWeight: apt.status === "qua-han" ? "600" : "400" }}>
-                      {apt.expectedDate}
-                    </span>
-                  </div>
-                  <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>NV: {apt.staff}</p>
-                </div>
-
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    style={{
-                      padding: "10px 16px",
-                      background: apt.status === "da-thanh-toan" ? "#f1f5f9" : "#e11d48",
-                      border: "none",
-                      borderRadius: 10,
-                      cursor: "pointer",
-                      fontSize: 13,
-                      fontWeight: "600",
-                      color: apt.status === "da-thanh-toan" ? "#64748b" : "white",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <FileText size={16} />
-                    {apt.status === "da-thanh-toan" ? "Xem hóa đơn" : "Xác nhận"}
-                  </button>
-                  <button
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      border: "1px solid #e2e8f0",
-                      background: "white",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#3b82f6",
-                    }}
-                    title="Gửi nhắc nhở"
-                  >
-                    <Bell size={16} />
-                  </button>
-                  <button
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      border: "1px solid #e2e8f0",
-                      background: "white",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#64748b",
-                    }}
-                  >
-                    <MoreHorizontal size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div style={{ background:"#fff", borderRadius:8, border:"1px solid #e5e7eb", overflow:"hidden" }}>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", minWidth:800 }}>
+            <thead>
+              <tr>
+                <th style={{...TH, width:32}}></th>
+                <th style={TH}>Thông tin</th>
+                <th style={TH}>Trung tâm</th>
+                <th style={TH}>Chương trình</th>
+                <th style={TH}>Số tiền</th>
+                <th style={TH}>Trạng thái</th>
+                <th style={{...TH, borderRight:"none"}}>Ngày đ.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading
+                ? <tr><td colSpan={7} style={{ padding:40, textAlign:"center", color:"#9ca3af" }}>Đang tải...</td></tr>
+                : paged.length === 0
+                  ? <tr><td colSpan={7} style={{ padding:40, textAlign:"center", color:"#9ca3af" }}>Không có dữ liệu</td></tr>
+                  : paged.map((hd, i) => {
+                    const hv = hd.hocVien || {};
+                    const kh = hd.khoaHoc || {};
+                    const maHV = `HV${String(hv.id||0).padStart(10,"0")}`;
+                    const tt = hd.trang_thai === "hoan_thanh" ? "da_xep_lop" : hd.trang_thai === "huy" ? "huy" : "cho_xep_lop";
+                    const ttCfg = TRANG_THAI[tt] || TRANG_THAI.cho_xep_lop;
+                    return (
+                      <tr key={hd.id||i} style={{ borderBottom:"1px solid #f3f4f6" }}>
+                        <td style={{...TD, color:"#9ca3af", fontSize:16, cursor:"pointer"}}>+</td>
+                        <td style={TD}>
+                          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                            <div style={{ width:36, height:36, borderRadius:"50%", background:"#f3f4f6", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>👤</div>
+                            <div>
+                              <div style={{ fontWeight:600, color:"#111827", fontSize:14 }}>{hv.ho_ten||"—"}</div>
+                              <div style={{ fontSize:11, color:"#9ca3af" }}>{maHV}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={TD}>CS Mỹ Hảo</td>
+                        <td style={TD}>{kh.ten_khoa||"—"}</td>
+                        <td style={{...TD, color:"#2563eb", fontWeight:600}}>{fmtMoney(hd.tong_tien)}</td>
+                        <td style={TD}>
+                          <span style={{ padding:"3px 10px", borderRadius:4, fontSize:12, fontWeight:700, background:ttCfg.bg, color:ttCfg.color }}>{ttCfg.label}</span>
+                        </td>
+                        <td style={{...TD, borderRight:"none", color:"#6b7280"}}>{fmtDate(hd.created_at)}</td>
+                      </tr>
+                    );
+                  })}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", gap:6, padding:"12px 16px", borderTop:"1px solid #f3f4f6", fontSize:13, color:"#6b7280" }}>
+          <span>Tổng cộng: {filtered.length}</span>
+          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}
+            style={{ width:28, height:28, border:"1px solid #d1d5db", borderRadius:4, background:"#fff", cursor:"pointer" }}>‹</button>
+          {Array.from({length:Math.min(5,totalPages)},(_,i)=>i+1).map(p=>(
+            <button key={p} onClick={()=>setPage(p)}
+              style={{ width:28, height:28, border:`1px solid ${page===p?"#e11d48":"#d1d5db"}`, borderRadius:4, background:"#fff", cursor:"pointer", fontWeight:page===p?700:400, color:page===p?"#e11d48":"#374151" }}>{p}</button>
+          ))}
+          {totalPages > 5 && <><span>···</span><button onClick={()=>setPage(totalPages)} style={{ width:28, height:28, border:"1px solid #d1d5db", borderRadius:4, background:"#fff", cursor:"pointer" }}>{totalPages}</button></>}
+          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}
+            style={{ width:28, height:28, border:"1px solid #d1d5db", borderRadius:4, background:"#fff", cursor:"pointer" }}>›</button>
+        </div>
       </div>
     </div>
   );

@@ -7,3 +7,4 @@ export { default as PausedStudents } from "./PausedStudents";
 export { default as TransferredStudents } from "./TransferredStudents";
 export { default as RegistrationAppointments } from "./RegistrationAppointments";
 export { default as StudentFeedback } from "./StudentFeedback";
+export { default as QuanLyDeThi } from "./QuanLyDeThi";

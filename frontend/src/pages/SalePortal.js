@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LMSAdminLayout from "../admin/lms/LMSAdminLayout";
+import Leads from "../admin/lms/Leads";
+import TestAppointments from "../admin/lms/TestAppointments";
+import RegistrationAppointments from "../admin/lms/RegistrationAppointments";
 
 // Demo sale account
 const DEMO_SALE = {
@@ -18,6 +21,7 @@ export default function SalePortal() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [activePage, setActivePage] = useState("leads");
+  const [pendingLeads, setPendingLeads] = useState([]);
 
   useEffect(() => {
     // Check if already logged in
@@ -29,19 +33,39 @@ export default function SalePortal() {
     }
   }, []);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, mat_khau: password }),
+      }).then(r => r.json());
 
-    // Check demo account
-    if (email === DEMO_SALE.email && password === DEMO_SALE.password) {
-      localStorage.setItem("sale_token", "demo_token_" + Date.now());
-      localStorage.setItem("sale_user", JSON.stringify(DEMO_SALE.user));
-      setUser(DEMO_SALE.user);
-      setIsLoggedIn(true);
-    } else {
-      setError("Email hoặc mật khẩu không đúng!");
+      if (res.success && res.data) {
+        const u = res.data.user;
+        if (u.chuc_vu_id !== 2 && u.chuc_vu_id !== 1) {
+          setError("Tài khoản không có quyền truy cập portal kinh doanh!");
+          setLoading(false);
+          return;
+        }
+        localStorage.setItem("sale_token", res.data.token);
+        localStorage.setItem("sale_user", JSON.stringify(u));
+        setUser(u);
+        setIsLoggedIn(true);
+      } else if (email === DEMO_SALE.email && password === DEMO_SALE.password) {
+        // Fallback demo
+        localStorage.setItem("sale_token", "demo_token_" + Date.now());
+        localStorage.setItem("sale_user", JSON.stringify(DEMO_SALE.user));
+        setUser(DEMO_SALE.user);
+        setIsLoggedIn(true);
+      } else {
+        setError(res.message || "Email hoặc mật khẩu không đúng!");
+      }
+    } catch {
+      setError("Lỗi kết nối máy chủ!");
     }
     setLoading(false);
   };
@@ -121,6 +145,15 @@ export default function SalePortal() {
   }
 
   // Sale portal with LMSAdminLayout (role = 2 for sale)
+  const renderPage = () => {
+    switch (activePage) {
+      case "leads":        return <Leads onNavigateToTest={(page, lead) => { if (lead) setPendingLeads(p => [...p, { ...lead, tempId: Date.now() }]); setActivePage("test-appointment"); }} />;
+      case "test-appointment": return <TestAppointments pendingLeads={pendingLeads} onClearPending={() => setPendingLeads([])} />;
+      case "registration": return <RegistrationAppointments />;
+      default:             return <Leads />;
+    }
+  };
+
   return (
     <LMSAdminLayout
       activePage={activePage}
@@ -128,6 +161,8 @@ export default function SalePortal() {
       onLogout={handleLogout}
       role={2}
       userName={user?.ho_ten || "Nhân viên kinh doanh"}
-    />
+    >
+      {renderPage()}
+    </LMSAdminLayout>
   );
 }
