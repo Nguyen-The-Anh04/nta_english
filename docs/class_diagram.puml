@@ -1,0 +1,504 @@
+@startuml NTA_English_ClassDiagram
+
+title Biểu đồ Class - Hệ thống Quản lý Trung tâm Tiếng Anh NTA
+
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #DDEEFF
+  BorderColor #2563EB
+  ArrowColor #374151
+  HeaderBackgroundColor #2563EB
+  HeaderFontColor #FFFFFF
+}
+
+' ==================== NGƯỜI DÙNG ====================
+class NguoiDung {
+  +id: int
+  +ho_ten: string
+  +email: string
+  +mat_khau: string
+  +sdt: string
+  +chuc_vu_id: int
+  +trang_thai: string
+  +gioi_tinh: string
+  --
+  +dangNhap()
+  +dangXuat()
+  +doiMatKhau()
+  +capNhatThongTin()
+}
+
+class ChucVu {
+  +id: int
+  +ten_chuc_vu: string
+  +mo_ta: string
+}
+
+' ==================== KHOÁ HỌC & LỚP HỌC ====================
+class KhoaHoc {
+  +id: int
+  +ma_khoa: string
+  +ten_khoa: string
+  +mo_ta: text
+  +hoc_phi: decimal
+  +thoi_gian_thang: int
+  +si_so_toi_da: int
+  +trang_thai: string
+  --
+  +themKhoaHoc()
+  +capNhatKhoaHoc()
+  +xoaKhoaHoc()
+  +layDanhSach()
+}
+
+class ChiTietKhoaHoc {
+  +id: int
+  +khoa_hoc_id: int
+  +so_thu_tu: int
+  +ten_chuong: string
+  +mo_ta: text
+  +so_buoi: int
+  +ky_nang: string
+  --
+  +themChuong()
+  +capNhatChuong()
+  +xoaChuong()
+}
+
+class LopHoc {
+  +id: int
+  +ma_lop: string
+  +khoa_hoc_id: int
+  +giao_vien_id: int
+  +phong_hoc_id: int
+  +ngay_bat_dau: date
+  +ngay_ket_thuc: date
+  +si_so_hien_tai: int
+  +si_so_toi_da: int
+  +so_buoi_tong: int
+  +so_buoi_da_hoc: int
+  +hoc_phi: decimal
+  +trang_thai: string
+  --
+  +taoLopHoc()
+  +capNhatLopHoc()
+  +phanCongGiaoVien()
+  +phanCongPhongHoc()
+}
+
+class BuoiHoc {
+  +id: int
+  +lop_hoc_id: int
+  +so_buoi: int
+  +ngay_hoc: date
+  +gio_bat_dau: time
+  +gio_ket_thuc: time
+  +chu_de: string
+  +noi_dung: text
+  +trang_thai: string
+  +ghi_chu: text
+  --
+  +taobuoiHoc()
+  +capNhatBuoi()
+  +xemTienDo()
+}
+
+class PhongHoc {
+  +id: int
+  +ma_phong: string
+  +ten_phong: string
+  +suc_chua: int
+  +trang_thai: string
+  --
+  +themPhongHoc()
+  +capNhatPhongHoc()
+  +xoaPhongHoc()
+}
+
+class LichHoc {
+  +id: int
+  +lop_hoc_id: int
+  +thu_trong_tuan: string
+  +gio_bat_dau: time
+  +gio_ket_thuc: time
+}
+
+' ==================== ĐĂNG KÝ & HỌC VỤ ====================
+class DangKyLopHoc {
+  +id: int
+  +hoc_vien_id: int
+  +lop_hoc_id: int
+  +trang_thai: string
+  +ngay_dk: date
+  +ghi_chu: text
+  --
+  +dangKyHocVien()
+  +huyDangKy()
+  +xemDangKy()
+}
+
+class DiemDanh {
+  +id: int
+  +dk_lop_hoc_id: int
+  +lich_hoc_id: int
+  +ngay: date
+  +trang_thai: string
+  +ghi_chu: text
+  --
+  +diemDanhBuoi()
+  +xemLichSu()
+}
+
+class BaiTap {
+  +id: int
+  +lop_hoc_id: int
+  +giao_vien_id: int
+  +ten_bai: string
+  +loai_bai: string
+  +han_nop: date
+  +trang_thai: string
+  --
+  +taoBaiTap()
+  +capNhatBaiTap()
+  +chamDiem()
+}
+
+class NopBai {
+  +id: int
+  +bai_tap_id: int
+  +hoc_vien_id: int
+  +file_nop: string
+  +trang_thai: string
+  +ngay_nop: datetime
+  --
+  +nopBai()
+  +xemKetQua()
+}
+
+' ==================== BÀI TEST ĐẦU VÀO ====================
+class LichHenTest {
+  +id: int
+  +hoc_vien_id: int
+  +giao_vien_id: int
+  +lead_id: int
+  +dia_diem: string
+  +thoi_gian: datetime
+  +trang_thai: string
+  --
+  +taoLichHen()
+  +capNhatTrangThai()
+}
+
+class BaiTest {
+  +id: int
+  +hoc_vien_id: int
+  +loai_test: string
+  +diem_nghe: decimal
+  +diem_doc: decimal
+  +diem_noi: decimal
+  +diem_viet: decimal
+  +diem_tong: decimal
+  +trang_thai: string
+  --
+  +taoBaiTest()
+  +nopBaiTest()
+  +xemKetQua()
+}
+
+class KetQuaTest {
+  +id: int
+  +bai_test_id: int
+  +loai_ky_nang: string
+  +band_score: decimal
+  +nhan_xet: text
+  +nguoi_cham_id: int
+  --
+  +nopBaiTest()
+  +tinhdiem()
+  +xemKetQua()
+}
+
+' ==================== TÀI CHÍNH ====================
+class HopDong {
+  +id: int
+  +ma_hd: string
+  +hoc_vien_id: int
+  +khoa_hoc_id: int
+  +tong_tien: decimal
+  +da_tra: decimal
+  +con_no: decimal
+  +so_ky_nop: int
+  +trang_thai: string
+  --
+  +taoHopDong()
+  +capNhatThanhToan()
+  +xemCongNo()
+}
+
+class PhieuThu {
+  +id: int
+  +ma_phieu: string
+  +hop_dong_id: int
+  +nguoi_nop_id: int
+  +tong_tien: decimal
+  +phuong_thuc: string
+  +ngay_thu: date
+  +noi_dung: text
+  --
+  +taoPhieuThu()
+  +capNhatPhieuThu()
+  +xemPhieuThu()
+}
+
+class PhieuChi {
+  +id: int
+  +ma_phieu: string
+  +nguoi_nhan_id: int
+  +tong_tien: decimal
+  +loai_chi: string
+  +ngay_chi: date
+  +noi_dung: text
+  --
+  +taoPhieuChi()
+  +capNhatPhieuChi()
+  +xemPhieuChi()
+}
+
+' ==================== SÁCH & CUNG ỨNG ====================
+class Sach {
+  +id: int
+  +ma_sach: string
+  +ten_sach: string
+  +loai_sach_id: int
+  +tac_gia: string
+  +nha_xuat_ban: string
+  +gia_nhap: decimal
+  +gia_ban: decimal
+  +so_luong_ton: int
+  +trang_thai: string
+  --
+  +themSach()
+  +capNhatSach()
+  +xoaSach()
+  +timKiemSach()
+}
+
+class LoaiSach {
+  +id: int
+  +ten_loai: string
+  +mo_ta: text
+  --
+  +themLoaiSach()
+  +xoaLoaiSach()
+}
+
+class NhaCungCap {
+  +id: int
+  +ma_ncc: string
+  +ten_ncc: string
+  +nguoi_lien_he: string
+  +sdt: string
+  +email: string
+  +dia_chi: text
+  +trang_thai: string
+  --
+  +dangKyNCC()
+  +capNhatThongTin()
+  +xemLichSuNhap()
+}
+
+class HoaDonNhap {
+  +id: int
+  +ma_hdn: string
+  +nha_cung_cap_id: int
+  +nguoi_nhap_id: int
+  +ngay_nhap: date
+  +tong_tien: decimal
+  +trang_thai: string
+  +ghi_chu: text
+  --
+  +taoHoaDon()
+  +xacNhanNhap()
+  +xoaHoaDon()
+}
+
+class ChiTietHoaDonNhap {
+  +id: int
+  +hoa_don_nhap_id: int
+  +sach_id: int
+  +so_luong: int
+  +don_gia: decimal
+  +thanh_tien: decimal
+  --
+  +them()
+  +capNhat()
+  +xoa()
+}
+
+class DonHang {
+  +id: int
+  +ma_don_hang: string
+  +nguoi_dung_id: int
+  +tong_tien: decimal
+  +trang_thai: string
+  +phuong_thuc_tt: string
+  --
+  +taoHoaDon()
+  +capNhatTrangThai()
+  +tinhTongTien()
+}
+
+class ChiTietDonHang {
+  +id: int
+  +don_hang_id: int
+  +sach_id: int
+  +so_luong: int
+  +gia_sp: decimal
+  +thanh_tien: decimal
+}
+
+' ==================== LEAD & TƯ VẤN ====================
+class Lead {
+  +id: int
+  +ho_ten: string
+  +sdt: string
+  +email: string
+  +muc_tieu: string
+  +nguon_lead: string
+  +trang_thai: string
+  +created_at: datetime
+  --
+  +taoLead()
+  +capNhatTrangThai()
+  +phanCongTuVan()
+}
+
+' ==================== AFFILIATE ====================
+class CTV {
+  +id: int
+  +nguoi_dung_id: int
+  +ma_gioi_thieu: string
+  +cap_do: int
+  +tong_hoa_hong: decimal
+  +trang_thai: string
+  --
+  +dangKyCTV()
+  +capNhatThongTin()
+  +xemHoaHong()
+}
+
+class HoaHong {
+  +id: int
+  +ctv_id: int
+  +don_hang_id: int
+  +tien_hoa_hong: decimal
+  +trang_thai: string
+  +ngay_tinh: datetime
+  --
+  +tinhHoaHong()
+  +xemHoaHong()
+}
+
+class RutTien {
+  +id: int
+  +ctv_id: int
+  +so_tien: decimal
+  +trang_thai: string
+  +ngay_yeu_cau: datetime
+  --
+  +yeucauRutTien()
+  +duyetRutTien()
+  +tuChoiRutTien()
+}
+
+' ==================== THÔNG BÁO ====================
+class ThongBao {
+  +id: int
+  +tieu_de: string
+  +noi_dung: text
+  +loai_tb: string
+  +muc_do_uu_tien: string
+  +nguoi_gui_id: int
+  +da_doc: boolean
+  +created_at: datetime
+  --
+  +taoThongBao()
+  +danhDauDaDoc()
+}
+
+' ==================== RELATIONSHIPS ====================
+
+' Người dùng - phân quyền
+NguoiDung "1" -- "1" ChucVu : có >
+note on link: {unique: email}\n{unique: sdt}
+
+' Khoá học & Lớp học
+KhoaHoc "1" -- "0..*" LopHoc : chứa >
+KhoaHoc "1" -- "1..*" ChiTietKhoaHoc : có nội dung >
+note on link: {ordered: so_thu_tu}
+LopHoc "1" -- "1..*" BuoiHoc : có buổi học >
+LopHoc "1" -- "0..*" LichHoc : có lịch >
+LopHoc "0..*" -- "1" PhongHoc : học tại >
+note on link: {constraint: si_so_hien_tai <= PhongHoc.suc_chua}
+LopHoc "0..*" -- "1" NguoiDung : giảng dạy bởi >
+note on link: {constraint: NguoiDung.chuc_vu = 'giao_vien'}
+
+' Đăng ký học viên vào lớp (bảng trung gian nhiều-nhiều)
+NguoiDung "1" -- "0..*" DangKyLopHoc : đăng ký >
+note on link: {constraint: NguoiDung.chuc_vu = 'hoc_vien'}
+LopHoc "1" -- "0..*" DangKyLopHoc : có >
+note on link: {constraint: si_so_hien_tai < si_so_toi_da}
+DangKyLopHoc "1" -- "0..*" DiemDanh : điểm danh >
+
+' Bài tập
+LopHoc "1" -- "0..*" BaiTap : có >
+BaiTap "1" -- "0..*" NopBai : nhận >
+NguoiDung "1" -- "0..*" NopBai : nộp >
+note on link: {constraint: ngay_nop <= BaiTap.han_nop}
+
+' Bài test
+Lead "1" -- "0..*" LichHenTest : hẹn test >
+NguoiDung "1" -- "0..*" LichHenTest : tham gia >
+NguoiDung "1" -- "0..*" BaiTest : làm >
+BaiTest "1" -- "0..*" KetQuaTest : có kết quả >
+note on link: {ordered: loai_ky_nang}
+
+' Tài chính
+NguoiDung "1" -- "0..*" HopDong : ký >
+KhoaHoc "1" -- "0..*" HopDong : thuộc >
+note on link: {constraint: tong_tien = KhoaHoc.hoc_phi}
+HopDong "1" -- "0..*" PhieuThu : thanh toán qua >
+note on link: {constraint: SUM(PhieuThu.tong_tien) <= HopDong.tong_tien}
+NguoiDung "1" -- "0..*" PhieuThu : nộp >
+NguoiDung "1" -- "0..*" PhieuChi : nhận >
+
+' Sách & Kho
+LoaiSach "1" -- "0..*" Sach : phân loại >
+NhaCungCap "1" -- "0..*" Sach : cung cấp >
+NhaCungCap "1" -- "0..*" HoaDonNhap : cung cấp >
+HoaDonNhap "1" -- "1..*" ChiTietHoaDonNhap : gồm >
+ChiTietHoaDonNhap "0..*" -- "1" Sach : nhập >
+note on link: {constraint: cập nhật Sach.so_luong_ton += so_luong}
+
+' Đơn hàng bán
+DonHang "1" -- "1..*" ChiTietDonHang : gồm >
+ChiTietDonHang "0..*" -- "1" Sach : mua >
+note on link: {constraint: Sach.so_luong_ton >= so_luong}
+NguoiDung "1" -- "0..*" DonHang : đặt >
+
+' Lead
+NguoiDung "1" -- "0..*" Lead : quản lý >
+note on link: {constraint: NguoiDung.chuc_vu = 'nhan_vien_kd'}
+
+' Affiliate
+NguoiDung "1" -- "0..1" CTV : là >
+CTV "1" -- "0..*" HoaHong : nhận >
+DonHang "1" -- "0..*" HoaHong : tạo ra >
+note on link: {constraint: chỉ tạo khi DonHang.trang_thai = 'da_giao'}
+CTV "1" -- "0..*" RutTien : yêu cầu >
+note on link: {constraint: so_tien <= CTV.tong_hoa_hong}
+
+' Thông báo
+NguoiDung "1" -- "0..*" ThongBao : gửi/nhận >
+
+@enduml

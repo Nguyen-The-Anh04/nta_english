@@ -1,6 +1,56 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 
+const NhaCungCap = sequelize.define(
+  "NhaCungCap",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    ma_ncc: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      unique: true,
+    },
+    ten_ncc: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+    },
+    nguoi_lien_he: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+    },
+    sdt: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    email: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+    },
+    dia_chi: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    ghi_chu: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    trang_thai: {
+      type: DataTypes.ENUM("hoat_dong", "ngung"),
+      defaultValue: "hoat_dong",
+    },
+  },
+  {
+    tableName: "nha_cung_cap",
+    timestamps: true,
+    createdAt: "created_at",
+    updatedAt: false,
+  }
+);
+
 const LoaiSach = sequelize.define(
   "LoaiSach",
   {
@@ -35,6 +85,10 @@ const Sach = sequelize.define(
       autoIncrement: true,
     },
     loai_sach_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    nha_cung_cap_id: {
       type: DataTypes.INTEGER,
       allowNull: true,
     },
@@ -317,6 +371,9 @@ const { NguoiDung } = require("./UserModels");
 LoaiSach.hasMany(Sach, { foreignKey: "loai_sach_id", as: "saches" });
 Sach.belongsTo(LoaiSach, { foreignKey: "loai_sach_id", as: "loaiSach" });
 
+NhaCungCap.hasMany(Sach, { foreignKey: "nha_cung_cap_id", as: "saches" });
+Sach.belongsTo(NhaCungCap, { foreignKey: "nha_cung_cap_id", as: "nhaCungCap" });
+
 DonHang.hasMany(ChiTietDonHang, { foreignKey: "don_hang_id", as: "chiTiets" });
 ChiTietDonHang.belongsTo(DonHang, { foreignKey: "don_hang_id", as: "donHang" });
 
@@ -381,6 +438,7 @@ CommissionProducts.belongsTo(Sach, { foreignKey: "san_pham_id", as: "sanPham" })
 Sach.hasMany(CommissionProducts, { foreignKey: "san_pham_id", as: "commissionProducts" });
 
 module.exports = {
+  NhaCungCap,
   LoaiSach,
   Sach,
   DonHang,

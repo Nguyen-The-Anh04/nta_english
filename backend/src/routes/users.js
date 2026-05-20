@@ -21,6 +21,9 @@ router.get("/profile", auth, userController.getProfile);
 // PUT /api/users/profile - Update current user profile (PHẢI ĐỂ TRƯỚC :id)
 router.put("/profile", auth, userController.updateProfile);
 
+// PUT /api/users/change-password - Change password (PHẢI ĐỂ TRƯỚC :id)
+router.put("/change-password", auth, userController.changePassword);
+
 // GET /api/users/:id - Get user by ID (ĐỂ SAU profile)
 router.get("/:id", authOptional, userController.getUserById);
 
@@ -35,8 +38,5 @@ router.delete("/:id", auth, isAdmin, userController.deleteUser);
 
 // GET /api/users/:id/login-history - Get login history (đặt trước :id)
 router.get("/:id/login-history", auth, isAdmin, userController.getLoginHistory);
-
-// PUT /api/users/change-password - Change password
-router.put("/change-password", auth, userController.changePassword);
 
 module.exports = router;

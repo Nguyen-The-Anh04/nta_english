@@ -1,0 +1,244 @@
+@startuml NTA_English_UseCase_TongQuat
+
+title Biểu đồ Use Case Tổng quát\nHệ thống Quản lý Trung tâm Tiếng Anh NTA
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #DDEEFF
+  BorderColor #2563EB
+  ArrowColor #374151
+}
+skinparam ArrowFontSize 11
+
+' ==================== ACTORS ====================
+actor "Admin" as Admin
+actor "Nhân viên\nKinh doanh" as NVKD
+actor "Giáo viên" as GV
+actor "Kế toán viên" as KTV
+actor "Cộng tác viên\n(CTV)" as CTV
+actor "Học viên" as HV
+actor "Phụ huynh" as PH
+actor "Khách" as Khach
+
+' ==================== SYSTEM BOUNDARY ====================
+rectangle "HỆ THỐNG QUẢN LÝ TRUNG TÂM TIẾNG ANH NTA" {
+
+  ' ---- UC DÙNG CHUNG ----
+  usecase "Đăng nhập\nhệ thống" as UC_LOGIN
+  usecase "Đổi mật khẩu\n& hồ sơ cá nhân" as UC_PROFILE
+
+  ' ---- NHÓM 1: QUẢN LÝ NHÂN SỰ & TÀI KHOẢN ----
+  package "Quản lý Nhân sự & Tài khoản" {
+    usecase "Quản lý tài khoản\nnhân sự" as UC_NS
+    usecase "Phân quyền\nchức vụ" as UC_ROLE
+    usecase "Quản lý thông tin\nphụ huynh" as UC_PH
+  }
+
+  ' ---- NHÓM 2: DANH MỤC HỌC VỤ ----
+  package "Danh mục Học vụ" {
+    usecase "Quản lý\nkhoá học" as UC_KH
+    usecase "Quản lý\nlớp học" as UC_LOP
+    usecase "Quản lý\nphòng học" as UC_PHONG
+    usecase "Quản lý\nđề thi" as UC_DETHI
+  }
+
+  ' ---- NHÓM 3: SÁCH & KHO ----
+  package "Quản lý Sách & Kho" {
+    usecase "Quản lý loại sách\n& sách luyện thi" as UC_SACH
+    usecase "Quản lý\nnhà cung cấp" as UC_NCC
+    usecase "Nhập hàng\n& cập nhật tồn kho" as UC_NHAP
+  }
+
+  ' ---- NHÓM 4: KINH DOANH ----
+  package "Kinh doanh & Tư vấn" {
+    usecase "Quản lý lead\ntư vấn" as UC_LEAD
+    usecase "Hẹn test\nđầu vào" as UC_TEST_HEN
+    usecase "Tư vấn &\nxếp lớp" as UC_TUVAN
+    usecase "Quản lý\nhọc viên" as UC_HV_QL
+  }
+
+  ' ---- NHÓM 5: HỌC VỤ (GIÁO VIÊN) ----
+  package "Quản lý Học vụ" {
+    usecase "Xem lịch dạy\n& khoá học" as UC_LICHDAY
+    usecase "Điểm danh\nhọc viên" as UC_DIEMDANH
+    usecase "Giao & chấm\nbài tập" as UC_BAITAP
+    usecase "Quản lý\nbảng điểm" as UC_BANGDIEM
+    usecase "Đánh giá\nhọc viên" as UC_DANHGIA_HV
+  }
+
+  ' ---- NHÓM 6: KẾ TOÁN ----
+  package "Kế toán & Tài chính" {
+    usecase "Thanh toán\nhọc phí" as UC_HOCPHI
+    usecase "Quản lý\ncông nợ" as UC_CONGNO
+    usecase "Phiếu thu\n& phiếu chi" as UC_PHIEU
+    usecase "Quản lý\nđơn hàng sách" as UC_DONHANG
+  }
+
+  ' ---- NHÓM 7: AFFILIATE ----
+  package "Hệ thống Affiliate" {
+    usecase "Đăng ký\nCTV affiliate" as UC_CTV_DK
+    usecase "Chia sẻ link\n& giới thiệu" as UC_LINK
+    usecase "Quản lý\nhoa hồng" as UC_HOAHONG
+    usecase "Yêu cầu\nrút tiền" as UC_RUTTIEN
+    usecase "Duyệt hoa hồng\n& rút tiền" as UC_DUYET
+  }
+
+  ' ---- NHÓM 8: CỔNG HỌC VIÊN ----
+  package "Cổng Học viên" {
+    usecase "Làm bài test\nđầu vào" as UC_LAMBAI
+    usecase "Xem lịch học\n& điểm danh" as UC_HV_LICH
+    usecase "Nộp bài tập\n& xem điểm" as UC_HV_BAI
+    usecase "Mua sách\ntrực tuyến" as UC_MUASACH
+    usecase "Đánh giá\ngiảng viên" as UC_DANHGIA_GV
+    usecase "Xem kết quả\nhọc tập" as UC_KETQUA
+  }
+
+  ' ---- NHÓM 9: CỔNG KHÁCH / PHỤ HUYNH ----
+  package "Cổng Khách & Phụ huynh" {
+    usecase "Xem thông tin\nkhoá học" as UC_XEMKH
+    usecase "Đăng ký\ntư vấn" as UC_DKTV
+    usecase "Theo dõi kết quả\nhọc tập con" as UC_PH_KETQUA
+  }
+
+  ' ---- NHÓM 10: BÁO CÁO ----
+  package "Báo cáo & Thống kê" {
+    usecase "Báo cáo\ndoanh thu" as UC_BC_DT
+    usecase "Báo cáo\nhọc vụ" as UC_BC_HV
+    usecase "Thống kê\nCTV & hoa hồng" as UC_BC_CTV
+  }
+}
+
+' ==================== ACTOR ASSOCIATIONS ====================
+
+' --- ADMIN ---
+Admin --> UC_LOGIN
+Admin --> UC_PROFILE
+Admin --> UC_NS
+Admin --> UC_ROLE
+Admin --> UC_PH
+Admin --> UC_KH
+Admin --> UC_LOP
+Admin --> UC_PHONG
+Admin --> UC_DETHI
+Admin --> UC_SACH
+Admin --> UC_NCC
+Admin --> UC_NHAP
+Admin --> UC_DONHANG
+Admin --> UC_DUYET
+Admin --> UC_BC_DT
+Admin --> UC_BC_HV
+Admin --> UC_BC_CTV
+
+' --- NHÂN VIÊN KINH DOANH ---
+NVKD --> UC_LOGIN
+NVKD --> UC_PROFILE
+NVKD --> UC_LEAD
+NVKD --> UC_TEST_HEN
+NVKD --> UC_TUVAN
+NVKD --> UC_HV_QL
+NVKD --> UC_DONHANG
+
+' --- GIÁO VIÊN ---
+GV --> UC_LOGIN
+GV --> UC_PROFILE
+GV --> UC_LICHDAY
+GV --> UC_DIEMDANH
+GV --> UC_BAITAP
+GV --> UC_BANGDIEM
+GV --> UC_DANHGIA_HV
+
+' --- KẾ TOÁN ---
+KTV --> UC_LOGIN
+KTV --> UC_PROFILE
+KTV --> UC_HOCPHI
+KTV --> UC_CONGNO
+KTV --> UC_PHIEU
+KTV --> UC_DONHANG
+
+' --- CTV ---
+CTV --> UC_LOGIN
+CTV --> UC_PROFILE
+CTV --> UC_CTV_DK
+CTV --> UC_LINK
+CTV --> UC_HOAHONG
+CTV --> UC_RUTTIEN
+CTV --> UC_DONHANG
+
+' --- HỌC VIÊN ---
+HV --> UC_LOGIN
+HV --> UC_PROFILE
+HV --> UC_LAMBAI
+HV --> UC_HV_LICH
+HV --> UC_HV_BAI
+HV --> UC_MUASACH
+HV --> UC_DANHGIA_GV
+HV --> UC_KETQUA
+
+' --- PHỤ HUYNH ---
+PH --> UC_LOGIN
+PH --> UC_PH_KETQUA
+
+' --- KHÁCH (không cần đăng nhập) ---
+Khach --> UC_XEMKH
+Khach --> UC_DKTV
+
+' ==================== INCLUDE / EXTEND ====================
+
+' Đăng nhập là điều kiện tiên quyết cho mọi chức năng có bảo mật
+UC_NS ..> UC_LOGIN : <<include>>
+UC_LEAD ..> UC_LOGIN : <<include>>
+UC_LICHDAY ..> UC_LOGIN : <<include>>
+UC_HOCPHI ..> UC_LOGIN : <<include>>
+UC_HOAHONG ..> UC_LOGIN : <<include>>
+UC_LAMBAI ..> UC_LOGIN : <<include>>
+UC_PH_KETQUA ..> UC_LOGIN : <<include>>
+
+' Phân quyền là một phần của quản lý nhân sự
+UC_ROLE ..> UC_NS : <<include>>
+UC_PH ..> UC_NS : <<extend>>
+
+' Hẹn test cần có lead trước
+UC_TEST_HEN ..> UC_LEAD : <<include>>
+
+' Tư vấn xếp lớp cần có kết quả test
+UC_TUVAN ..> UC_TEST_HEN : <<include>>
+
+' Điểm danh và bài tập gắn với lớp học
+UC_DIEMDANH ..> UC_LOP : <<include>>
+UC_BAITAP ..> UC_LOP : <<include>>
+UC_BANGDIEM ..> UC_BAITAP : <<include>>
+
+' Nhập hàng cần có nhà cung cấp
+UC_NHAP ..> UC_NCC : <<include>>
+
+' Học viên làm bài test từ lịch hẹn
+UC_LAMBAI ..> UC_TEST_HEN : <<extend>>
+
+' Học viên nộp bài từ bài tập được giao
+UC_HV_BAI ..> UC_BAITAP : <<extend>>
+
+' Mua sách cần có sách trong hệ thống
+UC_MUASACH ..> UC_SACH : <<include>>
+
+' Duyệt hoa hồng bao gồm duyệt rút tiền
+UC_DUYET ..> UC_HOAHONG : <<include>>
+UC_RUTTIEN ..> UC_HOAHONG : <<include>>
+
+' Thanh toán học phí liên quan công nợ
+UC_HOCPHI ..> UC_CONGNO : <<include>>
+UC_PHIEU ..> UC_HOCPHI : <<extend>>
+
+' Đăng ký tư vấn tạo lead mới
+UC_DKTV ..> UC_LEAD : <<extend>>
+
+' Phụ huynh xem kết quả con
+UC_PH_KETQUA ..> UC_KETQUA : <<extend>>
+
+' Báo cáo
+UC_BC_DT ..> UC_DONHANG : <<include>>
+UC_BC_CTV ..> UC_HOAHONG : <<include>>
+UC_BC_HV ..> UC_BANGDIEM : <<include>>
+
+@enduml

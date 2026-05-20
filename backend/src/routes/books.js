@@ -80,16 +80,13 @@ router.get("/", authOptional, orderController.getAllBooks);
 // GET /api/books/:id - Get book by ID (không cần token)
 router.get("/:id", authOptional, orderController.getBookById);
 
-// POST /api/books - Create book (Admin only)
-// FIXED: Added auth and isAdmin for security
-router.post("/", auth, isAdmin, orderController.createBook);
+// POST /api/books - Create book (Admin or Staff)
+router.post("/", auth, isAdminOrStaff, orderController.createBook);
 
-// PUT /api/books/:id - Update book (Admin only)
-// FIXED: Added auth and isAdmin for security
-router.put("/:id", auth, isAdmin, orderController.updateBook);
+// PUT /api/books/:id - Update book (Admin or Staff)
+router.put("/:id", auth, isAdminOrStaff, orderController.updateBook);
 
 // DELETE /api/books/:id - Delete book (Admin only)
-// FIXED: Added auth and isAdmin for security
 router.delete("/:id", auth, isAdmin, orderController.deleteBook);
 
 module.exports = router;

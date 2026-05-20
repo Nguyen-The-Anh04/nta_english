@@ -117,10 +117,11 @@ const getBookById = async (req, res) => {
 // POST /api/books - Create book (Admin)
 const createBook = async (req, res) => {
   try {
-    const { loai_sach_id, ma_sach, ten_sach, tac_gia, nha_xuat_ban, gia_nhap, gia_ban, so_luong_ton, hinh_anh, mo_ta, trang_thai } = req.body;
+    const { loai_sach_id, nha_cung_cap_id, ma_sach, ten_sach, tac_gia, nha_xuat_ban, gia_nhap, gia_ban, so_luong_ton, hinh_anh, mo_ta, trang_thai } = req.body;
 
     const book = await Sach.create({
       loai_sach_id,
+      nha_cung_cap_id,
       ma_sach,
       ten_sach,
       tac_gia,
@@ -170,7 +171,7 @@ const updateBook = async (req, res) => {
       return res.status(404).json({ success: false, message: "Sách không tồn tại" });
     }
 
-    const { ten_sach, tac_gia, nha_xuat_ban, gia_nhap, gia_ban, so_luong_ton, hinh_anh, mo_ta, trang_thai } = req.body;
+    const { ten_sach, tac_gia, nha_xuat_ban, gia_nhap, gia_ban, so_luong_ton, hinh_anh, mo_ta, trang_thai, nha_cung_cap_id } = req.body;
 
     await book.update({
       ten_sach: ten_sach || book.ten_sach,
@@ -182,6 +183,7 @@ const updateBook = async (req, res) => {
       hinh_anh: hinh_anh || book.hinh_anh,
       mo_ta: mo_ta || book.mo_ta,
       trang_thai: trang_thai || book.trang_thai,
+      nha_cung_cap_id: nha_cung_cap_id !== undefined ? nha_cung_cap_id : book.nha_cung_cap_id,
     });
 
     res.json({ success: true, message: "Cập nhật sách thành công" });
@@ -528,6 +530,36 @@ const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: "Đơn hàng không tồn tại" });
     }
 
+    // Validate chuyển trạng thái theo nghiệp vụ
+    const ALLOWED_TRANSITIONS = {
+      cho_tt:    ['dang_giao', 'da_huy'],
+      dang_giao: ['da_giao', 'da_huy'],
+      da_giao:   ['da_tt'],
+      da_tt:     [],
+      da_huy:    [],
+    };
+    const current = order.trang_thai;
+    if (current === trang_thai) {
+      return res.json({ success: true, message: "Không có thay đổi" });
+    }
+    const STATUS_TEXT = { cho_tt:'Chờ xác nhận', da_tt:'Đã thanh toán', dang_giao:'Đang giao', da_giao:'Đã giao', da_huy:'Đã hủy' };
+    if (!ALLOWED_TRANSITIONS[current]?.includes(trang_thai)) {
+      return res.status(400).json({
+        success: false,
+        message: `Không thể chuyển từ "${STATUS_TEXT[current]}" sang "${STATUS_TEXT[trang_thai]}"`,
+      });
+    }
+
+    // Map trang_thai → 3 cột status riêng biệt
+    const STATUS_MAP = {
+      cho_tt:    { order_status: 'pending',   payment_status: 'unpaid',   shipping_status: 'not_shipped' },
+      dang_giao: { order_status: 'confirmed', payment_status: 'unpaid',   shipping_status: 'shipping'    },
+      da_giao:   { order_status: 'confirmed', payment_status: 'unpaid',   shipping_status: 'delivered'   },
+      da_tt:     { order_status: 'completed', payment_status: 'paid',     shipping_status: 'delivered'   },
+      da_huy:    { order_status: 'cancelled', payment_status: order.payment_status === 'paid' ? 'refunded' : 'unpaid', shipping_status: 'not_shipped' },
+    };
+    const newStatuses = STATUS_MAP[trang_thai];
+
     // If cancelling, restore stock AND hủy hoa hồng pending
     if (trang_thai === "da_huy" && order.trang_thai !== "da_huy") {
       const items = await ChiTietDonHang.findAll({ where: { don_hang_id: order.id } });
@@ -550,7 +582,7 @@ const updateOrderStatus = async (req, res) => {
       );
     }
 
-    await order.update({ trang_thai });
+    await order.update({ trang_thai, ...newStatuses });
 
     res.json({ success: true, message: "Cập nhật trạng thái thành công" });
   } catch (error) {

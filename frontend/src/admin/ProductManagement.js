@@ -1,7 +1,10 @@
-import { useState, useEffect } from "react";
-import { fetchBooks, fetchCategories, createBook, updateBook, deleteBook, uploadBookImage } from "../api";
+import React, { useState, useEffect } from "react";
+import { fetchBooks, fetchCategories, createBook, updateBook, deleteBook, uploadBookImage, fetchNhaCungCaps } from "../api";
+import SupplierManagement from "./SupplierManagement";
+import ImportInvoice from "./ImportInvoice";
 
 export default function ProductManagement() {
+  const [activeTab, setActiveTab] = useState("san-pham");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [sortBy, setSortBy] = useState("sold_desc"); // default sort by sold descending
@@ -10,6 +13,8 @@ export default function ProductManagement() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [nhaCungCaps, setNhaCungCaps] = useState([]);
+  const [expandedRow, setExpandedRow] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
   const [formData, setFormData] = useState({
@@ -24,6 +29,7 @@ export default function ProductManagement() {
     hinh_anh: "",
     mo_ta: "",
     trang_thai: "co_san",
+    nha_cung_cap_id: "",
   });
 
   useEffect(() => {
@@ -34,13 +40,15 @@ export default function ProductManagement() {
     try {
       setLoading(true);
       const API_URL = localStorage.getItem("API_URL") || "http://localhost:5000";
-      const [booksData, categoriesData, salesDataResp] = await Promise.all([
+      const [booksData, categoriesData, salesDataResp, nccData] = await Promise.all([
         fetchBooks(),
         fetchCategories(),
-        fetch(`${API_URL}/api/books/top-products`).then(r => r.json()).catch(() => ({ success: false, data: {} }))
+        fetch(`${API_URL}/api/books/top-products`).then(r => r.json()).catch(() => ({ success: false, data: {} })),
+        fetchNhaCungCaps().catch(() => ({ success: false, data: [] })),
       ]);
 
       const salesData = salesDataResp.success ? salesDataResp.data : {};
+      if (nccData.success) setNhaCungCaps(nccData.data || []);
 
       // Map books
       const mappedProducts = booksData.map(book => ({
@@ -49,7 +57,7 @@ export default function ProductManagement() {
         category: book.loaiSach?.ten_loai?.toLowerCase() || "other",
         categoryId: book.loai_sach_id,
         price: parseFloat(book.gia_ban),
-        oldPrice: parseFloat(book.gia_ban) * 1.2,
+        oldPrice: parseFloat(book.gia_nhap) || 0,
         stock: book.so_luong_ton,
         sold: salesData[book.id]?.da_ban || 0,
         image: book.hinh_anh || "📚",
@@ -59,6 +67,9 @@ export default function ProductManagement() {
         ma_sach: book.ma_sach,
         mo_ta: book.mo_ta,
         gia_nhap: parseFloat(book.gia_nhap) || 0,
+        nha_cung_cap_id: book.nha_cung_cap_id || null,
+        so_luong_ton: book.so_luong_ton || 0,
+        trang_thai: book.trang_thai,
       }));
       setProducts(mappedProducts);
 
@@ -170,6 +181,7 @@ export default function ProductManagement() {
         hinh_anh: product.image || "",
         mo_ta: product.mo_ta || "",
         trang_thai: product.status === "active" ? "co_san" : "het_hang",
+        nha_cung_cap_id: product.nha_cung_cap_id || "",
       });
     } else {
       setEditingProduct(null);
@@ -185,6 +197,7 @@ export default function ProductManagement() {
         hinh_anh: "",
         mo_ta: "",
         trang_thai: "co_san",
+        nha_cung_cap_id: "",
       });
     }
     setShowModal(true);
@@ -272,17 +285,43 @@ export default function ProductManagement() {
   const totalSold = products.reduce((sum, p) => sum + p.sold, 0);
   const totalRevenue = products.reduce((sum, p) => sum + (p.sold * p.price), 0);
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: "center", padding: 50 }}>
-        <p>Đang tải dữ liệu...</p>
-      </div>
-    );
-  }
-
   return (
     <div>
-      {/* Actions Bar */}
+      {/* Tab navigation */}
+      <div style={{ display:"flex", gap:0, marginBottom:20, borderBottom:"2px solid #e5e7eb" }}>
+        {[
+          ["san-pham",    "📚 Sản phẩm"],
+          ["nha-cung-cap","🏭 Nhà cung cấp"],
+          ["hoa-don-nhap","📦 Hoá đơn nhập"],
+        ].map(([key, label]) => (
+          <button key={key} onClick={() => setActiveTab(key)}
+            style={{
+              padding:"10px 22px", border:"none", cursor:"pointer", fontSize:14, fontWeight:600,
+              background:"transparent",
+              color: activeTab === key ? "#e11d48" : "#6b7280",
+              borderBottom: activeTab === key ? "2px solid #e11d48" : "2px solid transparent",
+              marginBottom: -2,
+            }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Nhà cung cấp */}
+      {activeTab === "nha-cung-cap" && <SupplierManagement />}
+
+      {/* Tab: Hoá đơn nhập */}
+      {activeTab === "hoa-don-nhap" && <ImportInvoice />}
+
+      {/* Tab: Sản phẩm */}
+      {activeTab === "san-pham" && (
+      <div>
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 50 }}>
+          <p>Đang tải dữ liệu...</p>
+        </div>
+      ) : (
+      <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 25 }}>
         <div style={{ display: "flex", gap: 15 }}>
           {/* Search */}
@@ -394,10 +433,11 @@ export default function ProductManagement() {
           <thead>
             <tr style={{ background: '#ef4444' }}>
               <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>STT</th>
+              <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}></th>
               <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>Sản phẩm</th>
               <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>Danh mục</th>
               <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>Giá</th>
-              <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>Giá cũ</th>
+              <th style={{ padding: "12px 8px", textAlign: 'center', color: '#ffffff', fontSize: 13, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>Giá nhập</th>
               <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Tồn kho</th>
               <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Đã bán</th>
               <th style={{ padding: "12px 8px", textAlign: "center", color: "#666", fontSize: 13 }}>Trạng thái</th>
@@ -405,9 +445,29 @@ export default function ProductManagement() {
             </tr>
           </thead>
           <tbody>
-            {paginatedProducts.map((product, index) => (
-              <tr key={product.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
+            {paginatedProducts.map((product, index) => {
+              const ncc = nhaCungCaps.find(n => n.id === product.nha_cung_cap_id);
+              const isExpanded = expandedRow === product.id;
+              return (
+              <React.Fragment key={product.id}>
+              <tr style={{ borderBottom: isExpanded ? "none" : "1px solid #f5f5f5" }}>
                 <td style={{ padding: "12px 8px", textAlign: "center", fontWeight: "600", color: "#666" }}>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
+                <td style={{ padding: "12px 8px", textAlign: "center" }}>
+                  <button
+                    onClick={() => setExpandedRow(isExpanded ? null : product.id)}
+                    title={isExpanded ? "Thu gọn" : "Xem nhà cung cấp"}
+                    style={{
+                      width: 22, height: 22, borderRadius: "50%",
+                      border: "1.5px solid #e11d48", background: isExpanded ? "#e11d48" : "#fff",
+                      color: isExpanded ? "#fff" : "#e11d48",
+                      fontSize: 14, fontWeight: 700, cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      lineHeight: 1, padding: 0,
+                    }}
+                  >
+                    {isExpanded ? "−" : "+"}
+                  </button>
+                </td>
                 <td style={{ padding: "12px 8px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div
@@ -473,7 +533,7 @@ export default function ProductManagement() {
                 <td style={{ padding: "12px 8px", textAlign: "right", fontWeight: "700", color: "#e53935", fontSize: 15 }}>
                   {formatCurrency(product.price)}
                 </td>
-                <td style={{ padding: "12px 8px", textAlign: "right", color: "#999", textDecoration: "line-through" }}>
+                <td style={{ padding: "12px 8px", textAlign: "right", color: "#888", fontSize: 13 }}>
                   {formatCurrency(product.oldPrice)}
                 </td>
                 <td style={{ padding: "12px 8px", textAlign: "center" }}>
@@ -523,7 +583,36 @@ export default function ProductManagement() {
                   </div>
                 </td>
               </tr>
-            ))}
+              {isExpanded && (
+                <tr key={`expand-${product.id}`} style={{ background: "#fdf2f8", borderBottom: "1px solid #f5f5f5" }}>
+                  <td colSpan={10} style={{ padding: "12px 20px 14px 52px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 24, fontSize: 13 }}>
+                      <span style={{ fontWeight: 700, color: "#e11d48", fontSize: 13 }}>🏭 Nhà cung cấp:</span>
+                      {ncc ? (
+                        <>
+                          <span style={{ fontWeight: 700, color: "#111" }}>{ncc.ten_ncc}</span>
+                          <span style={{ color: "#6b7280" }}>Mã: <b>{ncc.ma_ncc}</b></span>
+                          {ncc.sdt && <span style={{ color: "#6b7280" }}>SĐT: <b>{ncc.sdt}</b></span>}
+                          {ncc.email && <span style={{ color: "#6b7280" }}>Email: <b>{ncc.email}</b></span>}
+                          {ncc.nguoi_lien_he && <span style={{ color: "#6b7280" }}>Liên hệ: <b>{ncc.nguoi_lien_he}</b></span>}
+                          <span style={{
+                            padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+                            background: ncc.trang_thai === "hoat_dong" ? "#d1fae5" : "#fee2e2",
+                            color: ncc.trang_thai === "hoat_dong" ? "#065f46" : "#991b1b",
+                          }}>
+                            {ncc.trang_thai === "hoat_dong" ? "Hoạt động" : "Ngừng"}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Chưa gắn nhà cung cấp</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
 
@@ -806,6 +895,30 @@ export default function ProductManagement() {
 
                 <div style={{ gridColumn: "span 2" }}>
                   <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
+                    Nhà cung cấp
+                  </label>
+                  <select
+                    name="nha_cung_cap_id"
+                    value={formData.nha_cung_cap_id}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e0e0e0",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <option value="">-- Chọn nhà cung cấp --</option>
+                    {nhaCungCaps.map((ncc) => (
+                      <option key={ncc.id} value={ncc.id}>{ncc.ten_ncc} ({ncc.ma_ncc})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ gridColumn: "span 2" }}>
+                  <label style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: "600", color: "#666" }}>
                     Hình ảnh
                   </label>
                   <p style={{ fontSize: 11, color: '#999', marginTop: -2, marginBottom: 8 }}>Chọn file ảnh (jpg, png, gif, webp) - Max 5MB</p>
@@ -885,6 +998,9 @@ export default function ProductManagement() {
           </div>
         </>
       )}
+      </div>
+      )}
+      </div>)}
     </div>
   );
 }

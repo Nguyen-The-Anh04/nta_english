@@ -22,6 +22,7 @@ import TraCuuDonHang from "./pages/TraCuuDonHang";
 import DonHangKhach from "./pages/DonHangKhach";
 import PhuHuynhPortal from "./pages/PhuHuynhPortal";
 import Footer from "./components/Footer";
+import ChatWidget from "./components/ChatWidget";
 
 // ProductDetail Wrapper - Fetch data from API
 function ProductDetailWrapper({ productId, onBack, onViewProduct }) {
@@ -511,6 +512,7 @@ function App() {
       <Routes>
         <Route path="/*" element={<AppContent />} />
       </Routes>
+      <ChatWidget />
     </BrowserRouter>
   );
 }

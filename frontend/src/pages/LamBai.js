@@ -363,34 +363,50 @@ export default function LamBai({ deThiId, lichHenTestId, onHoanThanh }) {
         {currentPhan === "nghe" && (
           <div style={{ height:"100%", overflowY:"auto" }}>
             {deThi?.file_audio ? (
-              <div style={{ background:"#1f2937", padding:"16px 24px" }}>
+              <div style={{ background:"#1f2937", padding:"16px 24px", position:"sticky", top:0, zIndex:10 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
                   <span style={{ fontSize:20 }}>🎧</span>
                   <span style={{ color:"#e5e7eb", fontSize:14, fontWeight:600 }}>Audio bài nghe</span>
-                  <span style={{ fontSize:12, color:"#6b7280", marginLeft:"auto" }}>Bạn có thể nghe lại nhiều lần</span>
+                  <span style={{ fontSize:12, color:"#6b7280", marginLeft:"auto" }}>Nghe và trả lời các câu hỏi bên dưới</span>
                 </div>
                 <audio
                   controls
                   controlsList="nodownload"
-                  style={{ width:"100%", height:44, borderRadius:8, outline:"none" }}
+                  autoPlay={false}
+                  style={{ width:"100%", height:48, borderRadius:8, outline:"none", accentColor:"#e11d48" }}
                 >
-                  <source src={`http://localhost:5000/uploads/${deThi.file_audio}`} type="audio/mpeg" />
-                  <source src={`http://localhost:5000/uploads/${deThi.file_audio}`} type="audio/ogg" />
-                  <source src={`http://localhost:5000/uploads/${deThi.file_audio}`} type="audio/wav" />
+                  {(() => {
+                    const src = deThi.file_audio.startsWith("http") ? deThi.file_audio
+                      : deThi.file_audio.startsWith("/uploads/") ? `http://localhost:5000${deThi.file_audio}`
+                      : `http://localhost:5000/uploads/${deThi.file_audio}`;
+                    return (
+                      <>
+                        <source src={src} type="audio/mpeg" />
+                        <source src={src} type="audio/ogg" />
+                        <source src={src} type="audio/wav" />
+                      </>
+                    );
+                  })()}
                   Trình duyệt không hỗ trợ audio.
                 </audio>
-                <div style={{ fontSize:12, color:"#9ca3af", marginTop:8 }}>
-                  📁 {deThi.file_audio}
+                <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:8 }}>
+                  <span style={{ fontSize:11, color:"#6b7280" }}>📁 {deThi.file_audio.split("/").pop()}</span>
+                  <span style={{ fontSize:11, color:"#4b5563", marginLeft:"auto" }}>
+                    💡 Đọc kỹ câu hỏi trước khi bấm play
+                  </span>
                 </div>
               </div>
             ) : (
-              <div style={{ background:"#fef3c7", padding:"10px 24px", fontSize:13, color:"#92400e" }}>
-                ⚠️ Đề thi này chưa có file audio. Vui lòng liên hệ giáo viên.
+              <div style={{ background:"#fef3c7", padding:"12px 24px", fontSize:13, color:"#92400e", display:"flex", alignItems:"center", gap:8 }}>
+                <span>⚠️</span>
+                <span>Đề thi này chưa có file audio. Vui lòng liên hệ giáo viên.</span>
               </div>
             )}
             <div style={{ padding:"20px 24px" }}>
-              {cauNghe.map((c, i) => renderCauHoi(c, i, i))}
-              {cauNghe.length === 0 && <div style={{ color:"#9ca3af", fontSize:13 }}>Không có câu hỏi nghe</div>}
+              {cauNghe.length > 0
+                ? cauNghe.map((c, i) => renderCauHoi(c, i, i))
+                : <div style={{ color:"#9ca3af", fontSize:13, textAlign:"center", padding:40 }}>Không có câu hỏi nghe</div>
+              }
             </div>
           </div>
         )}

@@ -8,13 +8,49 @@ const fmtDate = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const authHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' });
 
 const STATUS_CFG = {
-  cho_tt:    { color: '#f59e0b', text: 'Chờ TT' },
-  da_tt:     { color: '#3b82f6', text: 'Đã TT' },
+  cho_tt:    { color: '#f59e0b', text: 'Chờ xác nhận' },
+  da_tt:     { color: '#10b981', text: 'Đã thanh toán' },
   dang_giao: { color: '#8b5cf6', text: 'Đang giao' },
-  da_giao:   { color: '#10b981', text: 'Đã giao' },
+  da_giao:   { color: '#3b82f6', text: 'Đã giao' },
   da_huy:    { color: '#e11d48', text: 'Đã hủy' },
 };
+
+// Luồng: Chờ xác nhận → Đang giao → Đã giao → Đã thanh toán
+// Hủy: chỉ được từ Chờ xác nhận hoặc Đang giao
+const ALLOWED_TRANSITIONS = {
+  cho_tt:    ['dang_giao', 'da_huy'],
+  dang_giao: ['da_giao', 'da_huy'],
+  da_giao:   ['da_tt'],
+  da_tt:     [],   // trạng thái cuối
+  da_huy:    [],   // trạng thái cuối
+};
+
+// Trả về các option được phép chọn từ trạng thái hiện tại (bao gồm trạng thái hiện tại để hiển thị)
+const getAllowedOptions = (currentStatus) => {
+  const next = ALLOWED_TRANSITIONS[currentStatus] || [];
+  return [currentStatus, ...next].map(key => ({ key, label: STATUS_CFG[key]?.text || key }));
+};
+
 const STATUS_OPTIONS = Object.entries(STATUS_CFG).map(([key, v]) => ({ key, label: v.text }));
+
+// Config cho 3 cột status riêng biệt
+const ORDER_STATUS_CFG = {
+  pending:   { color: '#f59e0b', text: 'Chờ xác nhận' },
+  confirmed: { color: '#3b82f6', text: 'Đã xác nhận'  },
+  completed: { color: '#10b981', text: 'Hoàn thành'   },
+  cancelled: { color: '#e11d48', text: 'Đã hủy'       },
+};
+const PAYMENT_STATUS_CFG = {
+  unpaid:   { color: '#f59e0b', text: 'Chưa TT'  },
+  paid:     { color: '#10b981', text: 'Đã TT'    },
+  refunded: { color: '#8b5cf6', text: 'Hoàn tiền'},
+};
+const SHIPPING_STATUS_CFG = {
+  not_shipped: { color: '#9ca3af', text: 'Chưa giao'  },
+  shipping:    { color: '#3b82f6', text: 'Đang giao'  },
+  delivered:   { color: '#10b981', text: 'Đã giao'    },
+  returned:    { color: '#e11d48', text: 'Hoàn hàng'  },
+};
 const PAYMENT_MAP = { cod: 'Tiền mặt', vnpay: 'VNPay', momo: 'MoMo', chuyen_khoan: 'CK', bank: 'CK' };
 
 const badge = (text, color) => (
@@ -252,8 +288,8 @@ export default function OrderManagement() {
           <table style={{ width:'100%', borderCollapse:'collapse', minWidth:900 }}>
             <thead>
               <tr style={{ background:'#ef4444' }}>
-                {['Mã đơn','Khách hàng','CTV giới thiệu','Tổng tiền','Giảm giá','Thanh toán','Trạng thái','Ngày','Thao tác'].map(h => (
-                  <th key={h} style={{ padding:'11px 12px', textAlign:'center', fontSize:12, color:'#fff', fontWeight:700, whiteSpace:'nowrap' }}>{h}</th>
+                {['Mã đơn','Khách hàng','CTV giới thiệu','Tổng tiền','Giảm giá','Thanh toán','Trạng thái','Ngày','Thao tác'].map((h,i) => (
+                  <th key={i} style={{ padding:'11px 12px', textAlign:'center', fontSize:12, color:'#fff', fontWeight:700, whiteSpace:'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -271,12 +307,31 @@ export default function OrderManagement() {
                   <td style={{ padding:'11px 12px', fontWeight:700, fontSize:13, color:'#111827' }}>{fmt(o.tong_tien)}</td>
                   <td style={{ padding:'11px 12px', fontSize:13, color:'#e11d48' }}>{o.giam_gia > 0 ? `-${fmt(o.giam_gia)}` : '—'}</td>
                   <td style={{ padding:'11px 12px', fontSize:12, color:'#6b7280' }}>{PAYMENT_MAP[o.phuong_thuc_tt] || o.phuong_thuc_tt}</td>
-                  <td style={{ padding:'11px 12px' }}>
-                    <select value={o.trang_thai} onChange={e => handleQuickStatusChange(o.id, e.target.value)}
-                      style={{ padding:'5px 8px', borderRadius:6, border:'1px solid #e5e7eb', fontSize:12, fontWeight:600,
-                        background:(STATUS_CFG[o.trang_thai]||{}).color+'22', color:(STATUS_CFG[o.trang_thai]||{}).color, cursor:'pointer' }}>
-                      {STATUS_OPTIONS.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
-                    </select>
+                  {/* Cột trạng thái: dropdown chỉ hiện bước tiếp theo hợp lệ, trạng thái cuối thì badge tĩnh */}
+                  <td style={{ padding:'8px 12px', textAlign:'center' }}>
+                    {(() => {
+                      const isFinal = ALLOWED_TRANSITIONS[o.trang_thai]?.length === 0;
+                      const cfg = STATUS_CFG[o.trang_thai] || {};
+                      if (isFinal) return badge(cfg.text, cfg.color);
+                      const opts = getAllowedOptions(o.trang_thai);
+                      return (
+                        <select
+                          value={o.trang_thai}
+                          onChange={e => handleQuickStatusChange(o.id, e.target.value)}
+                          style={{
+                            padding:'5px 10px', borderRadius:20,
+                            border:`1.5px solid ${cfg.color}`,
+                            fontSize:12, fontWeight:700,
+                            background: cfg.color+'18', color: cfg.color,
+                            cursor:'pointer', outline:'none',
+                          }}
+                        >
+                          {opts.map(opt => (
+                            <option key={opt.key} value={opt.key}>{opt.label}</option>
+                          ))}
+                        </select>
+                      );
+                    })()}
                   </td>
                   <td style={{ padding:'11px 12px', fontSize:12, color:'#9ca3af', whiteSpace:'nowrap' }}>{fmtDate(o.created_at)}</td>
                   <td style={{ padding:'11px 12px' }}>

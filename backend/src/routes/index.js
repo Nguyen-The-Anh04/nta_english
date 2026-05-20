@@ -11,6 +11,8 @@ const paymentRoutes = require("./payment");
 const lmsRoutes = require("./lms");
 const testRoutes = require("./test");
 const customerRoutes = require("./customers");
+const supplierRoutes = require("./supplier");
+const chatbotRoutes = require("./chatbot");
 
 module.exports = (app) => {
   app.use("/api/auth", authRoutes);
@@ -27,4 +29,6 @@ module.exports = (app) => {
   app.use("/api/exam", require("./exam"));
   app.use("/api/online-exam", require("./onlineExam"));
   app.use("/api/customers", customerRoutes);
+  app.use("/api/supplier", supplierRoutes);
+  app.use("/api/chatbot", chatbotRoutes);
 };

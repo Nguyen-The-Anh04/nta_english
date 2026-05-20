@@ -1134,3 +1134,13 @@ export const onlineExamAPI = {
   getUserResults: (userId) => fetch(`${API_BASE_URL}/online-exam/results/${userId}`).then(r => r.json()),
 };
 
+
+// ==================== NHÀ CUNG CẤP ====================
+export const fetchNhaCungCaps = async () => {
+  const token = localStorage.getItem("token");
+  const API_BASE_URL = localStorage.getItem("API_URL") || "http://localhost:5000";
+  const res = await fetch(`${API_BASE_URL}/api/supplier/nha-cung-cap`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.json();
+};
